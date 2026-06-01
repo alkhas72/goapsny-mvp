@@ -238,5 +238,51 @@ export function LeafletMap({
     }
   }, [dragMode]);
 
-  return <div className="map-wrapper" ref={containerRef} />;
+  const [locating, setLocating] = useState(false);
+
+  const handleLocate = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    const map = mapRef.current;
+    if (!map) return;
+    setLocating(true);
+    try {
+      const pos = await telegram.getUserLocation();
+      map.setView([pos.lat, pos.lng], 16, { animate: true });
+
+      // Update/add user marker
+      if (userMarkerRef.current) {
+        map.removeLayer(userMarkerRef.current);
+      }
+      const icon = L.divIcon({
+        className: "user-location-marker",
+        html: '<div class="user-marker-pulse"></div>',
+        iconSize: [24, 24],
+        iconAnchor: [12, 12],
+      });
+      userMarkerRef.current = L.marker([pos.lat, pos.lng], { icon, interactive: false }).addTo(map);
+    } catch (err) {
+      console.warn("Could not retrieve geolocation on manual trigger", err);
+    } finally {
+      setLocating(false);
+    }
+  };
+
+  return (
+    <div className="map-wrapper" ref={containerRef}>
+      {!dragMode && (
+        <button
+          type="button"
+          className={`gps-locate-btn ${locating ? "locating" : ""}`}
+          onClick={handleLocate}
+          style={{ pointerEvents: "auto" }}
+          title="Найти меня"
+        >
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2.5">
+            <circle cx="12" cy="12" r="10" />
+            <path d="M12 2v4M12 18v4M2 12h4M18 12h4" />
+          </svg>
+        </button>
+      )}
+    </div>
+  );
 }
