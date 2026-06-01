@@ -1,0 +1,8 @@
+[functions.auth-telegram]
+verify_jwt = false
+
+[functions.ai-autofill]
+verify_jwt = true
+
+[functions.export-drive]
+verify_jwt = false
