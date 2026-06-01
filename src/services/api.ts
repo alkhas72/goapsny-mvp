@@ -1,27 +1,35 @@
 import type { Place, Profile, AccessibilityStatus } from "../types";
+import { CATEGORIES, KARMA_LEVELS, karmaLevelFor, karmaNext } from "/Users/alkhas.abaza/Documents/03-IDLAB/goapsny-shared/index";
 
 // Dynamic configuration via env variables
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || "";
 const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY || "";
-const isLiveMode = !!(SUPABASE_URL && SUPABASE_ANON_KEY);
+// Keep mock as the working mode for now, even if env keys are present
+const isLiveMode = false;
 
 console.log(`[GoApsny API] Mode: ${isLiveMode ? "LIVE (Supabase)" : "MOCK (Local Storage)"}`);
 
-// 12 Wheelmap Categories Seed Data
-export const categoriesList = [
-  { slug: "food", name: "Питание", icon: "☕" },
-  { slug: "shopping", name: "Магазины", icon: "🛒" },
-  { slug: "health", name: "Здравоохранение", icon: "🏥" },
-  { slug: "bank_post", name: "Банки и почта", icon: "🏦" },
-  { slug: "government", name: "Госучреждения", icon: "🏛️" },
-  { slug: "hotel", name: "Гостиницы", icon: "🏨" },
-  { slug: "leisure", name: "Досуг", icon: "🎭" },
-  { slug: "public_transport", name: "Общественный транспорт", icon: "🚉" },
-  { slug: "tourism", name: "Туризм", icon: "🗺️" },
-  { slug: "education", name: "Образование", icon: "🎓" },
-  { slug: "sport", name: "Спорт", icon: "⚽" },
-  { slug: "other", name: "Прочее", icon: "📍" }
-];
+const categoryEmojis: Record<string, string> = {
+  public_transport: "🚉",
+  food: "☕",
+  leisure: "🎭",
+  bank_post: "🏦",
+  shops: "🛒",
+  education: "🎓",
+  sport: "⚽",
+  tourism: "🗺️",
+  accommodation: "🏨",
+  government: "🏛️",
+  health: "🏥",
+  other: "📍"
+};
+
+// 12 Wheelmap Categories from shared contract
+export const categoriesList = CATEGORIES.map(c => ({
+  slug: c.slug,
+  name: c.ru,
+  icon: categoryEmojis[c.slug] || "📍"
+}));
 
 // Initial mock places
 const defaultMockPlaces: Place[] = [
@@ -137,27 +145,20 @@ const saveStorageProfile = (profile: Profile) => {
   localStorage.setItem("goapsny_profile", JSON.stringify(profile));
 };
 
-// Karma status scale helper (7 levels)
-export const getKarmaStatusAndNextLimit = (points: number): { status: string; nextLimit: number } => {
-  const levels = [
-    { name: "Пешеход", limit: 30 },
-    { name: "Исследователь", limit: 100 },
-    { name: "Картограф", limit: 250 },
-    { name: "Проводник", limit: 500 },
-    { name: "Знаток города", limit: 1000 },
-    { name: "Хранитель доступности", limit: 1800 },
-    { name: "Легенда GoApsny", limit: 99999 }
-  ];
+// Helper to translate karma slug to Russian
+export function translateKarmaStatus(slug: string): string {
+  const level = KARMA_LEVELS.find(l => l.slug === slug);
+  return level ? level.ru : slug;
+}
 
-  for (let i = 0; i < levels.length; i++) {
-    if (points < levels[i].limit) {
-      return {
-        status: i === 0 ? "Пешеход" : levels[i - 1].name,
-        nextLimit: levels[i].limit
-      };
-    }
-  }
-  return { status: "Легенда GoApsny", nextLimit: 99999 };
+// Karma status scale helper (7 levels) using shared contract functions
+export const getKarmaStatusAndNextLimit = (points: number): { status: string; nextLimit: number } => {
+  const currentLevel = karmaLevelFor(points);
+  const { next } = karmaNext(points);
+  return {
+    status: currentLevel.ru,
+    nextLimit: next ? next.threshold : 99999
+  };
 };
 
 // Real Live Supabase fetch helper (uses standard fetch wrapper to make calls to Edge Functions)
@@ -204,7 +205,7 @@ export const api = {
           role: data.profile.role,
           aiEnabled: data.profile.ai_enabled,
           karma: data.profile.karma,
-          karmaStatus: data.profile.karma_status,
+          karmaStatus: translateKarmaStatus(data.profile.karma_status),
           createdAt: data.profile.created_at
         }
       };
@@ -317,8 +318,17 @@ export const api = {
       places.unshift(newPlace);
       saveStoragePlaces(places);
 
-      // Increase user Karma! +25 for POI +10 for fully filled POI
-      const karmaBonus = 25 + (newPlace.comment ? 10 : 0);
+      // Increase user Karma! +10 for POI, +5 if photo was added, +10 for full card bonus
+      let karmaBonus = 10;
+      if (photoFile) {
+        karmaBonus += 5;
+      }
+      const hasEntranceInfo = newPlace.stepsCount !== null || newPlace.rampType !== "none";
+      const hasToiletInfo = newPlace.toiletExists !== "unknown";
+      if (newPlace.name && newPlace.category && hasEntranceInfo && hasToiletInfo && newPlace.comment) {
+        karmaBonus += 10;
+      }
+
       profile.karma += karmaBonus;
       const { status } = getKarmaStatusAndNextLimit(profile.karma);
       profile.karmaStatus = status;
@@ -407,11 +417,7 @@ export const api = {
       const result = await response.json();
       const item = result[0];
 
-      // Update local profile karma for UI display sync
-      profile.karma += 25 + (placeData.comment ? 10 : 0);
-      const { status } = getKarmaStatusAndNextLimit(profile.karma);
-      profile.karmaStatus = status;
-      saveStorageProfile(profile);
+      // Local client karma calculations removed in live mode (managed by database triggers)
 
       return {
         id: item.id,
@@ -471,7 +477,7 @@ export const api = {
         category: data.draft.category || "other",
         stepsCount: data.draft.steps_visible !== undefined ? data.draft.steps_visible : null,
         rampType: data.draft.ramp_visible ? "portable_available" : "none",
-        status: data.draft.entrance_level === "вровень" ? "green" : "yellow"
+        status: data.draft.entrance_level === "level" ? "green" : "yellow"
       };
     } catch (e) {
       console.error("getAiAutofill failed, falling back to mock data", e);

@@ -92,16 +92,18 @@ export function App() {
     }
   };
 
-  const handleCreatePlace = (newPlace: Place) => {
+  const handleCreatePlace = async (newPlace: Place) => {
     setPlaces(prev => [newPlace, ...prev]);
     
-    // Refresh user profile local state for points sync
+    // Refresh user profile state by re-running loginTelegram to sync mock/server awards
     if (profile) {
-      const karmaBonus = 25 + (newPlace.comment ? 10 : 0);
-      setProfile({
-        ...profile,
-        karma: profile.karma + karmaBonus
-      });
+      try {
+        const initData = telegram.getInitData();
+        const authData = await api.loginTelegram(initData);
+        setProfile(authData.profile);
+      } catch (e) {
+        console.error("Failed to sync profile after place creation", e);
+      }
     }
     
     setActiveTab("map");

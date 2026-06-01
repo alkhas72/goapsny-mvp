@@ -1,7 +1,7 @@
 import type { Profile as ProfileType } from "../types";
-import { getKarmaStatusAndNextLimit } from "../services/api";
 import { telegram } from "../utils/telegram";
 import { Award, Heart, History, Moon, Sun, ToggleLeft, ToggleRight } from "lucide-react";
+import { karmaNext } from "/Users/alkhas.abaza/Documents/03-IDLAB/goapsny-shared/index";
 
 interface ProfileProps {
   profile: ProfileType;
@@ -10,7 +10,9 @@ interface ProfileProps {
 }
 
 export function Profile({ profile, theme, onChangeTheme }: ProfileProps) {
-  const { status, nextLimit } = getKarmaStatusAndNextLimit(profile.karma);
+  const status = profile.karmaStatus || "Пешеход";
+  const { next } = karmaNext(profile.karma);
+  const nextLimit = next ? next.threshold : 99999;
 
   // Define points required for current level start
   const getPrevLimit = (statusName: string) => {
