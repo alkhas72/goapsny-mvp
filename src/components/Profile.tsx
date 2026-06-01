@@ -1,7 +1,7 @@
 import type { Profile as ProfileType } from "../types";
 import { telegram } from "../utils/telegram";
 import { Award, Heart, History, Moon, Sun, ToggleLeft, ToggleRight } from "lucide-react";
-import { karmaNext } from "/Users/alkhas.abaza/Documents/03-IDLAB/goapsny-shared/index";
+import { karmaNext } from "../shared/index";
 
 interface ProfileProps {
   profile: ProfileType;

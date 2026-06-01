@@ -1,5 +1,5 @@
 import type { Place, Profile, AccessibilityStatus } from "../types";
-import { CATEGORIES, KARMA_LEVELS, karmaLevelFor, karmaNext } from "/Users/alkhas.abaza/Documents/03-IDLAB/goapsny-shared/index";
+import { CATEGORIES, KARMA_LEVELS, karmaLevelFor, karmaNext } from "../shared/index";
 
 // Dynamic configuration via env variables
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || "";
