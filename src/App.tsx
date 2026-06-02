@@ -35,7 +35,7 @@ export function App() {
   const [places, setPlaces] = useState<Place[]>([]);
   const [selectedPlaceId, setSelectedPlaceId] = useState<string | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
-  const [theme, setTheme] = useState<"dark" | "light">("dark");
+  const [theme, setTheme] = useState<"dark" | "light">(telegram.getTelegramTheme);
   const [filter, setFilter] = useState<AccessibilityStatus | "all">("all");
   const [loading, setLoading] = useState(true);
   
@@ -206,7 +206,7 @@ export function App() {
       </header>
 
       {/* Screen Area */}
-      <main className="screen-content">
+      <main className={`screen-content ${activeTab === "map" ? "map-tab" : ""}`}>
         {activeTab === "map" && (
           <div className="map-container">
             {/* Map Canvas */}
@@ -265,6 +265,32 @@ export function App() {
                   <div className="chip-dot red" />
                   Недоступно
                 </button>
+              </div>
+
+              {/* Map Legend Overlay */}
+              <div className="map-legend" style={{ pointerEvents: "auto", display: "flex", gap: 8, alignSelf: "flex-start", marginTop: -4 }}>
+                <span className="legend-item" style={{ 
+                  fontSize: 11, 
+                  backgroundColor: "var(--bg-color)", 
+                  border: "1px solid var(--border-color)", 
+                  padding: "4px 10px", 
+                  borderRadius: 99, 
+                  display: "inline-flex", 
+                  alignItems: "center", 
+                  gap: 6, 
+                  boxShadow: "0 2px 8px rgba(0,0,0,0.15)",
+                  color: "var(--text-secondary)"
+                }}>
+                  <span style={{ 
+                    width: 10, 
+                    height: 10, 
+                    borderRadius: "50%", 
+                    backgroundColor: "#7A5AF8", 
+                    border: "1.5px solid #FFFFFF", 
+                    display: "inline-block" 
+                  }}></span>
+                  <span>пурпурный центр = приставной пандус</span>
+                </span>
               </div>
             </div>
 

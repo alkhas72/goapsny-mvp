@@ -8,7 +8,7 @@ declare global {
   }
 }
 
-const isTelegram = () => typeof window !== "undefined" && !!window.Telegram?.WebApp;
+const isTelegram = () => typeof window !== "undefined" && !!window.Telegram?.WebApp?.initData;
 const getWebApp = () => window.Telegram?.WebApp;
 
 export const telegram = {
@@ -36,7 +36,11 @@ export const telegram = {
     if (isTelegram()) {
       return getWebApp().colorScheme === "dark" ? "dark" : "light";
     }
-    return "dark"; // Default default
+    // Browser fallback: check system prefers-color-scheme
+    if (typeof window !== "undefined" && window.matchMedia) {
+      return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+    }
+    return "dark"; // Default fallback
   },
 
   // Ready event

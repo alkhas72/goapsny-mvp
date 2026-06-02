@@ -45,17 +45,28 @@ body {
   font-family: var(--font-family);
   background-color: var(--bg-color);
   color: var(--text-color);
-  min-height: 100vh;
+  min-height: 100dvh;
   display: flex;
   justify-content: center;
+  align-items: center;
   overflow-x: hidden;
+}
+
+#root {
+  width: 100%;
+  min-height: 100dvh;
+  display: flex;
+  justify-content: center;
+  align-items: center;
 }
 
 /* Mobile-first Shell (Native Telegram Mini App bounds) */
 .app-shell {
   width: 100%;
   max-width: 480px;
-  min-height: 100vh;
+  height: min(100dvh, 880px);
+  max-height: 100dvh;
+  margin: auto;
   display: flex;
   flex-direction: column;
   position: relative;
@@ -221,11 +232,17 @@ body {
   padding-bottom: 30px;
 }
 
+.screen-content.map-tab {
+  padding-bottom: 0;
+  overflow: hidden;
+  height: 100%;
+}
+
 /* Map Screen Styles */
 .map-container {
   flex: 1;
   position: relative;
-  min-height: calc(100vh - 120px);
+  height: 100%;
 }
 
 .map-wrapper {
@@ -233,6 +250,10 @@ body {
   inset: 0;
   z-index: 1;
   background-color: var(--surface-color);
+}
+
+.dark-labels-layer {
+  filter: brightness(1.7);
 }
 
 .map-controls-overlay {
@@ -357,54 +378,15 @@ body {
   place-items: center;
 }
 
-.leaflet-pin-body {
-  width: 28px;
-  height: 36px;
-  border-radius: 50% 50% 50% 0;
-  transform: rotate(-45deg);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
-  display: grid;
-  place-items: center;
-  transition: all 0.2s ease;
+.leaflet-pin-wrapper svg {
+  transition: transform 0.2s ease, filter 0.2s ease;
+  transform-origin: bottom center;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.25));
 }
 
-.leaflet-pin-body.green { background-color: var(--status-green); }
-.leaflet-pin-body.yellow { background-color: var(--status-yellow); }
-.leaflet-pin-body.red { background-color: var(--status-red); }
-
-.leaflet-pin-body.is-selected {
-  box-shadow: 0 0 0 3px #FFFFFF, 0 8px 24px rgba(0, 0, 0, 0.4);
-}
-
-.leaflet-pin-icon-wrap {
-  transform: rotate(45deg);
-  display: grid;
-  place-items: center;
-  width: 16px;
-  height: 16px;
-  color: #FFFFFF;
-}
-
-.leaflet-pin-icon-wrap svg {
-  width: 14px;
-  height: 14px;
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 2.5;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-}
-
-.leaflet-pin-sticker {
-  position: absolute;
-  top: -6px;
-  right: -6px;
-  width: 12px;
-  height: 12px;
-  border-radius: 50%;
-  background-color: #B86DFF;
-  border: 1.5px solid #FFFFFF;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15);
+.leaflet-pin-wrapper.is-selected svg {
+  transform: scale(1.18);
+  filter: drop-shadow(0 0 1px #FFFFFF) drop-shadow(0 0 3px #FFFFFF) drop-shadow(0 4px 12px rgba(0, 0, 0, 0.45));
 }
 
 .user-marker-pulse {
