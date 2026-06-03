@@ -157,22 +157,35 @@ export interface AutofillResult {
 
 export interface AuthResponse {
   access_token: string;
-  token_type: string;
+  refresh_token: string;
   expires_at: number;
   profile: Profile;
 }
 
-// What the client sends to create a place (server fills osm_tags, moderation,
-// source, created_by, timestamps; trigger computes osm_tags).
-export type NewPlaceInput = Omit<
-  Place,
-  'id' | 'osm_tags' | 'details' | 'moderation_status' | 'source' | 'created_by' | 'created_at' | 'updated_at'
->;
+// What the H0 client sends to api.createPlace. The API layer resolves
+// created_by from auth.uid(); DB defaults/triggers fill osm_tags, details,
+// moderation_status, source, timestamps. Photo upload is out of H0.
+export interface NewPlaceInput {
+  name: string;
+  category: string;
+  lat: number;
+  lng: number;
+  status: Exclude<AccessibilityStatus, 'gray'>;
+  stepsCount?: number | null;
+  stepHeightCm?: number | null;
+  rampType?: RampType;
+  doorWidthCm?: number | null;
+  entranceNotes?: string | null;
+  toiletExists?: YesNoUnknown;
+  toiletAccessible?: ToiletAccessible;
+  parking?: YesNoUnknown;
+  comment?: string | null;
+}
 
 export interface GoApsnyApi {
   loginTelegram(initData: string): Promise<AuthResponse>;
   getPlaces(): Promise<Place[]>;
-  createPlace(input: NewPlaceInput, photo?: File): Promise<Place>;
+  createPlace(input: NewPlaceInput): Promise<Place>;
   getAiAutofill(photoPath: string, placeId?: string): Promise<AutofillResult>;
 }
 

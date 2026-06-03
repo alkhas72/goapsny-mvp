@@ -22,7 +22,6 @@ Set these in Supabase Edge Function secrets:
 SUPABASE_URL
 SUPABASE_ANON_KEY
 SUPABASE_SERVICE_ROLE_KEY
-SUPABASE_JWT_SECRET
 TELEGRAM_BOT_TOKEN
 OPENAI_API_KEY
 OPENAI_VISION_MODEL
@@ -31,7 +30,7 @@ AI_MONTHLY_BUDGET_USD
 EXPORT_JOB_SECRET
 ```
 
-`SUPABASE_JWT_SECRET` is required because `auth-telegram` creates a Supabase-compatible access token after Telegram `initData` validation.
+`auth-telegram` does not hand-sign JWTs. It validates Telegram `initData`, ensures a Supabase Auth user/profile exists through the service-role client, then mints a real Supabase session through `generateLink(type: "magiclink")` plus `verifyOtp` on an anon client.
 
 ## Deployment Notes
 
@@ -51,11 +50,11 @@ Verified database state after migration:
 - private Storage bucket `place-photos`
 - 16 RLS/storage policies
 
-Edge Functions are still local files until deployed. Deploying them requires a Supabase access token or an authenticated Supabase CLI session. Runtime secrets also require the project's JWT secret from Supabase Auth settings; the server-side secret API key is not the same value.
+Edge Functions are still local files until deployed. Deploying them requires a Supabase access token or an authenticated Supabase CLI session.
 
 ## Edge Functions
 
-`auth-telegram` accepts `{ "initData": "Telegram.WebApp.initData" }` and returns `{ access_token, token_type, expires_at, profile }`.
+`auth-telegram` accepts `{ "initData": "Telegram.WebApp.initData" }` and returns `{ access_token, refresh_token, expires_at, profile }`.
 
 `ai-autofill` requires `Authorization: Bearer <access_token>` and accepts `{ "place_id": "optional-uuid", "photo_path": "place-uuid/facade.jpg" }`. It returns `{ status, draft }` or `{ status: "blocked_budget", draft: null }`.
 
@@ -65,12 +64,11 @@ Edge Functions are still local files until deployed. Deploying them requires a S
 
 1. Mini App reads `Telegram.WebApp.initData`.
 2. Mini App calls `auth-telegram`.
-3. Mini App sends the returned JWT as `Authorization: Bearer <access_token>`.
-4. Mini App inserts into `places`.
-5. Mini App uploads the facade photo to `place-photos/{place_id}/facade.jpg`.
-6. Mini App inserts into `photos`.
-7. Optional: Mini App calls `ai-autofill` and applies the returned draft to the editable form.
+3. Mini App calls `supabase.auth.setSession({ access_token, refresh_token })`.
+4. Mini App inserts into `places` through the authenticated Supabase client.
+5. `api.createPlace` sets `created_by` from `auth.uid()` and sends no `main_photo`, no `osm_tags`, and no photo payload in H0.
+6. Optional for H1: Mini App uploads a facade photo to `place-photos/{place_id}/facade.jpg`, inserts into `photos`, then calls `ai-autofill`.
 
 ## Karma
 
-Server-side triggers award `+10` for a place, `+5` for a photo, and `+10` for a full-card bonus.
+Server-side triggers award `+10` for a place, `+5` for a photo, and `+10` for a full-card bonus. Direct `karma_events` inserts have no client policy, and direct RPC execution of `public.add_karma(...)` is revoked from `public`, `anon`, and `authenticated`; karma is a trigger-only write path.
