@@ -1,12 +1,11 @@
-import React, { useState, useEffect } from "react";
-import type { AddDraft, Place, AccessibilityStatus, Profile } from "../types";
+import { useState, useEffect } from "react";
+import type { AddDraft, Place, AccessibilityStatus } from "../types";
 import { categoriesList, api } from "../services/api";
 import { telegram } from "../utils/telegram";
 import { LeafletMap } from "./LeafletMap";
-import { Camera, MapPin, Sparkles, AlertCircle, ArrowLeft, ArrowRight, Check } from "lucide-react";
+import { MapPin, AlertCircle, ArrowLeft, ArrowRight, Check } from "lucide-react";
 
 interface AddWizardProps {
-  profile: Profile;
   theme: "dark" | "light";
   onSave: (place: Place) => void;
   onCancel: () => void;
@@ -30,13 +29,11 @@ const initialDraft: AddDraft = {
   comment: ""
 };
 
-export function AddWizard({ profile, theme, onSave, onCancel }: AddWizardProps) {
+export function AddWizard({ theme, onSave, onCancel }: AddWizardProps) {
   const [step, setStep] = useState(1);
   const [draft, setDraft] = useState<AddDraft>(initialDraft);
   const [locating, setLocating] = useState(false);
   const [locationError, setLocationError] = useState<string | null>(null);
-  const [aiLoading, setAiLoading] = useState(false);
-  const [aiFilled, setAiFilled] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
   // Auto-fetch location on Mount or when photo is added
@@ -60,52 +57,6 @@ export function AddWizard({ profile, theme, onSave, onCancel }: AddWizardProps) 
     }
   };
 
-  const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      const url = URL.createObjectURL(file);
-      setDraft(prev => ({
-        ...prev,
-        photoFile: file,
-        photoUrl: url
-      }));
-      // Re-trigger location capture for precision
-      captureLocation();
-    }
-  };
-
-  const triggerMockPhoto = () => {
-    // Generate mock photo
-    setDraft(prev => ({
-      ...prev,
-      photoUrl: "https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?auto=format&fit=crop&w=900&q=75"
-    }));
-    captureLocation();
-  };
-
-  const handleAiFill = async () => {
-    if (!draft.photoUrl) return;
-    setAiLoading(true);
-    try {
-      const result = await api.getAiAutofill(draft.photoUrl);
-      setDraft(prev => ({
-        ...prev,
-        name: result.name,
-        category: result.category,
-        stepsCount: result.stepsCount?.toString() || "",
-        rampType: result.rampType,
-        status: result.status
-      }));
-      setAiFilled(true);
-      telegram.hapticNotify("success");
-    } catch (e) {
-      console.error(e);
-      telegram.alert("Ошибка при вызове ИИ автозаполнения.");
-    } finally {
-      setAiLoading(false);
-    }
-  };
-
   const handleNextStep = () => {
     if (canGoNext()) {
       setStep(prev => prev + 1);
@@ -123,7 +74,7 @@ export function AddWizard({ profile, theme, onSave, onCancel }: AddWizardProps) 
   };
 
   const canGoNext = () => {
-    if (step === 1) return !!draft.photoUrl && !!draft.lat;
+    if (step === 1) return !!draft.lat;
     if (step === 2) return !!draft.name && !!draft.category;
     if (step === 3) return !!draft.status;
     return true;
@@ -150,9 +101,9 @@ export function AddWizard({ profile, theme, onSave, onCancel }: AddWizardProps) 
         source: "operator"
       };
 
-      const created = await api.createPlace(placeData, draft.photoFile || undefined);
+      const created = await api.createPlace(placeData);
       telegram.hapticNotify("success");
-      telegram.alert(`Объект сохранён! +25 кармы начислено.`);
+      telegram.alert("Объект сохранён!");
       onSave(created);
     } catch (e) {
       console.error(e);
@@ -202,28 +153,8 @@ export function AddWizard({ profile, theme, onSave, onCancel }: AddWizardProps) 
 
       {step === 1 && (
         <>
-          <h2 className="wizard-title">Шаг 1: Фото и геопозиция</h2>
-          <p className="wizard-sub">Объект создаётся только при наличии фотофиксации.</p>
-          
-          <label className={`photo-uploader ${draft.photoUrl ? "has-photo" : ""}`}>
-            <input type="file" accept="image/*" onChange={handlePhotoChange} style={{ display: "none" }} />
-            {draft.photoUrl ? (
-              <img src={draft.photoUrl} alt="Facade Preview" className="photo-preview" />
-            ) : (
-              <div className="photo-upload-placeholder">
-                <Camera className="photo-upload-icon" />
-                <strong>Сделать фото входа</strong>
-                <span>или выбрать из галереи</span>
-              </div>
-            )}
-          </label>
-
-          {/* Simulate camera in desktop development mock mode */}
-          {!telegram.isTelegram() && !draft.photoUrl && (
-            <button type="button" className="secondary-btn" onClick={triggerMockPhoto}>
-              Имитировать фото (для разработки)
-            </button>
-          )}
+          <h2 className="wizard-title">Шаг 1: Геопозиция</h2>
+          <p className="wizard-sub">Укажите геопозицию объекта. Координаты можно уточнить вручную на шаге 4.</p>
 
           <div className="gps-status-card">
             <div className="gps-status-info">
@@ -254,27 +185,11 @@ export function AddWizard({ profile, theme, onSave, onCancel }: AddWizardProps) 
       {step === 2 && (
         <>
           <h2 className="wizard-title">Шаг 2: Информация о месте</h2>
-          <p className="wizard-sub">Заполните поля. Используйте ИИ-автозаполнение по фото, если доступно.</p>
-
-          {profile.aiEnabled && draft.photoUrl && (
-            <div className={`ai-status-banner ${theme}`}>
-              <Sparkles size={16} />
-              <span>ИИ готов к распознаванию по фото</span>
-              <button 
-                type="button" 
-                className="primary-btn" 
-                style={{ marginLeft: "auto", minHeight: 32, width: "auto", padding: "0 10px", fontSize: 12 }} 
-                onClick={handleAiFill}
-                disabled={aiLoading}
-              >
-                {aiLoading ? "Анализ..." : "Распознать"}
-              </button>
-            </div>
-          )}
+          <p className="wizard-sub">Заполните поля об объекте и его доступности.</p>
 
           <div className="form-group">
             <label className="form-label">
-              Название {aiFilled && <span className="ai-status-banner" style={{ display: "inline-flex", padding: "2px 6px", fontSize: 10, borderRadius: 4, marginLeft: 4 }}>ИИ распознал</span>}
+              Название
             </label>
             <input 
               type="text" 
@@ -287,7 +202,7 @@ export function AddWizard({ profile, theme, onSave, onCancel }: AddWizardProps) 
 
           <div className="form-group">
             <label className="form-label">
-              Категория {aiFilled && <span className="ai-status-banner" style={{ display: "inline-flex", padding: "2px 6px", fontSize: 10, borderRadius: 4, marginLeft: 4 }}>ИИ распознал</span>}
+              Категория
             </label>
             <select 
               className="form-select" 

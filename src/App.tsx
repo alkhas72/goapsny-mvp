@@ -394,7 +394,6 @@ export function App() {
 
         {activeTab === "add" && profile && (
           <AddWizard
-            profile={profile}
             theme={theme}
             onSave={handleCreatePlace}
             onCancel={() => setActiveTab("map")}
