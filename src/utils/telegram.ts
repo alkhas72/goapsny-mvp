@@ -129,49 +129,84 @@ export const telegram = {
 
   // Location Manager Wrapper
   async getUserLocation(): Promise<{ lat: number; lng: number }> {
-    return new Promise((resolve, reject) => {
+    return new Promise((resolveRaw, rejectRaw) => {
+      // Settle-once guard: Telegram may invoke a callback late (after we have
+      // already fallen back) or not at all. Never resolve/reject twice.
+      let settled = false;
+      let watchdog: ReturnType<typeof setTimeout> | undefined;
+      const resolve = (pos: { lat: number; lng: number }) => {
+        if (settled) return;
+        settled = true;
+        if (watchdog) clearTimeout(watchdog);
+        resolveRaw(pos);
+      };
+      const reject = (err: any) => {
+        if (settled) return;
+        settled = true;
+        if (watchdog) clearTimeout(watchdog);
+        rejectRaw(err);
+      };
+      const goFallback = () => this.fallbackHtml5Location(resolve, reject);
+
       // 1. Try Telegram LocationManager API (Mini Apps 2.0+)
       if (isTelegram()) {
         const wa = getWebApp();
-        const lm = wa.LocationManager;
+        const lm = wa?.LocationManager;
         if (lm) {
+          // Known iOS issue: LocationManager.init/getLocation can hang and
+          // never invoke any callback, leaving the wizard stuck on
+          // "Определение позиции...". The watchdog forces the HTML5 fallback.
+          watchdog = setTimeout(() => {
+            console.warn("Telegram LocationManager timed out; using HTML5 fallback");
+            goFallback();
+          }, 4500);
+
           const retrieveLocation = () => {
-            lm.getLocation(
-              { AllowHighAccuracy: true },
-              (data: any) => {
-                if (data && data.Latitude && data.Longitude) {
-                  resolve({ lat: data.Latitude, lng: data.Longitude });
-                } else {
-                  // Fallback to HTML5 Geolocation inside Telegram
-                  this.fallbackHtml5Location(resolve, reject);
+            try {
+              lm.getLocation(
+                { AllowHighAccuracy: true },
+                (data: any) => {
+                  if (data && data.Latitude && data.Longitude) {
+                    resolve({ lat: data.Latitude, lng: data.Longitude });
+                  } else {
+                    goFallback();
+                  }
+                },
+                (err: any) => {
+                  console.error("Telegram LocationManager error", err);
+                  goFallback();
                 }
-              },
-              (err: any) => {
-                console.error("Telegram LocationManager error", err);
-                this.fallbackHtml5Location(resolve, reject);
-              }
-            );
+              );
+            } catch (e) {
+              console.error("Telegram LocationManager threw", e);
+              goFallback();
+            }
           };
 
-          if (!lm.isInited) {
-            lm.init((success: boolean) => {
-              if (success && lm.isLocationAvailable) {
-                retrieveLocation();
-              } else {
-                this.fallbackHtml5Location(resolve, reject);
-              }
-            });
-          } else if (lm.isLocationAvailable) {
-            retrieveLocation();
-          } else {
-            this.fallbackHtml5Location(resolve, reject);
+          try {
+            if (!lm.isInited) {
+              lm.init((success: boolean) => {
+                if (success && lm.isLocationAvailable) {
+                  retrieveLocation();
+                } else {
+                  goFallback();
+                }
+              });
+            } else if (lm.isLocationAvailable) {
+              retrieveLocation();
+            } else {
+              goFallback();
+            }
+          } catch (e) {
+            console.error("Telegram LocationManager init threw", e);
+            goFallback();
           }
           return;
         }
       }
 
       // 2. Browser Fallback (PWA mode or Dev environment)
-      this.fallbackHtml5Location(resolve, reject);
+      goFallback();
     });
   },
 

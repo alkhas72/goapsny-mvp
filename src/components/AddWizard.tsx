@@ -51,7 +51,10 @@ export function AddWizard({ theme, onSave, onCancel }: AddWizardProps) {
       setDraft(prev => ({ ...prev, lat: pos.lat, lng: pos.lng }));
     } catch (e: any) {
       console.error(e);
-      setLocationError("Не удалось получить геопозицию. Установите координаты вручную на шаге 4.");
+      // Seed Sukhum centre so the user can still advance and fine-tune the
+      // marker on step 4 (canGoNext on step 1 requires a coordinate).
+      setDraft(prev => ({ ...prev, lat: prev.lat ?? 43.0033, lng: prev.lng ?? 41.0237 }));
+      setLocationError("Не удалось определить геопозицию автоматически. Координаты установлены на центр Сухума — уточните вручную на шаге 4.");
     } finally {
       setLocating(false);
     }
