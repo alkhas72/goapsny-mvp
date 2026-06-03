@@ -16,14 +16,6 @@ function env(name: string): string {
   return value;
 }
 
-function base64Url(bytes: Uint8Array): string {
-  let binary = "";
-  bytes.forEach((byte) => {
-    binary += String.fromCharCode(byte);
-  });
-  return btoa(binary).replaceAll("+", "-").replaceAll("/", "_").replaceAll("=", "");
-}
-
 async function hmacSha256(key: string | Uint8Array, message: string) {
   const keyBytes = typeof key === "string" ? encoder.encode(key) : key;
   const cryptoKey = await crypto.subtle.importKey(
@@ -69,13 +61,6 @@ async function validateTelegramInitData(initData: string, botToken: string) {
   if (!timingSafeEqual(calculatedHash, receivedHash)) throw new Error("bad_signature");
 
   return JSON.parse(userRaw) as TelegramUser;
-}
-
-async function signJwt(payload: Record<string, unknown>, jwtSecret: string) {
-  const encodedHeader = base64Url(encoder.encode(JSON.stringify({ alg: "HS256", typ: "JWT" })));
-  const encodedPayload = base64Url(encoder.encode(JSON.stringify(payload)));
-  const signature = await hmacSha256(jwtSecret, `${encodedHeader}.${encodedPayload}`);
-  return `${encodedHeader}.${encodedPayload}.${base64Url(signature)}`;
 }
 
 Deno.serve(async (req) => {
@@ -137,28 +122,38 @@ Deno.serve(async (req) => {
       .single();
     if (upsertError) throw upsertError;
 
-    const issuedAt = Math.floor(Date.now() / 1000);
-    const expiresAt = issuedAt + 60 * 60 * 24;
-    const accessToken = await signJwt({
-      aud: "authenticated",
-      exp: expiresAt,
-      iat: issuedAt,
-      iss: "supabase",
-      sub: authUserId,
+    // Mint a genuine Supabase session for the (already created) auth user via
+    // generateLink(magiclink) -> verifyOtp, instead of hand-signing a JWT.
+    // A hand-signed HS256 token is rejected under asymmetric JWT signing keys
+    // and carries no refresh token. verifyOtp must run on a non-admin (anon)
+    // client so the returned session belongs to the user, not the service role.
+    const { data: link, error: linkError } = await admin.auth.admin.generateLink({
+      type: "magiclink",
       email: syntheticEmail,
-      phone: "",
-      role: "authenticated",
-      aal: "aal1",
-      session_id: crypto.randomUUID(),
-      app_metadata: { provider: "telegram", providers: ["telegram"] },
-      user_metadata: {
-        telegram_id: user.id,
-        username: user.username ?? null,
-        display_name: displayName,
-      },
-    }, env("SUPABASE_JWT_SECRET"));
+    });
+    const tokenHash = link?.properties?.hashed_token;
+    if (linkError || !tokenHash) {
+      throw linkError ?? new Error("magiclink_not_generated");
+    }
 
-    return jsonResponse({ access_token: accessToken, token_type: "bearer", expires_at: expiresAt, profile });
+    const anon = createClient(env("SUPABASE_URL"), env("SUPABASE_ANON_KEY"), {
+      auth: { persistSession: false },
+    });
+    const { data: verified, error: verifyError } = await anon.auth.verifyOtp({
+      type: "magiclink",
+      token_hash: tokenHash,
+    });
+    const session = verified?.session;
+    if (verifyError || !session) {
+      throw verifyError ?? new Error("session_not_created");
+    }
+
+    return jsonResponse({
+      access_token: session.access_token,
+      refresh_token: session.refresh_token,
+      expires_at: session.expires_at,
+      profile,
+    });
   } catch (error) {
     console.error(error);
     return jsonResponse({ error: error instanceof Error ? error.message : "auth_failed" }, 401);
