@@ -26,6 +26,7 @@ const initialDraft: AddDraft = {
   entranceNotes: "",
   toiletExists: "unknown",
   toiletAccessible: "unknown",
+  parking: "unknown",
   comment: ""
 };
 
@@ -60,6 +61,7 @@ export function AddWizard({ theme, onSave, onCancel }: AddWizardProps) {
     }
   };
 
+  // Переход на следующий шаг мастера, если текущий шаг заполнен (canGoNext).
   const handleNextStep = () => {
     if (canGoNext()) {
       setStep(prev => prev + 1);
@@ -67,6 +69,7 @@ export function AddWizard({ theme, onSave, onCancel }: AddWizardProps) {
     }
   };
 
+  // Назад по шагам; на первом шаге — выход из мастера (onCancel).
   const handlePrevStep = () => {
     if (step > 1) {
       setStep(prev => prev - 1);
@@ -76,6 +79,8 @@ export function AddWizard({ theme, onSave, onCancel }: AddWizardProps) {
     }
   };
 
+  // Минимальные условия для кнопки «Далее» / MainButton на каждом шаге:
+  // шаг 1 — координата (lat), шаг 2 — название и категория, шаг 3 — статус доступности.
   const canGoNext = () => {
     if (step === 1) return !!draft.lat;
     if (step === 2) return !!draft.name && !!draft.category;
@@ -100,6 +105,7 @@ export function AddWizard({ theme, onSave, onCancel }: AddWizardProps) {
         entranceNotes: draft.entranceNotes,
         toiletExists: draft.toiletExists,
         toiletAccessible: draft.toiletAccessible,
+        parking: draft.parking,
         comment: draft.comment,
         source: "operator"
       };
@@ -299,6 +305,22 @@ export function AddWizard({ theme, onSave, onCancel }: AddWizardProps) {
                   </button>
                 ))}
               </div>
+            </div>
+          </div>
+
+          <div className="form-group">
+            <label className="form-label">Парковка</label>
+            <div className="segmented-picker">
+              {(["yes", "no", "unknown"] as const).map(opt => (
+                <button
+                  key={opt}
+                  type="button"
+                  className={`segmented-picker-btn ${draft.parking === opt ? "active" : ""}`}
+                  onClick={() => setDraft(prev => ({ ...prev, parking: opt }))}
+                >
+                  {opt === "yes" ? "Да" : opt === "no" ? "Нет" : "?"}
+                </button>
+              ))}
             </div>
           </div>
 

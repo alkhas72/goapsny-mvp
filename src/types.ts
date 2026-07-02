@@ -65,5 +65,6 @@ export interface AddDraft {
   entranceNotes: string;
   toiletExists: "yes" | "no" | "unknown";
   toiletAccessible: "yes" | "no" | "partial" | "unknown";
+  parking: "yes" | "no" | "unknown";
   comment: string;
 }

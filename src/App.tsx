@@ -380,6 +380,23 @@ export function App() {
                       </span>
                     </div>
                   </div>
+
+                  <div className="detail-card">
+                    <div className="detail-card-icon">
+                      {/* Parking icon */}
+                      <svg viewBox="0 0 24 24">
+                        <rect x="4" y="4" width="16" height="16" rx="2" stroke="currentColor" strokeWidth="2.2" fill="none" />
+                        <path d="M9 17V7h3.5a2.5 2.5 0 0 1 0 5H9" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+                      </svg>
+                    </div>
+                    <div className="detail-card-info">
+                      <span className="detail-card-label">Парковка</span>
+                      <span className="detail-card-value">
+                        {selectedPlace.parking === "yes" ? "Есть" :
+                         selectedPlace.parking === "no" ? "Нет" : "Не указана"}
+                      </span>
+                    </div>
+                  </div>
                 </div>
 
                 {selectedPlace.comment && (
