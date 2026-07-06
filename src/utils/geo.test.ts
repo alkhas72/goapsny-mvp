@@ -55,4 +55,15 @@ describe('findNearbyPlaces', () => {
     });
     expect(result.map((m) => m.place.id)).toEqual(['ramp-near']);
   });
+
+  it('без opts применяет дефолтный радиус 150 м', () => {
+    const places: PlacePoint[] = [
+      // ~111 м — внутри дефолтных 150
+      { id: 'inside-default', lat: 43.001, lng: 41.02 },
+      // ~222 м — за пределами дефолтных 150
+      { id: 'outside-default', lat: 43.002, lng: 41.02 },
+    ];
+    const result = findNearbyPlaces(candidate, places);
+    expect(result.map((m) => m.place.id)).toEqual(['inside-default']);
+  });
 });
