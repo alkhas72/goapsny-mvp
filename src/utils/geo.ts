@@ -19,3 +19,32 @@ export function distanceMeters(
 
   return 2 * earthRadiusM * Math.asin(Math.min(1, Math.sqrt(h)));
 }
+
+export interface PlacePoint {
+  id: string;
+  lat: number;
+  lng: number;
+  category?: string;
+  name?: string;
+}
+
+export interface NearbyOptions {
+  /** Радиус поиска в метрах, включительно. По умолчанию 150. */
+  radiusMeters?: number;
+  /** Оставить только места той же категории, что у кандидата. */
+  sameCategoryOnly?: boolean;
+}
+
+export interface NearbyMatch {
+  place: PlacePoint;
+  distanceMeters: number;
+}
+
+/** Места из `places` в радиусе от кандидата, по возрастанию расстояния. */
+export function findNearbyPlaces(
+  candidate: { lat: number; lng: number; category?: string },
+  places: PlacePoint[],
+  opts?: NearbyOptions,
+): NearbyMatch[] {
+  return [];
+}
