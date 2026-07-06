@@ -47,7 +47,10 @@ export function findNearbyPlaces(
   opts?: NearbyOptions,
 ): NearbyMatch[] {
   const radius = opts?.radiusMeters ?? 150;
+  const matchesCategory = (place: PlacePoint) =>
+    !opts?.sameCategoryOnly || place.category === candidate.category;
   return places
+    .filter(matchesCategory)
     .map((place) => ({ place, distanceMeters: distanceMeters(candidate, place) }))
     .filter((match) => match.distanceMeters <= radius)
     .sort((a, b) => a.distanceMeters - b.distanceMeters);

@@ -42,4 +42,17 @@ describe('findNearbyPlaces', () => {
     const result = findNearbyPlaces(candidate, places, { radiusMeters: 500 });
     expect(result.map((m) => m.place.id)).toEqual(['first', 'second', 'third']);
   });
+
+  it('sameCategoryOnly оставляет только категорию кандидата', () => {
+    const ramped = { ...candidate, category: 'ramp' };
+    const places: PlacePoint[] = [
+      { id: 'ramp-near', lat: 43.001, lng: 41.02, category: 'ramp' },
+      { id: 'toilet-near', lat: 42.999, lng: 41.02, category: 'toilet' },
+    ];
+    const result = findNearbyPlaces(ramped, places, {
+      radiusMeters: 500,
+      sameCategoryOnly: true,
+    });
+    expect(result.map((m) => m.place.id)).toEqual(['ramp-near']);
+  });
 });
