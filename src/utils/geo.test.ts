@@ -32,4 +32,14 @@ describe('findNearbyPlaces', () => {
     const result = findNearbyPlaces(candidate, [edge], { radiusMeters: exactRadius });
     expect(result.map((m) => m.place.id)).toEqual(['edge']);
   });
+
+  it('сортирует несколько мест по возрастанию расстояния', () => {
+    const places: PlacePoint[] = [
+      { id: 'third', lat: 43.003, lng: 41.02 },
+      { id: 'first', lat: 43.001, lng: 41.02 },
+      { id: 'second', lat: 43.002, lng: 41.02 },
+    ];
+    const result = findNearbyPlaces(candidate, places, { radiusMeters: 500 });
+    expect(result.map((m) => m.place.id)).toEqual(['first', 'second', 'third']);
+  });
 });

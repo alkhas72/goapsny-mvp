@@ -49,5 +49,6 @@ export function findNearbyPlaces(
   const radius = opts?.radiusMeters ?? 150;
   return places
     .map((place) => ({ place, distanceMeters: distanceMeters(candidate, place) }))
-    .filter((match) => match.distanceMeters <= radius);
+    .filter((match) => match.distanceMeters <= radius)
+    .sort((a, b) => a.distanceMeters - b.distanceMeters);
 }
