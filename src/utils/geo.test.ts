@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { findNearbyPlaces, type PlacePoint } from './geo';
+import { distanceMeters, findNearbyPlaces, type PlacePoint } from './geo';
 
 /** Сухум, центр — базовая точка-кандидат для всех кейсов. */
 const candidate = { lat: 43.0, lng: 41.02 };
@@ -24,5 +24,12 @@ describe('findNearbyPlaces', () => {
     expect(result[0].place.id).toBe('near');
     expect(result[0].distanceMeters).toBeGreaterThan(110);
     expect(result[0].distanceMeters).toBeLessThan(112);
+  });
+
+  it('включает место ровно на границе радиуса', () => {
+    const edge: PlacePoint = { id: 'edge', lat: 43.001, lng: 41.02 };
+    const exactRadius = distanceMeters(candidate, edge);
+    const result = findNearbyPlaces(candidate, [edge], { radiusMeters: exactRadius });
+    expect(result.map((m) => m.place.id)).toEqual(['edge']);
   });
 });
