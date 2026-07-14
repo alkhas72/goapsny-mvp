@@ -81,3 +81,10 @@
 - MEDIUM accepted as a new-function invariant: every new/replaced `SECURITY DEFINER` uses empty `search_path`, fully qualified references, and minimum execute grants. Existing `SET search_path=public` functions remain recorded legacy debt unless directly replaced; no unrelated schema rewrite is opened.
 - Binding delta written to `briefs/FIELD-DELTA-ANTIGRAVITY-2026-07-14.md`; contract and T1/T2/T3 updated. T1/T3 remain the only active worktree writers.
 - Research identifies Mistral Vibe as terminal-compatible, but it is not admitted: no install, credential/subscription setup, or trial before separate Alkhas arbitration.
+
+### 15:41 MSK — field delivery channel status
+
+- Active processes independently mapped: Composer `composer-2.5` PID 1119/CWD `feat/pwa-public`; Kimi `kimi-k2.7-code` PID 3040/CWD `feat/tg-auditors`. Each worktree has exactly one open Supacode tab/surface.
+- Supacode socket/API can enumerate and focus the exact surfaces but exposes no safe send-text operation. GUI runtime required by the local computer-use skill is unavailable in this session; blind keyboard injection was rejected.
+- No second Cursor writer/session was launched and no session-state probing workaround was used. Delta commit `9807c98` is pushed and readable at the absolute brief path.
+- Delivery is therefore **prepared but awaiting staff paste** into the two already-open chats. SOL must not claim executor acknowledgement until staff relays it or field output proves incorporation.
