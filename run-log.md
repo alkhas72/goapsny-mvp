@@ -174,3 +174,12 @@
 ## 2026-07-15 00:42 MSK — clerical timestamp correction
 
 - The immediately preceding sequencing clarification was appended at 00:42 MSK; its `00:45 MSK` heading is a clerical future-time label. Per append-only policy the earlier heading was not rewritten. The sequencing content remains binding.
+
+## 2026-07-15 01:14 MSK — field shells recovered; Phase A fixes active
+
+- Staff reports both Cursor shells were restarted after `WritableIterable is closed`; work resumed from disk and field files survived. This is a shell-recovery event, not a product/test acceptance.
+- Per Fable/Alkhas operating decision, `git add`/`commit`/`push` walls are removed for each executor only inside its own task worktree/branch. Force-push, cross-worktree writes, deploy, secrets, webhook, and `main` merge remain unauthorized.
+- Read-only T1 snapshot: branch `feat/pwa-public`, local HEAD `1ef8a4a` (`feat(t1): anon RLS migrations and contract test harness`), ahead of `origin/main` by one; additional review fixes remain dirty/untracked. `scripts/smoke-public.mjs` has fresh 01:11 activity. Final three-block pushed tip/SHA is still pending.
+- Read-only T3 snapshot: branch `feat/tg-auditors`, local HEAD `eb99de9` (`feat(tg-auditors): add bot session tables and atomic publish RPC`), ahead of `origin/main` by one; migration/runtime/report work remains dirty/untracked. Staff reports the active suite at 49 passed / 0 failed; SOL has not independently rerun it against a final SHA.
+- `.env.test.local` remains excluded from field edits by instruction. No migration/seed apply is authorized while the T1 DB gate is HOLD.
+- No WALL is open: both executors are active after recovery. SOL waits for pushed branch tips and exact SHAs, then performs immutable re-review; local intermediate commits do not open G1/G2 gates.
