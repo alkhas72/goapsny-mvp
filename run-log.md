@@ -88,3 +88,19 @@
 - Supacode socket/API can enumerate and focus the exact surfaces but exposes no safe send-text operation. GUI runtime required by the local computer-use skill is unavailable in this session; blind keyboard injection was rejected.
 - No second Cursor writer/session was launched and no session-state probing workaround was used. Delta commit `9807c98` is pushed and readable at the absolute brief path.
 - Delivery is therefore **prepared but awaiting staff paste** into the two already-open chats. SOL must not claim executor acknowledgement until staff relays it or field output proves incorporation.
+
+### 16:08 MSK — staff delivery confirmation, model correction, WALL protocol
+
+- Staff confirms `FIELD-DELTA-ANTIGRAVITY-2026-07-14.md` was pasted into both active T1 and T3 chats. Delivery is complete; executor acknowledgements remain pending and must be verified from their responses/artifacts.
+- Correction to the 15:41 process map: `feat/tg-auditors` is running **Composer 2.5**, switched inside the live Cursor session with `/model` under Alkhas's rule “Cursor — only native Composer”. Supacode statusline is the authoritative observation. Process PID/launch arguments show the startup model only and are invalid evidence after an in-session switch.
+- Staff removed T1 walls for `git show`/`ls-tree`/`rg`, `npm test`/`build`/`lint`, and `npm install`; removed T3 walls for `deno`/`which` and `supabase db lint`.
+- T3 `supabase db lint` returned exit 1 due to `Network Restrictions`. This does not block pure local implementation/tests. A network-capable/authorized database environment is now an explicit prerequisite before live-smoke or any claim that DB lint passed.
+- Fresh filesystem observation: T1 now has active uncommitted UI/services plus the three named RLS/category migrations; T3 has active uncommitted bot/config/migrations and `T3-REPORT.md`. No executor commit/acknowledgement is inferred from file presence.
+- Staff cadence: inspect active field roughly every 20 minutes. If a permission/tool wall is observed for more than 15 minutes, SOL appends an explicit marker in this form: `WALL: <T1|T3> | since <MSK> | <blocked command/capability> | <impact> | staff action needed`. On resolution append `WALL CLEARED` with elapsed time and factual result; never rewrite the original marker.
+- No current `WALL` marker is opened at this observation: both worktrees show fresh progress, while T3 network DB lint is a recorded later prerequisite rather than a local-work blocker.
+
+### 16:10 MSK — early artifact evidence after delta delivery
+
+- T1's uncommitted `20260714141000_public_read_published.sql` now factually contains both required corrections: `photos_read_published_anon` joins to a published parent, and `place_photos_storage_read_anon_published` joins `storage.objects.name` through photo metadata to a published parent. Bucket-wide public access is not present in that migration.
+- T3's current bot/migration files contain no new `SECURITY DEFINER`, function creation, or `search_path` declaration; therefore the hardening invariant is not presently triggered in T3. `rg` returned no matches (exit 1 means no match, not a test failure).
+- These observations prove draft incorporation/no-conflict only. They do not prove tests, commit, push, or executor acknowledgement; Phase A remains active.
