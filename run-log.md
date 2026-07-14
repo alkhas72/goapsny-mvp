@@ -123,3 +123,11 @@
 - T3 received SOL review and worked eight corrections; revised report is ready for factual re-review. No acceptance is inferred before diff/tests review.
 - Direct Telegram MCP rebind to `@AbhAIS_CodexBot` is a deferred Claude Code task, not a sprint blocker. Alkhas pressed `/start` at 16:58. Until rebind, SOL routes all routine/gate signals through staff and does not use the currently declared `@GoApsnyBot` MCP transport.
 - Watchdog correction: journal silence since 17:03 caused two false stuck escalations. This entry explicitly marks active review; no `WALL` is open. During extended review SOL will append progress at least every 20 minutes or an immediate `WALL` after the 15-minute threshold.
+## 2026-07-14 20:30 MSK — SOL — T1 independent review complete
+
+- T1 reviewed first as G1 blocker from uncommitted `feat/pwa-public` state at base HEAD `97af435`.
+- Independent facts: `npm test` 15/15 PASS; build PASS (578.35 kB chunk warning); lint FAIL 10 errors + 2 warnings; `git diff --check` PASS; browser script 8/8 exits 0.
+- `npm run smoke` exits 0 with 20/20, but remote target has 0 places, 0 categories, missing `place-photos` bucket and no applied branch migrations. Required gray/colored/photo positive cases are counted PASS when absent/skipped; this is not FIELD-DELTA proof.
+- Verdict: **CHANGES REQUIRED / G1 NOT READY**. Review issued at `briefs/T1-REVIEW-2026-07-14.md` with blockers for non-vacuous RLS fixtures, keyboard/focus behavior, zoom, visual/PWA evidence, and immutable pushed SHAs.
+- Additional findings: Leaflet attribution disabled; placeholder external links; locale buttons do not localize copy; geolocation requested on map mount.
+- No WALL. SOL proceeds immediately to revised T3 review. Signals remain routed through штаб while Telegram MCP rebind is deferred.
