@@ -141,3 +141,19 @@
 - Prior facade-display, stale-callback, enum-validation, Telegram-transport and duplicate-category findings remain open. Two `0003*` migrations now also collide in version/order.
 - Verdict: **REJECTED HANDOFF / CHANGES REQUIRED**. Full evidence and re-handoff requirements: `briefs/T3-REREVIEW-2026-07-14.md`.
 - No WALL. Deploy/secrets/webhook gate remains closed; no signal sent through the unsafe product-bot MCP.
+
+## 2026-07-14 20:45 MSK — SOL — arbiter decisions fixed; Mistral exam issued
+
+- Alkhas authorizes one separate free Supabase test project for G1/G2. Production is excluded. Exact staff credential/config/fixture request is recorded in `briefs/G1-TEST-ENV.md`; no secrets are requested in chat or committed.
+- Requested human test label “14.07-pwa-test” is normalized to the valid Vercel slug `pwa-test-14-07`; candidate URL is `https://pwa-test-14-07.vercel.app` if available. This is a target name, not a deployment claim or authorization for T1 to deploy.
+- Product decisions are fixed for T1: Russian only, no language switch; default Sukhum view; browser geolocation only after explicit user action.
+- Final auditor bot identity: `@mapper_abh_bot`, display name `Mapper_GoApsny`, former username `@Audit_AIS_Bot`. Rename-pending is closed. Secret names remain exactly `AUDITOR_TELEGRAM_BOT_TOKEN` and `AUDITOR_TELEGRAM_WEBHOOK_SECRET`; `@GoApsnyBot` remains untouched.
+- Staff reports Mistral Vibe write-probe PASS: exact 21 bytes, clean deletion, native permission sandbox. Highest available Pro model is `mistral-medium-3.5`; Large is unavailable.
+- Alkhas-authorized bounded field exam issued at `briefs/MISTRAL-EXAM.md`: dependency-free migration preflight CLI with deterministic tests, isolated to `feat/mistral-probe`, four-file boundary, no network/secrets/deploy/product mutation, outside critical path.
+- No WALL. T1/T3 verdicts are unchanged; Mistral work does not consume or delay their critical-path slots.
+
+## 2026-07-14 21:37 MSK — clerical timestamp correction and artifact check
+
+- The immediately preceding decision/exam entry was appended at 21:37 MSK; its `20:45 MSK` heading is a clerical stale-time label. Per append-only policy the prior heading was not rewritten.
+- Fresh artifact scan confirms the final bot username, fixed T1 decisions, test-environment request, and bounded Mistral brief are present. No secret value appears in the files; only environment variable names are recorded.
+- No WALL. No product worktree, external project, deployment, webhook, or secret was changed by SOL.

@@ -168,7 +168,7 @@ Bucket remains private. RPC revalidates object ownership/path before indexing it
 
 ## 8. Telegram boundary — T3/T4
 
-- T3 runs on the separate BotFather auditor bot **`@Audit_AIS_Bot`**. `@GoApsnyBot` is the product Mini App bot and must never receive the auditor webhook or auditor token/configuration.
+- T3 runs on the separate BotFather auditor bot **`@mapper_abh_bot`** (display name: **Mapper_GoApsny**; former username: `@Audit_AIS_Bot`). `@GoApsnyBot` is the product Mini App bot and must never receive the auditor webhook or auditor token/configuration.
 - Shared Supabase project secrets must use collision-proof names: `AUDITOR_TELEGRAM_BOT_TOKEN` and `AUDITOR_TELEGRAM_WEBHOOK_SECRET`. `auditor-bot` reads both only from environment and has no literal/default/fallback to `TELEGRAM_BOT_TOKEN`.
 - The username is public identity context only; code must not depend on a hard-coded username. Token creation, secret installation, deploy, and webhook registration remain explicit Alkhas gates.
 - Edge Function validates `X-Telegram-Bot-Api-Secret-Token` before processing and deduplicates `update_id`.
