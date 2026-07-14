@@ -104,3 +104,13 @@
 - T1's uncommitted `20260714141000_public_read_published.sql` now factually contains both required corrections: `photos_read_published_anon` joins to a published parent, and `place_photos_storage_read_anon_published` joins `storage.objects.name` through photo metadata to a published parent. Bucket-wide public access is not present in that migration.
 - T3's current bot/migration files contain no new `SECURITY DEFINER`, function creation, or `search_path` declaration; therefore the hardening invariant is not presently triggered in T3. `rg` returned no matches (exit 1 means no match, not a test failure).
 - These observations prove draft incorporation/no-conflict only. They do not prove tests, commit, push, or executor acknowledgement; Phase A remains active.
+
+### 17:03 MSK — T3 SOL review: changes required
+
+- Staff reports `T3-REPORT.md` ready. SOL reviewed the full uncommitted T3 worktree under the local code-review checklists; no product code was edited by SOL.
+- Fresh independent checks: Deno fmt pass (20 files), lint pass (19), test pass (36/36), check pass, tracked `git diff --check` pass. DB lint remains unproven under the recorded network/local-runtime restriction.
+- Deploy blocker found: T3 reads shared `TELEGRAM_BOT_TOKEN`, already used by product `auth-telegram`/`@GoApsnyBot`. Arbiter requires a separate BotFather auditor bot. Contract/T3 now fix distinct env names `AUDITOR_TELEGRAM_BOT_TOKEN` and `AUDITOR_TELEGRAM_WEBHOOK_SECRET`, env-only with no fallback; `@GoApsnyBot` webhook is forbidden.
+- Additional review blockers: pre-processing/non-atomic idempotency loses failed retries and races; published place precedes required photo row; gray verification never displays facade; stale callbacks are not bound to current state; audit enums accept arbitrary text. Telegram send failure handling, duplicate category migration, and unreviewable zero-commit change size are also returned.
+- Full numbered evidence and re-handoff contract: `briefs/T3-REVIEW-2026-07-14.md`. Verdict is `CHANGES REQUIRED`, not G2/deploy-ready.
+- G1 remains the PWA phone gate and is not blocked by T3 fixes. It requires T1 review/push, then T2 email OTP in the same PWA worktree, authorized test-project migrations/config, preview deployment, and Alkhas device review.
+- Direct-voice prerequisite: the only callable Telegram MCP currently declares transport through `@GoApsnyBot`, not `@AbhAIS_CodexBot`. SOL sent nothing through it. Staff must rebind/expose the Codex-bot MCP before SOL can safely send routine aiLAB or private gate signals.
