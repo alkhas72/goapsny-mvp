@@ -157,3 +157,20 @@
 - The immediately preceding decision/exam entry was appended at 21:37 MSK; its `20:45 MSK` heading is a clerical stale-time label. Per append-only policy the prior heading was not rewritten.
 - Fresh artifact scan confirms the final bot username, fixed T1 decisions, test-environment request, and bounded Mistral brief are present. No secret value appears in the files; only environment variable names are recorded.
 - No WALL. No product worktree, external project, deployment, webhook, or secret was changed by SOL.
+
+## 2026-07-15 00:41 MSK — SOL — isolated test env accepted; remote apply held
+
+- Staff created `feat/pwa-public/.env.test.local`: 589 bytes, mode `0600`. Key names only were verified: test URL, anon key, service-role key, and project ref. Values were not read into chat/log and remain untracked.
+- **HOLD:** do not apply migrations/seeds yet. T1 remains fully uncommitted at base HEAD `97af435`; there is no deterministic place/photo fixture runner; current smoke ignores `.env.test.local`/`TEST_SUPABASE_*` and still treats absent positive cases as PASS.
+- Exact pre-apply contract and later apply order issued at `briefs/T1-TESTDB-GATE-2026-07-15.md`. T1 must provide a pushed immutable fixture-backed harness and close the prior UI/a11y decisions before SOL changes HOLD to GO.
+- Security seam reiterated: baseline profile default is still `tester`; no OTP user may be created on the test project before T2's accepted `public_user` default migration.
+- No WALL. Test project creation/env setup is accepted preparation, not schema-apply authorization.
+
+## 2026-07-15 00:45 MSK — DB-gate sequencing clarification
+
+- The database HOLD does not require T1 to finish all UI/a11y fixes first. To preserve parallel progress, T1 may push a dedicated migration + deterministic fixture + non-vacuous smoke block for immediate SOL DB re-review while continuing unrelated UI work.
+- Staff apply remains bound to the accepted database/harness SHA and only proceeds after confirming those relevant paths have no later dirty delta. G1 itself remains blocked until the separate UI/a11y fixes and physical/visual gates pass.
+
+## 2026-07-15 00:42 MSK — clerical timestamp correction
+
+- The immediately preceding sequencing clarification was appended at 00:42 MSK; its `00:45 MSK` heading is a clerical future-time label. Per append-only policy the earlier heading was not rewritten. The sequencing content remains binding.
