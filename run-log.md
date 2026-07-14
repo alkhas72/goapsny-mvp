@@ -114,3 +114,12 @@
 - Full numbered evidence and re-handoff contract: `briefs/T3-REVIEW-2026-07-14.md`. Verdict is `CHANGES REQUIRED`, not G2/deploy-ready.
 - G1 remains the PWA phone gate and is not blocked by T3 fixes. It requires T1 review/push, then T2 email OTP in the same PWA worktree, authorized test-project migrations/config, preview deployment, and Alkhas device review.
 - Direct-voice prerequisite: the only callable Telegram MCP currently declares transport through `@GoApsnyBot`, not `@AbhAIS_CodexBot`. SOL sent nothing through it. Staff must rebind/expose the Codex-bot MCP before SOL can safely send routine aiLAB or private gate signals.
+
+### 20:25 MSK — SOL active: T1 priority review opened
+
+- Staff reports both revised handoffs ready: `T1-REPORT.md` dated 19:11 and revised `T3-REPORT.md` dated 19:08. SOL is active; T1 review starts first because it blocks G1, T3 re-review follows.
+- Auditor bot identity is now fixed by Alkhas: `@Audit_AIS_Bot`. Alkhas holds the token. At the authorized deploy gate the distinct Supabase secrets are `AUDITOR_TELEGRAM_BOT_TOKEN` and `AUDITOR_TELEGRAM_WEBHOOK_SECRET`; `@GoApsnyBot` remains untouched.
+- T1 is unfrozen: Playwright wall removed and follow-up delta queued. Staff reports 15/15 tests and 20/20 smoke; these are executor/staff claims until SOL reruns and reads outputs. Staff instructed T1 to commit/push three blocks; SHA is still pending.
+- T3 received SOL review and worked eight corrections; revised report is ready for factual re-review. No acceptance is inferred before diff/tests review.
+- Direct Telegram MCP rebind to `@AbhAIS_CodexBot` is a deferred Claude Code task, not a sprint blocker. Alkhas pressed `/start` at 16:58. Until rebind, SOL routes all routine/gate signals through staff and does not use the currently declared `@GoApsnyBot` MCP transport.
+- Watchdog correction: journal silence since 17:03 caused two false stuck escalations. This entry explicitly marks active review; no `WALL` is open. During extended review SOL will append progress at least every 20 minutes or an immediate `WALL` after the 15-minute threshold.
