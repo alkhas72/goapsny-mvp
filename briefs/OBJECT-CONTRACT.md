@@ -126,7 +126,13 @@ Telegram auditor: create/edit verified green/yellow/red published
 coordinator: published ↔ hidden
 ```
 
-No automatic elevation is permitted. Email users must be created/backfilled as `public_user`; the existing default `tester` must not grant collection rights. Telegram authorization must continue to derive elevated roles from the verified profile mapping.
+No automatic elevation is permitted. The baseline schema currently has `profiles.role default 'tester'`, while `current_user_can_collect()` includes `tester`; this is a confirmed privilege-escalation blocker for email signup. T2 must add an immutable forward migration containing the exact safety effect:
+
+```sql
+alter table public.profiles alter column role set default 'public_user';
+```
+
+New email users must be created as `public_user`. Do not bulk-demote existing `tester` rows because legitimate Telegram auditors may already use that role; backfill only identities proven to be basic email users. Telegram authorization continues to derive elevated roles from the verified profile mapping.
 
 ## 6. Public-user submission boundary — T2
 
@@ -140,13 +146,22 @@ The browser must not receive direct broad table-write policies. T2 owns an addit
 - execute is granted only to `authenticated` and revoked from `public`/`anon`;
 - the user cannot update/delete the submitted place or write audit fields/status/moderation/roles.
 
-Storage policy permits an authenticated `public_user` to upload only the owned facade path for a fresh UUID and to remove only their own unreferenced failed upload. Bucket remains private.
+Every new or replaced `SECURITY DEFINER` function in this sprint must use `SET search_path = ''` and schema-qualify every referenced object/function (`public.*`, `auth.uid()`, `storage.objects`, as applicable). Revoke default execute before granting the minimum role. The older `SET search_path = public` functions are recorded legacy debt; do not copy that pattern or expand T2 into an unrelated rewrite unless the new flow directly replaces one.
+
+The existing Storage insert policy is collector-only and therefore does not authorize `public_user`. T2 must add explicit policies for authenticated `public_user`:
+
+- `INSERT`: bucket `place-photos`, `owner=auth.uid()`, exact fresh `{uuid}/facade.jpg` path only;
+- `DELETE`: same owner/bucket/facade shape and only while no `public.photos.storage_path` references the object;
+- no `UPDATE`, list-all, extra-photo kind, or cross-owner access.
+
+Bucket remains private. RPC revalidates object ownership/path before indexing it.
 
 ## 7. Public read boundary — T1
 
 - `anon` reads active categories, accessibility statuses, and only `places.moderation_status='published'`.
 - Published includes gray and verified colors.
-- Photo metadata/signing is limited to published parents.
+- Baseline `photos_read_by_published_place` is `TO authenticated` only. T1 must add a separate `FOR SELECT TO anon` policy on `public.photos` whose sole condition is that the parent place is published.
+- Baseline `place_photos_storage_read_authenticated` is also authenticated-only. T1 must add narrow `FOR SELECT TO anon` access on `storage.objects` for bucket `place-photos` only when `storage.objects.name=public.photos.storage_path` and the parent place is published. This is the permission used to create short-lived signed URLs; the bucket itself stays private.
 - `anon` has no writes; profiles, bot state, AI/karma tables stay unavailable.
 - Public queries use explicit field lists, never `select('*')`.
 - Existing authenticated/admin policies stay intact; unsafe RPC execute grants remain revoked.
@@ -159,17 +174,20 @@ Storage policy permits an authenticated `public_user` to upload only the owned f
 - Auditor edits preserve IDs, creator/source history where appropriate, unknown `details` keys, and public visibility.
 - Coordinator `admin`/`owner` can inspect activity, edit through the trusted audit path, hide, and restore. No approval queue is required.
 - Service-role and bot token remain server-only.
+- If T3/T4 introduce or replace a database `SECURITY DEFINER` function, it follows the same empty-search-path and fully-qualified-reference rule. T3 does not own the T1/T2 policy fixes.
 
 ## 9. Contract gates
 
 Acceptance is executable evidence:
 
-1. Anonymous smoke: published gray and colored rows visible; hidden/pending invisible; anon writes denied.
-2. Public-user smoke: OTP session with `public_user` can submit exactly one valid gray facade-backed object through RPC; cannot choose colored status, edit it, elevate role, or write tables directly.
-3. Storage smoke: published gray/colored facade can be signed; hidden/pending cannot; failed upload/RPC leaves no visible half-object.
-4. Bot tests: unauthorized denied; duplicate update idempotent; auditor verifies a gray object to colored while it stays published; auditor can create/edit a verified published object.
-5. Coordinator tests: only admin/owner can hide/restore and access administrative overview.
-6. G2 trace: public user submits gray → anonymous PWA sees gray → auditor verifies the same ID → anonymous PWA sees the colored verdict. Coordinator is not on the visibility path.
-7. Secret scan and `git diff --check` are clean.
+1. Anonymous smoke: published gray and colored rows plus their `public.photos` metadata are visible; hidden/pending invisible; anon writes denied.
+2. Role smoke: a newly created email identity receives `profiles.role='public_user'` and `current_user_can_collect()=false`; existing authorized Telegram tester remains unchanged.
+3. Public-user smoke: OTP session with `public_user` can upload only its fresh facade path and submit exactly one valid gray object through the hardened RPC; cannot upload extra kinds, choose colored status, edit it, elevate role, or write tables directly.
+4. Storage smoke: published gray/colored facade can be signed by anon; hidden/pending cannot; failed upload/RPC can clean only the caller's unreferenced facade and leaves no visible half-object.
+5. Function-definition smoke inspects the new RPC and proves empty `search_path`, qualified references, and minimum execute grants.
+6. Bot tests: unauthorized denied; duplicate update idempotent; auditor verifies a gray object to colored while it stays published; auditor can create/edit a verified published object.
+7. Coordinator tests: only admin/owner can hide/restore and access administrative overview.
+8. G2 trace: public user submits gray → anonymous PWA sees gray → auditor verifies the same ID → anonymous PWA sees the colored verdict. Coordinator is not on the visibility path.
+9. Secret scan and `git diff --check` are clean.
 
 Out of scope: active pre-publication approval, district/group schema, karma, AI autofill, external export, Rev A, cmux, iPad console, deploy/secrets/webhook registration, and merge to `main`.

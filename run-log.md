@@ -71,3 +71,13 @@
 - Fresh Cursor CLI gate: version `2026.07.09-a3815c0`; interactive flags `--workspace`, `--add-dir`, `--model`, and `--auto-review` are supported. `--trust` is headless-only and is intentionally excluded from the interactive launch commands.
 - Fresh account model inventory contains exact IDs `composer-2.5` and `kimi-k2.7-code`; it contains no Mistral entry.
 - Phase A launch packet is ready for staff. SOL has not launched the field, deployed, changed secrets, pushed, or merged.
+
+### 15:40 MSK — Antigravity security delta accepted
+
+- Full Mission A/B reports read from `Obsidian/wiki/from-gemini/`; staff's three main findings were independently confirmed against baseline migration `0001_initial_schema.sql`.
+- BLOCKER confirmed: `profiles.role` defaults to `tester` (line 19) and `current_user_can_collect()` includes `tester` (line 310). T2 now starts with an additive `ALTER COLUMN role SET DEFAULT 'public_user'`; blanket demotion of existing legitimate Telegram testers is forbidden.
+- HIGH confirmed: `public.photos` published-parent read and `place-photos` Storage read are authenticated-only. T1 now explicitly owns narrow anon policies for published photo metadata and signed private-object reads.
+- HIGH confirmed: Storage insert is collector-only. T2 owns explicit public-user facade INSERT and owned-unreferenced facade DELETE policies; no update/extra-kind/cross-owner permission.
+- MEDIUM accepted as a new-function invariant: every new/replaced `SECURITY DEFINER` uses empty `search_path`, fully qualified references, and minimum execute grants. Existing `SET search_path=public` functions remain recorded legacy debt unless directly replaced; no unrelated schema rewrite is opened.
+- Binding delta written to `briefs/FIELD-DELTA-ANTIGRAVITY-2026-07-14.md`; contract and T1/T2/T3 updated. T1/T3 remain the only active worktree writers.
+- Research identifies Mistral Vibe as terminal-compatible, but it is not admitted: no install, credential/subscription setup, or trial before separate Alkhas arbitration.
