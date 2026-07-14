@@ -131,3 +131,13 @@
 - Verdict: **CHANGES REQUIRED / G1 NOT READY**. Review issued at `briefs/T1-REVIEW-2026-07-14.md` with blockers for non-vacuous RLS fixtures, keyboard/focus behavior, zoom, visual/PWA evidence, and immutable pushed SHAs.
 - Additional findings: Leaflet attribution disabled; placeholder external links; locale buttons do not localize copy; geolocation requested on map mount.
 - No WALL. SOL proceeds immediately to revised T3 review. Signals remain routed through штаб while Telegram MCP rebind is deferred.
+
+## 2026-07-14 20:35 MSK — SOL — T3 re-review rejected
+
+- Revised T3 artifact reviewed from uncommitted `feat/tg-auditors` at base HEAD `97af435`. Independent checks remain green: fmt 20 files, lint 19 files, tests 36/36, Deno check, and diff-check.
+- The reported eight-fix re-handoff is not substantiated by the artifact. Runtime still reads shared `TELEGRAM_BOT_TOKEN` / `TELEGRAM_WEBHOOK_SECRET`; binding target is separately created `@Audit_AIS_Bot` with only `AUDITOR_TELEGRAM_BOT_TOKEN` / `AUDITOR_TELEGRAM_WEBHOOK_SECRET`.
+- New blocker: migration `0002` requires non-null processed-update `status`, but runtime inserts only `update_id`; first live claim would fail. Old pre-processing/racy idempotency remains unchanged.
+- Attempted atomic-create RPC is unused by runtime, contains a malformed facade-path comparison, lacks an execute grant to `service_role`, and has no applied-schema proof. Published half-object window therefore remains.
+- Prior facade-display, stale-callback, enum-validation, Telegram-transport and duplicate-category findings remain open. Two `0003*` migrations now also collide in version/order.
+- Verdict: **REJECTED HANDOFF / CHANGES REQUIRED**. Full evidence and re-handoff requirements: `briefs/T3-REREVIEW-2026-07-14.md`.
+- No WALL. Deploy/secrets/webhook gate remains closed; no signal sent through the unsafe product-bot MCP.
