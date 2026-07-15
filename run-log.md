@@ -198,3 +198,10 @@
 - Fresh read-only tips now exist: T1 pushed `fc2b7dd` on `origin/feat/pwa-public` (three implementation blocks plus report; local `T1-REPORT.md` has a later dirty delta), and T3 pushed clean `faa7993` on `origin/feat/tg-auditors`. SOL re-review pins these immutable SHAs; the dirty T1 report is not evidence until committed.
 - Critical path rule: T1/T3 immutable re-review and T1 DB HOLD decision remain first SOL work. Z/Kimi/Vibe/Antigravity proceed in their own worktrees/contours and cannot block G1. One writer per worktree remains binding.
 - No WALL. No DB migration/seed apply, Vercel deploy, Supabase secret change, auditor webhook, PR, or `main` merge is authorized by this roster expansion.
+
+## 2026-07-15 — SOL — Mistral launch-packet correction
+
+- Delivery gap acknowledged: although `briefs/MISTRAL-EXAM.md` existed, SOL did not provide HQ an unambiguous immediate-start paste, and test-env wording could be misread as a dependency. Vibe idling is therefore an orchestration fault, not a missing model capability or missing task.
+- Brief corrected with an explicit **START NOW** gate. Mistral Medium 3.5 begins the G1 deterministic seed-utility coding exam immediately in `feat/mistral-probe`, fully offline with fakes and sentinel env. No Supabase project, secret, Composer SHA, or live apply is required to finish.
+- Exam remains real field mechanics: CLI design, deterministic fixtures, project/secret guardrails, idempotent apply semantics, failure handling, `node:test`, git commit/push, and factual report. SOL independently reruns and scores the artifact.
+- No product critical-path dependency is introduced. After report delivery, Vibe receives field task 2 without an idle gap.

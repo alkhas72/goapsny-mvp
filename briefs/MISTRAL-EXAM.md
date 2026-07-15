@@ -7,6 +7,10 @@ Priority: parallel, outside critical path; T1's fixture harness proceeds indepen
 Mode: `superpowers-full` for a new write-capable test utility; requirements are approved, so write a short plan then use tests first.
 Conductor: SOL; do not edit `run-log.md` or any other worktree.
 
+## START GATE — IMMEDIATE
+
+**Start now. Do not wait for Supabase, `.env.test.local`, a Composer SHA, or another SOL message.** The coding exam is the offline implementation, test suite, CLI behavior, git discipline, and report. Use fakes and a temporary sentinel env file for all required verification. A real database write is explicitly outside this exam and cannot block `READY FOR SOL FIELD REVIEW`.
+
 ## Standing context
 
 - Write-probe passed: exact 21-byte write and clean deletion under the native permission sandbox.
@@ -72,7 +76,7 @@ The utility must:
 - set `created_by`/`uploaded_by` null unless a reviewed test identity is explicitly provided; do not create Auth users;
 - return a nonzero exit if any expected row/object operation fails or final counts differ.
 
-Because schema apply is still an Alkhas/SOL gate, do not run `--apply` until staff explicitly says the reviewed test project is migrated and authorizes that exact command. Implementation and local tests can finish without live writes.
+Because schema apply is still an Alkhas/SOL gate, do not run `--apply` against any real project during this exam. Test apply behavior only through injected fakes. Finishing the code/tests/report requires no external dependency.
 
 ## Required tests
 
@@ -98,7 +102,7 @@ git diff --check
 git status --short
 ```
 
-If `.env.test.local` is not provisioned in this worktree, test plan mode with a temporary fake env file containing unmistakably non-secret sentinel values and report that live plan/apply remains staff-gated. Do not copy or inspect T1's env file yourself.
+Use a temporary fake env file containing unmistakably non-secret sentinel values for plan-mode verification. Do not wait for, copy, or inspect T1's env file.
 
 ## Commit and report
 
