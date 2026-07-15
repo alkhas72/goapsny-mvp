@@ -24,6 +24,7 @@ export const YES_NO_UNKNOWN = ["yes", "no", "unknown"] as const;
 export const TOILET_ACCESSIBLE = ["yes", "no", "partial", "unknown"] as const;
 export const ELEVATOR_VALUES = ["yes", "no", "unknown"] as const;
 
+export const MAX_NAME = 120;
 export const MAX_ENTRANCE_NOTES = 500;
 export const MAX_COMMENT = 1000;
 export const MAX_ADDRESS = 200;
@@ -81,6 +82,9 @@ export function validateTrimmedName(
   if (typeof name !== "string") return { ok: false, reason: "name_required" };
   const trimmed = name.trim();
   if (!trimmed) return { ok: false, reason: "name_required" };
+  if (trimmed.length > MAX_NAME) {
+    return { ok: false, reason: "name_too_long" };
+  }
   return { ok: true, name: trimmed };
 }
 
@@ -234,4 +238,24 @@ export function timingSafeEqual(left: string, right: string): boolean {
     mismatch |= left.charCodeAt(index) ^ right.charCodeAt(index);
   }
   return mismatch === 0;
+}
+
+/** Telegram hard limit is 4096; keep headroom for multibyte chars. */
+export const TELEGRAM_MESSAGE_SAFE_LIMIT = 3900;
+
+export function chunkTelegramText(
+  text: string,
+  maxLength = TELEGRAM_MESSAGE_SAFE_LIMIT,
+): string[] {
+  if (text.length <= maxLength) return [text];
+  const chunks: string[] = [];
+  let remaining = text;
+  while (remaining.length > maxLength) {
+    let splitAt = remaining.lastIndexOf("\n", maxLength);
+    if (splitAt < maxLength * 0.5) splitAt = maxLength;
+    chunks.push(remaining.slice(0, splitAt));
+    remaining = remaining.slice(splitAt).replace(/^\n/, "");
+  }
+  if (remaining.length) chunks.push(remaining);
+  return chunks;
 }

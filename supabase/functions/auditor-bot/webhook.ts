@@ -10,9 +10,12 @@ export function validateWebhookSecret(
   return { ok: true };
 }
 
-export function parseTelegramUpdate(
-  body: unknown,
-): { ok: true; update: TelegramUpdate } | { ok: false; reason: string } {
+export type ParsedTelegramUpdate =
+  | { ok: true; kind: "action"; update: TelegramUpdate }
+  | { ok: true; kind: "ignored"; update: TelegramUpdate }
+  | { ok: false; reason: string };
+
+export function parseTelegramUpdate(body: unknown): ParsedTelegramUpdate {
   if (!body || typeof body !== "object") {
     return { ok: false, reason: "malformed_update" };
   }
@@ -21,9 +24,9 @@ export function parseTelegramUpdate(
     return { ok: false, reason: "missing_update_id" };
   }
   if (!update.message && !update.callback_query) {
-    return { ok: false, reason: "unsupported_update" };
+    return { ok: true, kind: "ignored", update };
   }
-  return { ok: true, update };
+  return { ok: true, kind: "action", update };
 }
 
 export function extractTelegramId(update: TelegramUpdate): number | null {
