@@ -342,10 +342,12 @@ async function handleCallback(
       return session;
     }
     session = withSession(session, {
-      state: session.draft.flow === "edit"
-        ? "edit_facts_steps"
-        : "verify_facts_steps",
-      draft: { ...session.draft, status, step: "steps_count" },
+      state: factState(session, "steps_count"),
+      draft: {
+        ...session.draft,
+        status,
+        step: "steps_count",
+      },
     });
     return promptFactStep(deps, session, chatId, "steps_count");
   }
