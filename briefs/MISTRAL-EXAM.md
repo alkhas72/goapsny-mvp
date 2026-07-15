@@ -1,113 +1,109 @@
-# Mistral Medium 3.5 — bounded field exam
+# Vibe / Mistral Medium 3.5 — field task 1: G1 seed utility
 
-Model: `mistral-medium-3.5` through Mistral Vibe CLI  
-Worktree/branch: `feat/mistral-probe`  
-Priority: lab-only, outside the GoApsny critical path  
-Mode: `superpowers-full` for a new tested utility. Design/acceptance below is approved; skip a second brainstorming session, write a short plan, then use test-first implementation.  
-Conductor: SOL; do not edit conductor briefs or `run-log.md`.
+Owner: Mistral Vibe CLI, model `mistral-medium-3.5`
+Worktree/branch: `feat/mistral-probe`
+Role: draft horse for bounded mechanics; continuing field exam through real work
+Priority: parallel, outside critical path; T1's fixture harness proceeds independently
+Mode: `superpowers-full` for a new write-capable test utility; requirements are approved, so write a short plan then use tests first.
+Conductor: SOL; do not edit `run-log.md` or any other worktree.
 
-## Purpose
+## Standing context
 
-Build a small dependency-free preflight CLI that catches two migration failures observed in the live sprint: duplicate Supabase migration versions and unsafe new `SECURITY DEFINER` search paths. This is an executor-capability exam and a potentially useful integration guard; it does not unblock T1/T3 and must not touch product runtime behavior.
+- Write-probe passed: exact 21-byte write and clean deletion under the native permission sandbox.
+- Critic/auditor role is closed after the prior lab failure. This task evaluates only bounded implementation discipline.
+- Highest available subscription model is Medium 3.5. Subscription is not renewed by default after the paid cycle around 2026-08-13; until then Vibe receives a continuing queue of mechanical tasks.
+- This file supersedes the earlier synthetic migration-linter exam. Do not implement that discarded task.
+
+## Real task
+
+Build a deterministic, idempotent G1 test-data seed utility for the isolated Supabase test project. It prepares the exact four place/photo cases needed by the anonymous PWA smoke:
+
+1. published gray + facade;
+2. published colored + facade;
+3. pending + facade;
+4. hidden + facade.
+
+This is a parallel candidate artifact. It must not delay, replace, or write into T1's critical fixture harness. SOL will compare/reuse it only after independent review.
 
 ## Read first
 
-1. Root `AGENTS.md` and `docs/rls-checklist.md`.
-2. `supabase/migrations/0001_initial_schema.sql` only as the named legacy baseline, not as a pattern to copy.
-3. `/Users/alkhas.abaza/Obsidian/wiki/from-codex/cursor-candidates-model-bench-exam-2026-07-12.md` for the factual exam protocol: isolated CWD, artifact evidence, independent verification, no invented cost metric.
+1. Root `AGENTS.md`, `docs/rls-checklist.md`, baseline schema and canonical seeds.
+2. `/Users/alkhas.abaza/.supacode/repos/goapsny-mvp/feat/goapsny-sprint/briefs/OBJECT-CONTRACT.md` §§2–4, 7, 9.
+3. `/Users/alkhas.abaza/.supacode/repos/goapsny-mvp/feat/goapsny-sprint/briefs/G1-TEST-ENV.md` and `T1-TESTDB-GATE-2026-07-15.md`.
+4. Exam protocol `/Users/alkhas.abaza/Obsidian/wiki/from-codex/cursor-candidates-model-bench-exam-2026-07-12.md`: factual artifacts, independent verification, no invented cost metric.
 
-If the worktree is not `feat/mistral-probe`, or it has unrelated user changes overlapping the allowed files, stop and report. Do not create another worktree.
+Confirm branch `feat/mistral-probe` and clean allowed paths before writing. Do not create another worktree.
 
-## Task
+## Allowed files
 
-Implement a Node.js CLI using only built-in modules:
+Maximum five files:
+
+- `scripts/seed-g1-test-data.mjs`
+- `scripts/lib/g1-test-fixtures.mjs`
+- `tests/g1-test-fixtures.test.mjs`
+- `MISTRAL-FIELD-REPORT.md`
+- `.gitignore` only if `.env.test.local` is not already ignored
+
+Do not edit migrations, seeds, package/lock files, app/Edge code, config, or conductor docs.
+
+## Interface and safety
+
+Use only Node built-ins and dependencies already present in the repository. No install/network research.
+
+Required commands:
 
 ```bash
-node scripts/check-supabase-migrations.mjs \
-  --dir supabase/migrations \
-  --legacy 0001_initial_schema.sql \
-  --json
+node scripts/seed-g1-test-data.mjs --plan --env-file .env.test.local
+node scripts/seed-g1-test-data.mjs --apply --env-file .env.test.local
 ```
 
-Allowed implementation boundary — no more than these four files:
+The utility must:
 
-- `scripts/check-supabase-migrations.mjs`
-- `scripts/lib/migration-safety.mjs`
-- `tests/migration-safety.test.mjs`
-- `MISTRAL-EXAM-REPORT.md`
+- read only `TEST_SUPABASE_URL`, `TEST_SUPABASE_SERVICE_ROLE_KEY`, and `TEST_SUPABASE_PROJECT_REF`; never accept service role from `VITE_*`, ordinary `SUPABASE_*`, CLI arguments, or source literals;
+- fail closed unless the URL hostname project ref exactly matches `TEST_SUPABASE_PROJECT_REF`;
+- require explicit `--plan` or `--apply`; default/ambiguous arguments exit nonzero;
+- make `--plan` perform no network or writes and print only fixture IDs/names/paths plus intended counts;
+- require `G1_TEST_SEED_CONFIRM` to equal `TEST_SUPABASE_PROJECT_REF` before `--apply`;
+- never print keys, authorization headers, full env contents, or database passwords;
+- treat the required `G1_TEST_SEED_CONFIRM` equality as the explicit isolated-project marker and refuse apply without it;
+- use deterministic UUIDs, names, category/status/moderation combinations, coordinates near Sukhum, `details.schema_version=1`, and exact `{place_id}/facade.jpg` paths;
+- upsert/rerun idempotently without deleting unrelated rows or objects;
+- upload a tiny valid JPEG facade for each fixture to private `place-photos`, then upsert matching photo metadata;
+- set `created_by`/`uploaded_by` null unless a reviewed test identity is explicitly provided; do not create Auth users;
+- return a nonzero exit if any expected row/object operation fails or final counts differ.
 
-Do not modify `package.json`, migrations, application/Edge Function code, config, docs, env files, or lockfiles.
-
-## Required behavior
-
-1. Read only top-level `*.sql` files from `--dir`, sorted lexicographically.
-2. A valid Supabase migration filename begins with decimal digits followed by `_`. The decimal prefix is its version.
-3. Report `INVALID_FILENAME` for a top-level SQL filename that does not match that shape.
-4. Report `DUPLICATE_VERSION` for every file participating in a duplicate version. This must catch two distinct files such as `0003_alpha.sql` and `0003_beta.sql`.
-5. For every non-legacy SQL file containing executable `SECURITY DEFINER`, require the same `CREATE [OR REPLACE] FUNCTION ...` statement header to contain `SET search_path = ''`. Support ordinary PostgreSQL dollar-quoted function bodies (`$$` and `$tag$`) well enough not to split a function at semicolons inside its body.
-6. Report `UNSAFE_SEARCH_PATH` when that statement uses `SET search_path = public`, and `MISSING_EMPTY_SEARCH_PATH` when it has no exact empty search path.
-7. `SECURITY DEFINER` occurring only in `--` comments or `/* ... */` comments must not trigger a violation.
-8. `--legacy <basename>` may be repeated. It exempts only the search-path checks for that exact basename; it never exempts filename or duplicate-version checks.
-9. Output is deterministic. Violations are sorted by file, then line, then code and have this JSON shape:
-
-```json
-{
-  "ok": false,
-  "filesChecked": 2,
-  "violations": [
-    { "code": "DUPLICATE_VERSION", "file": "0003_alpha.sql", "line": 1, "message": "..." }
-  ]
-}
-```
-
-10. With `--json`, stdout contains JSON only. Exit codes: `0` clean, `1` policy violations, `2` invalid arguments or I/O failure. Diagnostics for exit `2` go to stderr without stack traces or secrets.
-11. Export pure analysis functions from `scripts/lib/migration-safety.mjs` so unit tests do not need to spawn the CLI for every case.
+Because schema apply is still an Alkhas/SOL gate, do not run `--apply` until staff explicitly says the reviewed test project is migrated and authorizes that exact command. Implementation and local tests can finish without live writes.
 
 ## Required tests
 
-Use `node:test`, `node:assert/strict`, and temporary directories under `os.tmpdir()`. Cover at minimum:
+Use `node:test` and dependency injection/fakes so tests perform no network. Cover at minimum:
 
-1. clean uniquely versioned migrations;
-2. invalid filename;
-3. both files reported for a duplicate version;
-4. safe `SECURITY DEFINER` with `SET search_path = ''` and semicolons inside a dollar-quoted body;
-5. unsafe `SET search_path = public`;
-6. missing empty search path;
-7. line and block comments ignored;
-8. repeated `--legacy` behavior without filename/duplicate exemption;
-9. deterministic violation ordering;
-10. CLI JSON and exit codes `0`, `1`, and `2`.
+1. exact stable four-fixture definitions and unique UUID/path pairs;
+2. published gray and colored plus pending/hidden lifecycle fields;
+3. facade-only path and JPEG content type;
+4. plan mode performs zero client calls;
+5. missing/wrong project-ref guard fails before client creation;
+6. service-role fallback/CLI injection is impossible;
+7. missing/wrong confirmation blocks apply;
+8. idempotent second apply has the same final state/counts;
+9. partial upload/metadata failure returns nonzero and does not claim success;
+10. logs/reports contain no supplied secret sentinel.
 
-Run and report exact outputs:
+Run:
 
 ```bash
-node --test tests/migration-safety.test.mjs
-node scripts/check-supabase-migrations.mjs --dir supabase/migrations --legacy 0001_initial_schema.sql --json
+node --test tests/g1-test-fixtures.test.mjs
+node scripts/seed-g1-test-data.mjs --plan --env-file .env.test.local
 git diff --check
 git status --short
 ```
 
-The real-repository scan should be clean on the isolated branch; do not weaken rules or add undocumented allowlists merely to make it green.
+If `.env.test.local` is not provisioned in this worktree, test plan mode with a temporary fake env file containing unmistakably non-secret sentinel values and report that live plan/apply remains staff-gated. Do not copy or inspect T1's env file yourself.
 
-## Safety and stop conditions
+## Commit and report
 
-- No network, package installation, external API/model calls, secrets, database connection, Supabase/Vercel operations, deploy, webhook, or Telegram action.
-- Never write outside the existing worktree. Temporary test directories must be removed by test cleanup.
-- Do not inspect or modify T1/T3 active worktrees.
-- Do not merge, rebase, force-push, or touch `main`.
-- If correct SQL statement association would require a full SQL parser, implement the narrow documented function-statement scanner and state its limits; do not silently broaden claims.
+Make one focused commit and push only `feat/mistral-probe` if the session has permission. Do not open a PR.
 
-## Handoff
+`MISTRAL-FIELD-REPORT.md` must contain model/surface, elapsed time, plan, red→green evidence, exact changed files/line counts, commands/exits/test counts, SHA/push result, limitations, whether live apply was correctly not run, and `READY FOR SOL FIELD REVIEW` or `BLOCKED`.
 
-After green verification, make one focused commit and push only `feat/mistral-probe` if the existing session has that permission. Do not open a PR. `MISTRAL-EXAM-REPORT.md` must include:
-
-- model/surface and mode used;
-- start/end/elapsed wall time;
-- plan followed and any red→green correction;
-- exact changed files and line counts;
-- exact commands, exits, and test counts;
-- commit SHA and push result, or the exact permission blocker;
-- remaining parser limitations;
-- `READY FOR SOL EXAM REVIEW` or `BLOCKED`.
-
-Do not self-assign a roster role or invent contribution-per-dollar: the dollar denominator is unavailable on a subscription surface. SOL independently reruns the suite and evaluates usefulness, correctness, scope discipline, and safety.
+No self-assigned roster verdict or cost-per-dollar estimate. SOL performs independent review. After this report, notify staff immediately for field task 2; do not start an invented task or touch critical-path work.

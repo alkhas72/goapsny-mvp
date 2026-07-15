@@ -183,3 +183,18 @@
 - Read-only T3 snapshot: branch `feat/tg-auditors`, local HEAD `eb99de9` (`feat(tg-auditors): add bot session tables and atomic publish RPC`), ahead of `origin/main` by one; migration/runtime/report work remains dirty/untracked. Staff reports the active suite at 49 passed / 0 failed; SOL has not independently rerun it against a final SHA.
 - `.env.test.local` remains excluded from field edits by instruction. No migration/seed apply is authorized while the T1 DB gate is HOLD.
 - No WALL is open: both executors are active after recovery. SOL waits for pushed branch tips and exact SHAs, then performs immutable re-review; local intermediate commits do not open G1/G2 gates.
+
+## 2026-07-15 04:58 MSK — arbiter directive accepted: six parallel field lanes
+
+- SOL read the full directive `/Users/alkhas.abaza/Obsidian/wiki/06-AI-TECH/goapsny-sprint-staff-directive-2026-07-15.md` and accepts the corrected role map v1.1: Kimi and Z are active executors. Unused model windows are now scheduled in parallel; this does not broaden deploy/apply/merge authority or move G1/G2 arbitration away from Alkhas.
+- Six field lanes are issued/continued:
+  1. Composer №1 / T1: existing `briefs/T1.md`, `T1-REVIEW-2026-07-14.md`, and `T1-TESTDB-GATE-2026-07-15.md`.
+  2. Composer №2 / T3: existing `briefs/T3.md` and `T3-REREVIEW-2026-07-14.md`.
+  3. Z (`GLM-5.2`, desktop ZCode) / T2 roles-RLS: new `briefs/T2-Z-RLS.md`; separate branch `feat/t2-roles-rls`; migration/test preparation only, DB apply remains the Alkhas password gate.
+  4. Kimi K2.7 Code / independent test belt: new `briefs/KIMI-TEST-BELT.md`; separate branch `feat/test-belt`; pinned-SHA T1/T3 regression tests first, minor fixes only after explicit non-overlap assignment.
+  5. Vibe / Mistral Medium 3.5: `briefs/MISTRAL-EXAM.md` replaced by real field task 1, an idempotent G1 test seed utility in `feat/mistral-probe`. The discarded synthetic migration-linter task is explicitly superseded. No live apply before staff/SOL gate.
+  6. Antigravity: `briefs/ANTIGRAVITY.md` replaced with a permanent queue—mobile G1 QA and cmux official-source research start immediately; adversarial T2 re-audit triggers on Z's pushed SHA; completion carries a mandatory next-brief signal.
+- Ownership collision resolved without weakening the directive: T1 already owns the HIGH anon read policies for published photo metadata/private Storage. Z must pin and test that dependency against T1's SHA and owns the remaining role/profile/public-user Storage/atomic-RPC migrations; it must not create duplicate policies or migration versions.
+- Fresh read-only tips now exist: T1 pushed `fc2b7dd` on `origin/feat/pwa-public` (three implementation blocks plus report; local `T1-REPORT.md` has a later dirty delta), and T3 pushed clean `faa7993` on `origin/feat/tg-auditors`. SOL re-review pins these immutable SHAs; the dirty T1 report is not evidence until committed.
+- Critical path rule: T1/T3 immutable re-review and T1 DB HOLD decision remain first SOL work. Z/Kimi/Vibe/Antigravity proceed in their own worktrees/contours and cannot block G1. One writer per worktree remains binding.
+- No WALL. No DB migration/seed apply, Vercel deploy, Supabase secret change, auditor webhook, PR, or `main` merge is authorized by this roster expansion.

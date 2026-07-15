@@ -1,51 +1,79 @@
-# Antigravity — external cross-audit and research
+# Antigravity — permanent external queue, 2026-07-15
 
-Owner: Antigravity, external chat contour
-Mode: read-only, bounded, non-critical path
-Conductor: SOL; no repository writes, deploys, secrets, or product decisions.
+Owner: Antigravity through external chat/staging
+Role: full-time external auditor/researcher; read-only to repositories
+Priority: continuous parallel queue; never blocks Composer critical path by waiting
+Conductor: SOL; product decisions and gates remain Alkhas.
 
-## Mission A — contract/brief cross-audit
+## Standing rules
 
-Read:
+- No repository writes, credentials, database apply, deploy, webhook, external production action, PR, merge, or product arbitration.
+- Findings require exact local file/SHA/line evidence. Research requires current official primary sources, direct links, and access date.
+- Separate verified fact, inference/recommendation, and unresolved question.
+- A green executor report is not evidence; trace the implementation and acceptance path.
+- Queue must not become empty. Package 1 and 2 start immediately in parallel/order available; package 3 starts as soon as Z supplies a pushed SHA. On completing the last available package, notify HQ/SOL in the same message so the next package is issued without idle time.
 
-- `/Users/alkhas.abaza/.supacode/repos/goapsny-mvp/feat/goapsny-sprint/briefs/OBJECT-CONTRACT.md`
-- `/Users/alkhas.abaza/.supacode/repos/goapsny-mvp/feat/goapsny-sprint/briefs/T1.md` through `T4.md`
-- both field worktrees' root `AGENTS.md`, `DESIGN.md`, backend contract, RLS checklist, current migrations/functions
-- secure reference commits named in the briefs
+## Package 1 — G1 mobile QA scenarios (start now)
 
-Check only:
+Produce a concise executable manual/automation-ready matrix for the public PWA and later OTP contribution flow at the candidate test URL `https://pwa-test-14-07.vercel.app` (availability/deploy not yet claimed).
 
-1. internal contradictions among T1–T4 and the object lifecycle;
-2. RLS/RPC/Storage privilege escalation, half-object, ownership, and enumeration risks;
-3. email-profile role safety versus existing Telegram roles;
-4. Telegram webhook identity/idempotency/concurrency risks;
-5. missing executable acceptance evidence or task ownership collision;
-6. scope drift against the explicit exclusions.
+Cover at minimum:
 
-Return a findings table: severity (`BLOCKER/HIGH/MEDIUM/LOW`), exact file/section, evidence, impact, smallest correction, and whether it blocks Phase A. Do not rewrite the contract or invent product behavior. “No finding” is allowed only after tracing each lifecycle transition.
+- iOS Safari and Android Chrome; 360×740, 390×844, tablet portrait/landscape;
+- anonymous first visit, repeat visit, welcome persistence, empty/loading/error/populated map;
+- Russian-only UI with no dead language switch;
+- geolocation permission only after explicit action: allow/deny/timeout/retry;
+- keyboard/switch-control focus order, pin activation, menu/filter/place-sheet traps and focus return;
+- pinch zoom enabled, 200% text zoom/reflow, 44×44 targets, status word+color, purple ramp text;
+- gray/published and colored facade cards, missing-photo partial state, hidden/pending absence;
+- offline/network-loss honesty, service worker update/reload, manifest/install path including iOS Add to Home Screen;
+- placeholder/external link safety, tile attribution, console/network errors;
+- later email OTP: map remains public, wrong/expired code, resend cooldown, session restore/sign-out, one gray submission, no post-submit edit.
 
-## Mission B — primary-source research
+For each scenario provide: ID, precondition/fixture, device/browser, actions, expected observable result, evidence to capture, severity if failed, automation feasibility. Distinguish G1 must-pass from later/nonblocking. Do not invent canonical external URLs or claim a device run occurred.
 
-Use current official primary documentation only. Research narrowly:
+Output: `goapsny-antigravity-mobile-qa-2026-07-15.md` through HQ chat/staging.
 
-- Supabase email OTP token flow and template/rate-limit constraints;
-- safe profile creation/default role patterns;
-- security-definer RPC hardening (`search_path`, grants, caller identity);
-- private Storage ownership/RLS and signed public reads;
-- Telegram webhook secret-token, retry/idempotency, callback/file-download constraints;
-- installability constraints relevant to the T1 Vite PWA, especially iOS Safari.
+## Package 2 — cmux research checkpoint (start now; research only)
 
-Separate verified facts, inference/recommendation, and unresolved questions. Provide direct source links and access dates. Do not recommend a vendor/framework migration.
+Research the current cmux product using official documentation/repository/releases only:
 
-## Output
+1. socket/API surface: exact transport, commands/events, authentication/trust boundary, ability to enumerate workspaces/panes, read status, create/focus/send input, and observability hooks;
+2. iOS/iPad app: whether an official app exists, exact capabilities, remote connection model, limitations, and release status;
+3. Attention Queue: exact feature behavior, trigger sources, persistence, routing, APIs/hooks, and whether it can carry B0 wall/gate signals;
+4. installation/runtime requirements, licensing, security model, headless/automation boundary, and version/date checked;
+5. factual comparison to the sprint's needs only: observation, permission-wall detection, safe message delivery, and human arbitration. Do not recommend a migration or reopen Rev A during the sprint.
 
-Send both reports to HQ/SOL in chat or place them only in `/private/tmp`:
+Return a source table and a verdict per required capability: `verified`, `partial`, `absent`, or `unknown`. Highlight any claim from prior discussions that official evidence contradicts.
 
-- `/private/tmp/goapsny-antigravity-crossaudit-2026-07-14.md`
-- `/private/tmp/goapsny-antigravity-research-2026-07-14.md`
+Output: `cmux-research-checkpoint-antigravity-2026-07-15.md` through HQ chat/staging.
 
-Timebox: first blocker scan before Phase A's first green block; deeper research may continue in parallel. Any product fork goes to Alkhas. Any claimed issue must cite local evidence or an official source.
+## Package 3 — T2-Z post-fix adversarial audit (wait only for SHA)
 
-## Mistral handoff rule
+Trigger: staff supplies the exact pushed `feat/t2-roles-rls` SHA and `T2-Z-REPORT.md` path. Audit that immutable artifact, not a moving worktree.
 
-The senior Mistral CLI model is only a candidate for one later bounded validation task chosen after SOL reviews Mission B. It is not a fallback conductor, not on the critical path, and receives no secrets/deploy authority.
+Trace:
+
+- new email profile creation/default role cannot become `tester` or trust metadata;
+- legitimate Telegram auditor roles are not demoted or blocked;
+- `public_user` facade Storage insert/delete is exact-owner/exact-path/unreferenced only;
+- `submit_public_place` caller identity, category/coordinate/path/object checks;
+- atomic place+photo visibility and failure cleanup;
+- `SECURITY DEFINER`, empty search path, qualification, ownership and execute grants;
+- anon published photo/Storage reads interoperate with T1 without duplicate policy/migration ownership;
+- direct table writes, role/status/source/creator forgery, cross-owner paths, extra kinds, replay/UUID reuse, and enumeration remain denied;
+- tests are non-vacuous and any unrun live DB behavior is labeled prerequisite.
+
+Return findings ordered `BLOCKER/HIGH/MEDIUM/LOW`, each with file/line evidence, exploit/failure path, smallest correction, and whether it blocks the DB apply gate. “No finding” requires a checklist trace of every item above.
+
+Output: `goapsny-antigravity-t2-rereview-2026-07-15.md` through HQ chat/staging.
+
+## Continuity signal
+
+Every completion message ends with:
+
+```text
+ANTIGRAVITY QUEUE: completed <package>; active <package or none>; waiting <dependency or none>; NEXT BRIEF NEEDED <yes/no>.
+```
+
+If `NEXT BRIEF NEEDED yes`, HQ signals SOL immediately. Antigravity must not invent product work while waiting; SOL keeps a follow-on bounded package ready.
