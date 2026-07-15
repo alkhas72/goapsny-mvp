@@ -74,9 +74,7 @@ supabase db lint --local                                # NOT RUN — local Supa
 | 2 — env + idempotency + telegram transport | `cd24e72` | `env.ts`, `idempotency.ts`, `telegram_client.ts`, auth/webhook/session/types, tests |
 | 3 — callbacks + facade + enum validation | `6cad6ac` | `callbacks.ts`, `facade_delivery.ts`, `keyboards.ts`, `facts.ts`, `validation.ts`, tests |
 | 4 — handler + RPC publish + full suite | `d2e72ff` | `handler.ts`, `index.ts`, `places.ts`, `supabase_stores.ts`, deno config, tests |
-| 5 — report | `ce7167e` | `T3-REPORT.md` |
-
-**Branch tip:** `ce7167e`
+| 5 — report | `9604bc1` | `T3-REPORT.md` (initial); SHA doc fix in follow-up commit |
 
 ## Live prerequisites (not executed)
 
