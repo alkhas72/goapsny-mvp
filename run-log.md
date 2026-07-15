@@ -272,3 +272,13 @@
 - T1 review is now open at the immutable pushed SHA. Independent review profiles and local safe checks are running. No test-DB apply, deploy, secret/webhook mutation, external message, PR, or main merge is authorized or being performed.
 - Two permanent operating requirements are accepted for incorporation into the working contract: machine-sourced session statistics in conductor signatures, with honest `UNKNOWN` where unavailable; and human-readable session/tab naming `Surface-Model — task`, with `TECH-` first for non-agent technical sessions.
 - Progress cadence is restored: append a factual run-log checkpoint no later than 20 minutes while the critical review is open. After T1 and T3 verdicts SOL will write the handoff passport and stop at the director-rotation gate.
+
+## 2026-07-15 17:58 MSK — SOL — T1 immutable re-review complete; DB HOLD
+
+- Immutable T1 `fc2b7dd` was reviewed independently and recorded in `briefs/T1-REREVIEW-2026-07-15.md`. Verdict: **CHANGES REQUIRED**. Test-DB verdict: **HOLD**; no migration or fixture apply was performed.
+- Machine checks at the immutable tip: unit tests 17/17 PASS, build PASS with the known 578.74 kB chunk warning, browser smoke 14/14 PASS, lint FAIL at 9 errors + 2 warnings. The pushed report's lint count is not reproducible.
+- The redacted test-env preflight confirmed that the configured test URL host matches `TEST_SUPABASE_PROJECT_REF`. The read-only remote smoke then failed 3/9 because all six required fixture IDs/paths are absent.
+- DB HOLD cause is code-level, not merely empty state: the harness only discovers arbitrary rows, provisions no deterministic fixture set, never checks the URL host against `TEST_SUPABASE_PROJECT_REF`, and falls back to non-test URL/key variables. This fails the accepted DB gate.
+- Additional release blockers: T1 replaces the repository's single Telegram Mini App entrypoint rather than preserving a separate public route/build; required `VITE_SUPABASE_*` variables are absent from `.env.example`; populated map/marker/sheet/filter integration and real Tab wrapping remain unproved; public corpus loading is unbounded; visual/device gates remain closed.
+- Prior fixes verified: zoom restriction removed, attribution restored, language switch removed, geolocation is user-triggered, and implementation commits are pushed. No deploy, DB apply, secret/webhook change, PR, main merge, or external message occurred.
+- Recovery sequence now advances to immutable T3 `faa7993` re-review. Next disk checkpoint remains due within 20 minutes while the critical path is open.
