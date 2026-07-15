@@ -2,39 +2,44 @@ import L from "leaflet";
 import { useEffect, useRef, useState } from "react";
 import type { Place } from "../types";
 import { telegram } from "../utils/telegram";
+import { getBrowserLocation } from "../utils/location";
+import { statusColor, statusLabel } from "../utils/status";
+import type { AccessibilityStatus } from "../shared/index";
 
 const SUKHUM_CENTER: L.LatLngExpression = [43.0033, 41.0237];
+const ATTRIBUTION =
+  '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>';
 
-const tileLayers = {
-  dark: {
-    url: "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",
-    attribution:
-      '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>',
-  },
-  light: {
-    url: "https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png",
-    attribution:
-      '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>',
-  },
-};
+function escapeAttr(value: string): string {
+  return value.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;");
+}
 
-function getPinHtml(status: string, rampType: string, isSelected: boolean): string {
-  const statusColor = status === "green" ? "#2EA84A" : status === "yellow" ? "#EBA92B" : "#E24B4A";
+function getPinHtml(
+  placeName: string,
+  status: string,
+  rampType: string,
+  isSelected: boolean,
+  placeId: string,
+): string {
+  const statusColorValue =
+    status === "green" || status === "yellow" || status === "red" || status === "gray"
+      ? statusColor(status as AccessibilityStatus)
+      : "#A0A8B0";
   const hasPortableRamp = rampType === "portable_available" || rampType === "portable_on_request";
-  
-  // Center is purple only on green and yellow pins. On red, it's always white.
   const isPurpleCenter = hasPortableRamp && (status === "green" || status === "yellow");
-  
   const centerFill = isPurpleCenter ? "#7A5AF8" : "#FFFFFF";
-  const centerStroke = isPurpleCenter ? 'stroke="#FFFFFF" stroke-width="2.5"' : '';
+  const centerStroke = isPurpleCenter ? 'stroke="#FFFFFF" stroke-width="2.5"' : "";
+  const label = escapeAttr(`${placeName}, ${statusLabel(status as AccessibilityStatus)}`);
 
   return `
-    <div class="leaflet-pin-wrapper ${isSelected ? "is-selected" : ""}">
-      <svg width="28" height="36" viewBox="0 0 28 36" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <path d="M14 36C14 36 27 24 27 14C27 6.8 21.2 1 14 1C6.8 1 1 6.8 1 14C1 24 14 36 14 36Z" fill="${statusColor}" stroke="#FFFFFF" stroke-width="1.8" stroke-linejoin="round"/>
-        <circle cx="14" cy="14" r="5.5" fill="${centerFill}" ${centerStroke}/>
-      </svg>
-    </div>
+    <button type="button" class="map-pin-button ${isSelected ? "is-selected" : ""}" data-place-id="${placeId}" aria-label="${label}">
+      <span class="leaflet-pin-wrapper ${isSelected ? "is-selected" : ""}" aria-hidden="true">
+        <svg width="28" height="36" viewBox="0 0 28 36" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M14 36C14 36 27 24 27 14C27 6.8 21.2 1 14 1C6.8 1 1 6.8 1 14C1 24 14 36 14 36Z" fill="${statusColorValue}" stroke="#FFFFFF" stroke-width="1.8" stroke-linejoin="round"/>
+          <circle cx="14" cy="14" r="5.5" fill="${centerFill}" ${centerStroke}/>
+        </svg>
+      </span>
+    </button>
   `;
 }
 
@@ -49,6 +54,8 @@ interface LeafletMapProps {
     lng: number;
     onChange: (lat: number, lng: number) => void;
   };
+  useBrowserGeolocation?: boolean;
+  onMarkerButton?: (placeId: string, button: HTMLButtonElement | null) => void;
 }
 
 export function LeafletMap({
@@ -58,6 +65,8 @@ export function LeafletMap({
   onSelectPlace,
   onClearSelection,
   dragMode,
+  useBrowserGeolocation = false,
+  onMarkerButton,
 }: LeafletMapProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<L.Map | null>(null);
@@ -66,8 +75,6 @@ export function LeafletMap({
   const markersGroupRef = useRef<L.LayerGroup | null>(null);
   const userMarkerRef = useRef<L.Marker | null>(null);
   const draggableMarkerRef = useRef<L.Marker | null>(null);
-
-  const [hasLocated, setHasLocated] = useState(false);
 
   // 1. Initialize Map
   useEffect(() => {
@@ -81,6 +88,7 @@ export function LeafletMap({
     });
 
     L.control.zoom({ position: "bottomright" }).addTo(map);
+    L.control.attribution({ position: "bottomleft", prefix: false }).addTo(map);
     mapRef.current = map;
     markersGroupRef.current = L.layerGroup().addTo(map);
 
@@ -130,7 +138,7 @@ export function LeafletMap({
       baseLayerRef.current = L.tileLayer(
         "https://{s}.basemaps.cartocdn.com/dark_nolabels/{z}/{x}/{y}{r}.png",
         {
-          attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>',
+          attribution: ATTRIBUTION,
           maxZoom: 19,
         }
       ).addTo(map);
@@ -143,50 +151,17 @@ export function LeafletMap({
         }
       ).addTo(map);
     } else {
-      const config = tileLayers.light;
-      baseLayerRef.current = L.tileLayer(config.url, {
-        attribution: config.attribution,
-        maxZoom: 19,
-      }).addTo(map);
+      baseLayerRef.current = L.tileLayer(
+        "https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png",
+        {
+          attribution: ATTRIBUTION,
+          maxZoom: 19,
+        }
+      ).addTo(map);
     }
   }, [theme]);
 
-  // 3. User Geolocation centering upon opening
-  useEffect(() => {
-    const map = mapRef.current;
-    if (!map || hasLocated || dragMode) return;
-
-    const centerOnUser = async () => {
-      try {
-        const pos = await telegram.getUserLocation();
-        map.setView([pos.lat, pos.lng], 16, { animate: true });
-
-        // Add user location blue marker
-        if (userMarkerRef.current) {
-          map.removeLayer(userMarkerRef.current);
-        }
-
-        const icon = L.divIcon({
-          className: "user-location-marker",
-          html: '<div class="user-marker-pulse"></div>',
-          iconSize: [24, 24],
-          iconAnchor: [12, 12],
-        });
-
-        userMarkerRef.current = L.marker([pos.lat, pos.lng], { icon, interactive: false }).addTo(map);
-        setHasLocated(true);
-      } catch (e) {
-        console.warn("Could not get user position on startup, centering default", e);
-        // Fallback to center
-        map.setView(SUKHUM_CENTER, 15);
-        setHasLocated(true);
-      }
-    };
-
-    centerOnUser();
-  }, [hasLocated, dragMode]);
-
-  // 4. Render POI Markers
+  // 3. Render POI Markers
   useEffect(() => {
     const group = markersGroupRef.current;
     const map = mapRef.current;
@@ -198,20 +173,32 @@ export function LeafletMap({
       const isSelected = place.id === selectedPlaceId;
       const icon = L.divIcon({
         className: "goapsny-leaflet-marker",
-        html: getPinHtml(place.status, place.rampType || "none", isSelected),
-        iconSize: [28, 36],
-        iconAnchor: [14, 36],
+        html: getPinHtml(place.name, place.status, place.rampType || "none", isSelected, place.id),
+        iconSize: [44, 44],
+        iconAnchor: [22, 44],
       });
 
       const marker = L.marker([place.lat, place.lng], { icon }).addTo(group);
-      marker.on("click", (e) => {
-        L.DomEvent.stopPropagation(e);
-        if (onSelectPlace) {
-          onSelectPlace(place.id);
-        }
+      marker.on("add", () => {
+        const button = marker.getElement()?.querySelector("button.map-pin-button") as HTMLButtonElement | null;
+        if (!button) return;
+        onMarkerButton?.(place.id, button);
+        const activate = (event: Event) => {
+          L.DomEvent.stopPropagation(event);
+          onSelectPlace?.(place.id);
+        };
+        L.DomEvent.on(button, "click", activate);
+        L.DomEvent.on(button, "keydown", (event: Event) => {
+          const keyEvent = event as KeyboardEvent;
+          if (keyEvent.key === "Enter" || keyEvent.key === " ") {
+            keyEvent.preventDefault();
+            activate(event);
+          }
+        });
       });
+      marker.on("remove", () => onMarkerButton?.(place.id, null));
     });
-  }, [places, selectedPlaceId, onSelectPlace, dragMode]);
+  }, [places, selectedPlaceId, onSelectPlace, dragMode, onMarkerButton]);
 
   // 5. Select Center Panning
   useEffect(() => {
@@ -242,7 +229,7 @@ export function LeafletMap({
       } else {
         const icon = L.divIcon({
           className: "goapsny-leaflet-marker",
-          html: getPinHtml("yellow", "none", true),
+          html: getPinHtml("Новое место", "yellow", "none", true, "draft"),
           iconSize: [28, 36],
           iconAnchor: [14, 36],
         });
@@ -274,7 +261,9 @@ export function LeafletMap({
     if (!map) return;
     setLocating(true);
     try {
-      const pos = await telegram.getUserLocation();
+      const pos = useBrowserGeolocation
+        ? await getBrowserLocation()
+        : await telegram.getUserLocation();
       map.setView([pos.lat, pos.lng], 16, { animate: true });
 
       // Update/add user marker
@@ -304,6 +293,7 @@ export function LeafletMap({
           onClick={handleLocate}
           style={{ pointerEvents: "auto" }}
           title="Найти меня"
+          aria-label="Найти меня"
         >
           <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2.5">
             <circle cx="12" cy="12" r="10" />

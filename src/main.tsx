@@ -3,6 +3,9 @@ import { createRoot } from 'react-dom/client';
 import 'leaflet/dist/leaflet.css';
 import './styles.css';
 import { App } from './App.tsx';
+import { registerServiceWorker } from './registerSw.ts';
+
+registerServiceWorker();
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
