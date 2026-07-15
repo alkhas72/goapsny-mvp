@@ -7,7 +7,7 @@ import { chromium } from 'playwright';
 import { mkdirSync } from 'node:fs';
 import { resolve } from 'node:path';
 
-const BASE_URL = process.env.BROWSER_SMOKE_URL ?? 'http://127.0.0.1:4173';
+const BASE_URL = process.env.BROWSER_SMOKE_URL ?? 'http://127.0.0.1:4173/public.html';
 const SCREENSHOT_DIR = resolve('artifacts/browser-smoke');
 const VIEWPORTS = [
   { width: 360, height: 740 },

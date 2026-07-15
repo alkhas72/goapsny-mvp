@@ -3,7 +3,7 @@ import { PublicMap } from './components/PublicMap';
 import { WelcomeLegend } from './components/WelcomeLegend';
 import { hasSeenWelcome, markWelcomeSeen } from './services/places';
 
-export function App() {
+export function PublicApp() {
   const [showWelcome, setShowWelcome] = useState(() => !hasSeenWelcome());
 
   const handleWelcomeContinue = () => {
