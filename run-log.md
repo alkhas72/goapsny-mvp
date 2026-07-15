@@ -240,3 +240,9 @@
 - Minimal no-tools connectivity probe was run as `agy --print` with `--mode plan --sandbox`; it returned exact `ANTIGRAVITY_LINK_OK`, exit 0. This supersedes only the earlier statement that no direct transport exists.
 - Admission remains provisional because the canonical 04.07 record says the older `agy` ignored worktree isolation and read broadly. Before any repository write or sensitive research, require a separate permission-boundary probe in a disposable directory/worktree and factual verification that reads/writes cannot escape it.
 - Until that boundary probe passes, SOL may directly issue sandboxed read-only prompts to Antigravity; write-capable field work and canonical-repo access remain closed. No product file, external message, deploy, secret, migration, or gate state changed in this probe.
+
+## 2026-07-15 06:12 MSK — ARBITER ONE-TIME GATE — SOL Telegram probe sent
+
+- Alkhas explicitly authorized one private Telegram test through any currently available bot so SOL could verify direct conductor-to-arbiter voice before a dedicated personal bot is provisioned.
+- SOL sent one message to Alkhas private chat `215263723`, signed `SOL:` and identifying itself as the GoApsny sprint conductor. Telegram transport returned success with message ID `86`.
+- This entry records a one-time exception only. The available MCP still describes transport through the product-bot contour; SOL will not reuse it without a new explicit gate. Dedicated SOL bot provisioning remains future setup, not performed here.
