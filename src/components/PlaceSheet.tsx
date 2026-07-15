@@ -36,15 +36,14 @@ export function PlaceSheet({
   errorMessage,
   onClose,
   onRetry,
-  returnFocusRef,
+  returnFocusRef: _returnFocusRef,
 }: PlaceSheetProps) {
   const sheetRef = useRef<HTMLElement | null>(null);
   const closeButtonRef = useRef<HTMLButtonElement>(null);
 
   const handleClose = useCallback(() => {
     onClose();
-    returnFocusRef?.current?.focus();
-  }, [onClose, returnFocusRef]);
+  }, [onClose]);
 
   useEffect(() => {
     if (!open || !sheetRef.current) return;

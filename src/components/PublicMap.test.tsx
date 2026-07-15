@@ -69,22 +69,38 @@ vi.mock('../services/places', async (importOriginal) => {
     fetchPublishedPlaces: vi.fn(),
     fetchPlaceById: vi.fn(),
   };
+  it('returns focus to remounted marker when place sheet closes', async () => {
+    const user = userEvent.setup();
+    await renderLoadedMap();
+    await user.click(screen.getByRole('button', { name: 'Кафе Серый' }));
+    await screen.findByRole('dialog', { name: 'Кафе Серый' });
+    await user.click(screen.getByRole('button', { name: /закрыть карточку/i }));
+    await new Promise<void>((resolve) => {
+      requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
+    });
+    const currentMarker = screen.getByRole('button', { name: 'Кафе Серый' });
+    await waitFor(() => {
+      expect(currentMarker).toBe(document.activeElement);
+    });
+  });
 });
 
 vi.mock('./LeafletMap', () => ({
   LeafletMap: ({
     places,
+    selectedPlaceId,
     onSelectPlace,
     onMarkerButton,
   }: {
     places: Array<{ id: string; name: string }>;
+    selectedPlaceId: string | null;
     onSelectPlace: (id: string) => void;
     onMarkerButton?: (id: string, button: HTMLButtonElement | null) => void;
   }) => (
     <div data-testid="mock-map">
       {places.map((place) => (
         <button
-          key={place.id}
+          key={`${place.id}-${place.id === selectedPlaceId ? 'selected' : 'idle'}`}
           type="button"
           aria-label={place.name}
           onClick={() => onSelectPlace(place.id)}
@@ -179,6 +195,21 @@ describe('PublicMap integration', () => {
     await waitFor(() => {
       expect(filterTrigger).toBe(document.activeElement);
       expect(screen.queryByRole('button', { name: /закрыть фильтр/i })).toBeNull();
+    });
+  });
+
+  it('returns focus to remounted marker when place sheet closes', async () => {
+    const user = userEvent.setup();
+    await renderLoadedMap();
+    await user.click(screen.getByRole('button', { name: 'Кафе Серый' }));
+    await screen.findByRole('dialog', { name: 'Кафе Серый' });
+    await user.click(screen.getByRole('button', { name: /закрыть карточку/i }));
+    await new Promise<void>((resolve) => {
+      requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
+    });
+    const currentMarker = screen.getByRole('button', { name: 'Кафе Серый' });
+    await waitFor(() => {
+      expect(currentMarker).toBe(document.activeElement);
     });
   });
 });

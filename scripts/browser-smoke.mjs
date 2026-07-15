@@ -6,6 +6,7 @@
 import { chromium } from 'playwright';
 import { mkdirSync } from 'node:fs';
 import { resolve } from 'node:path';
+import { BROWSER_SMOKE_PLACE_ROW, BROWSER_SMOKE_MARKER_LABEL } from './browser-smoke-fixtures.mjs';
 
 const BASE_URL = process.env.BROWSER_SMOKE_URL ?? 'http://127.0.0.1:4173/public.html';
 const SCREENSHOT_DIR = resolve('artifacts/browser-smoke');
@@ -43,10 +44,51 @@ async function waitForPublicShell(page, timeoutMs = 15000) {
   return { welcome: false, menu: false, error: false };
 }
 
+async function installDeterministicDataRoutes(context) {
+  await context.route('**/rest/v1/places**', async (route) => {
+    if (route.request().method() !== 'GET') {
+      await route.continue();
+      return;
+    }
+    const url = route.request().url();
+    if (url.includes('id=eq.')) {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify([BROWSER_SMOKE_PLACE_ROW]),
+      });
+      return;
+    }
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify([BROWSER_SMOKE_PLACE_ROW]),
+    });
+  });
+
+  await context.route('**/rest/v1/photos**', async (route) => {
+    if (route.request().method() !== 'GET') {
+      await route.continue();
+      return;
+    }
+    await route.fulfill({ status: 200, contentType: 'application/json', body: '[]' });
+  });
+
+  await context.route('**/storage/v1/object/sign/**', async (route) => {
+    await route.fulfill({
+      status: 400,
+      contentType: 'application/json',
+      body: JSON.stringify({ statusCode: '403', error: 'Unauthorized', message: 'denied' }),
+    });
+  });
+}
+
 async function main() {
   mkdirSync(SCREENSHOT_DIR, { recursive: true });
   const browser = await chromium.launch({ headless: true });
-  const page = await browser.newPage();
+  const context = await browser.newContext();
+  await installDeterministicDataRoutes(context);
+  const page = await context.newPage();
   const errors = [];
   page.on('pageerror', (error) => errors.push(error.message));
   page.on('console', (msg) => {
@@ -57,7 +99,8 @@ async function main() {
     await page.goto(BASE_URL, { waitUntil: 'networkidle', timeout: 30000 });
   } catch (error) {
     record('browser: preview reachable', false, error.message);
-    await browser.close();
+    await context.close();
+  await browser.close();
     process.exit(1);
   }
 
@@ -77,7 +120,8 @@ async function main() {
   const shell = await waitForPublicShell(page);
   if (!shell.menu) {
     record('browser: map shell visible', false, shell.error ? 'error state' : 'menu button not found');
-    await browser.close();
+    await context.close();
+  await browser.close();
     process.exit(1);
   }
 
@@ -137,6 +181,38 @@ async function main() {
   );
   await page.keyboard.press('Escape');
 
+  const markerButton = page.locator(`button.map-pin-button[aria-label="${BROWSER_SMOKE_MARKER_LABEL}"]`).first();
+  await markerButton.waitFor({ state: 'visible', timeout: 15000 });
+  await markerButton.scrollIntoViewIfNeeded();
+  await markerButton.focus();
+  await page.keyboard.press('Enter');
+  const placeSheet = page.getByRole('dialog', { name: 'Browser Smoke Cafe' });
+  await placeSheet.waitFor({ state: 'visible', timeout: 10000 });
+  record('browser: marker opens place sheet via keyboard', await placeSheet.isVisible());
+  const sheetCloseBtn = placeSheet.getByRole('button', { name: /закрыть карточку/i });
+  await sheetCloseBtn.focus();
+  await page.keyboard.press('Tab');
+  record(
+    'browser: place sheet forward Tab stays in dialog',
+    await placeSheet.evaluate((dialog) => dialog.contains(document.activeElement)),
+  );
+  await page.keyboard.press('Shift+Tab');
+  record(
+    'browser: place sheet Shift+Tab stays in dialog',
+    await placeSheet.evaluate((dialog) => dialog.contains(document.activeElement)),
+  );
+  await page.keyboard.press('Escape');
+  const currentMarker = page.locator(`button.map-pin-button[aria-label="${BROWSER_SMOKE_MARKER_LABEL}"]`).first();
+  await currentMarker.waitFor({ state: 'visible', timeout: 5000 });
+  let focusReturned = false;
+  const deadline = Date.now() + 3000;
+  while (Date.now() < deadline) {
+    focusReturned = await currentMarker.evaluate((el) => el === document.activeElement);
+    if (focusReturned) break;
+    await page.waitForTimeout(50);
+  }
+  record('browser: place sheet escape returns focus to current marker', focusReturned);
+
   const locateButton = page.getByRole('button', { name: /найти меня/i });
   record('browser: locate button is keyboard reachable', await locateButton.isVisible());
 
@@ -151,6 +227,7 @@ async function main() {
 
   record('browser: console/page errors', errors.length === 0, errors.join(' | ') || 'none');
 
+  await context.close();
   await browser.close();
   const passed = verdicts.filter((v) => v.pass).length;
   console.log(`\n=== BROWSER SUMMARY: ${passed}/${verdicts.length} PASS ===`);

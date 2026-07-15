@@ -66,7 +66,8 @@ export function PublicMap() {
   const menuButtonRef = useRef<HTMLButtonElement | null>(null);
   const filterButtonRef = useRef<HTMLButtonElement | null>(null);
   const markerButtonsRef = useRef<Record<string, HTMLButtonElement>>({});
-  const lastMarkerRef = useRef<HTMLButtonElement | null>(null);
+  const activeMarkerRef = useRef<HTMLButtonElement | null>(null);
+  const pendingMarkerFocusRef = useRef<string | null>(null);
 
   useEffect(() => {
     document.documentElement.className = theme;
@@ -111,6 +112,19 @@ export function PublicMap() {
     [places, filters],
   );
 
+  useEffect(() => {
+    const placeId = pendingMarkerFocusRef.current;
+    if (!placeId || selectedPlaceId !== null) return;
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        const marker = markerButtonsRef.current[placeId];
+        if (!marker) return;
+        pendingMarkerFocusRef.current = null;
+        marker.focus();
+      });
+    });
+  }, [selectedPlaceId, visiblePlaces]);
+
   const closeSheet = useCallback(() => {
     setSelectedPlaceId(null);
     setSheetPlace(null);
@@ -119,7 +133,6 @@ export function PublicMap() {
   }, []);
 
   const openPlaceSheet = useCallback(async (placeId: string) => {
-    lastMarkerRef.current = markerButtonsRef.current[placeId] ?? null;
     setSelectedPlaceId(placeId);
     setSheetState('loading');
     setSheetError(undefined);
@@ -145,13 +158,17 @@ export function PublicMap() {
     }
   }, [places]);
 
+
   const handleMarkerButton = useCallback((placeId: string, button: HTMLButtonElement | null) => {
     if (button) {
       markerButtonsRef.current[placeId] = button;
     } else {
       delete markerButtonsRef.current[placeId];
     }
-  }, []);
+    if (placeId === selectedPlaceId) {
+      activeMarkerRef.current = button;
+    }
+  }, [selectedPlaceId]);
 
   const handleApplyStatus = (status: StatusFilter) => {
     setFilters((current) => ({ ...current, status }));
@@ -229,11 +246,11 @@ export function PublicMap() {
           state={sheetState}
           errorMessage={sheetError}
           onClose={() => {
+            pendingMarkerFocusRef.current = selectedPlaceId;
             closeSheet();
-            lastMarkerRef.current?.focus();
           }}
           onRetry={() => selectedPlaceId && void openPlaceSheet(selectedPlaceId)}
-          returnFocusRef={lastMarkerRef}
+          returnFocusRef={activeMarkerRef}
         />
       </main>
 

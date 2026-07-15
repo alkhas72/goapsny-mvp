@@ -178,8 +178,12 @@ export function LeafletMap({
         iconAnchor: [22, 44],
       });
 
-      const marker = L.marker([place.lat, place.lng], { icon }).addTo(group);
-      marker.on("add", () => {
+      const marker = L.marker([place.lat, place.lng], { icon });
+      let releaseButtonHandlers: (() => void) | null = null;
+
+      const wireMarkerButton = () => {
+        releaseButtonHandlers?.();
+        releaseButtonHandlers = null;
         const button = marker.getElement()?.querySelector("button.map-pin-button") as HTMLButtonElement | null;
         if (!button) return;
         onMarkerButton?.(place.id, button);
@@ -187,16 +191,28 @@ export function LeafletMap({
           L.DomEvent.stopPropagation(event);
           onSelectPlace?.(place.id);
         };
-        L.DomEvent.on(button, "click", activate);
-        L.DomEvent.on(button, "keydown", (event: Event) => {
+        const onKeyDown = (event: Event) => {
           const keyEvent = event as KeyboardEvent;
           if (keyEvent.key === "Enter" || keyEvent.key === " ") {
             keyEvent.preventDefault();
             activate(event);
           }
-        });
+        };
+        L.DomEvent.on(button, "click", activate);
+        L.DomEvent.on(button, "keydown", onKeyDown);
+        releaseButtonHandlers = () => {
+          L.DomEvent.off(button, "click", activate);
+          L.DomEvent.off(button, "keydown", onKeyDown);
+        };
+      };
+
+      marker.on("add", wireMarkerButton);
+      marker.on("remove", () => {
+        releaseButtonHandlers?.();
+        releaseButtonHandlers = null;
+        onMarkerButton?.(place.id, null);
       });
-      marker.on("remove", () => onMarkerButton?.(place.id, null));
+      marker.addTo(group);
     });
   }, [places, selectedPlaceId, onSelectPlace, dragMode, onMarkerButton]);
 
