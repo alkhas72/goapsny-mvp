@@ -233,3 +233,10 @@
 - Antigravity applications are installed, but the executable probe exits `134`; no direct chat/session API is exposed to SOL. Its operational link remains staff-mediated external chat.
 - Telegram MCP is callable but still declares transport through forbidden product `@GoApsnyBot`, not `@AbhAIS_CodexBot`; SOL will not use it. Therefore direct safe Telegram voice remains unavailable pending rebind.
 - Honest status: direct two-way links are proven for T1, T3, Kimi, and Claude staff CLI; not yet proven/usable for Z or Antigravity.
+
+## 2026-07-15 05:56 MSK — SOL — Antigravity direct transport probe passed
+
+- Re-check found the installed direct CLI at `/Users/alkhas.abaza/.local/bin/agy`; its help exposes headless print, conversation resume, `plan`, and `sandbox` modes.
+- Minimal no-tools connectivity probe was run as `agy --print` with `--mode plan --sandbox`; it returned exact `ANTIGRAVITY_LINK_OK`, exit 0. This supersedes only the earlier statement that no direct transport exists.
+- Admission remains provisional because the canonical 04.07 record says the older `agy` ignored worktree isolation and read broadly. Before any repository write or sensitive research, require a separate permission-boundary probe in a disposable directory/worktree and factual verification that reads/writes cannot escape it.
+- Until that boundary probe passes, SOL may directly issue sandboxed read-only prompts to Antigravity; write-capable field work and canonical-repo access remain closed. No product file, external message, deploy, secret, migration, or gate state changed in this probe.
