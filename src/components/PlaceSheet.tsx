@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, type RefObject } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import { X, ChevronDown, ChevronRight } from 'lucide-react';
 import { CATEGORIES } from '../shared/index';
 import type { PublicPlace } from '../services/places';
@@ -15,7 +15,6 @@ interface PlaceSheetProps {
   errorMessage?: string;
   onClose: () => void;
   onRetry?: () => void;
-  returnFocusRef?: RefObject<HTMLElement | null>;
 }
 
 function categoryLabel(slug: string): string {
@@ -36,7 +35,6 @@ export function PlaceSheet({
   errorMessage,
   onClose,
   onRetry,
-  returnFocusRef: _returnFocusRef,
 }: PlaceSheetProps) {
   const sheetRef = useRef<HTMLElement | null>(null);
   const closeButtonRef = useRef<HTMLButtonElement>(null);

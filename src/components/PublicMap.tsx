@@ -67,7 +67,6 @@ export function PublicMap() {
   const menuButtonRef = useRef<HTMLButtonElement | null>(null);
   const filterButtonRef = useRef<HTMLButtonElement | null>(null);
   const markerButtonsRef = useRef<Record<string, HTMLButtonElement>>({});
-  const activeMarkerRef = useRef<HTMLButtonElement | null>(null);
   const pendingMarkerFocusRef = useRef<string | null>(null);
 
   useEffect(() => {
@@ -166,10 +165,7 @@ export function PublicMap() {
     } else {
       delete markerButtonsRef.current[placeId];
     }
-    if (placeId === selectedPlaceId) {
-      activeMarkerRef.current = button;
-    }
-  }, [selectedPlaceId]);
+  }, []);
 
   const handleApplyStatus = (status: StatusFilter) => {
     setFilters((current) => ({ ...current, status }));
@@ -251,7 +247,6 @@ export function PublicMap() {
             closeSheet();
           }}
           onRetry={() => selectedPlaceId && void openPlaceSheet(selectedPlaceId)}
-          returnFocusRef={activeMarkerRef}
         />
       </main>
 
