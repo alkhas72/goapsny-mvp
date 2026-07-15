@@ -273,7 +273,7 @@
 - Two permanent operating requirements are accepted for incorporation into the working contract: machine-sourced session statistics in conductor signatures, with honest `UNKNOWN` where unavailable; and human-readable session/tab naming `Surface-Model — task`, with `TECH-` first for non-agent technical sessions.
 - Progress cadence is restored: append a factual run-log checkpoint no later than 20 minutes while the critical review is open. After T1 and T3 verdicts SOL will write the handoff passport and stop at the director-rotation gate.
 
-## 2026-07-15 17:58 MSK — SOL — T1 immutable re-review complete; DB HOLD
+## 2026-07-15 17:52 MSK — SOL — T1 immutable re-review complete; DB HOLD
 
 - Immutable T1 `fc2b7dd` was reviewed independently and recorded in `briefs/T1-REREVIEW-2026-07-15.md`. Verdict: **CHANGES REQUIRED**. Test-DB verdict: **HOLD**; no migration or fixture apply was performed.
 - Machine checks at the immutable tip: unit tests 17/17 PASS, build PASS with the known 578.74 kB chunk warning, browser smoke 14/14 PASS, lint FAIL at 9 errors + 2 warnings. The pushed report's lint count is not reproducible.
@@ -282,3 +282,12 @@
 - Additional release blockers: T1 replaces the repository's single Telegram Mini App entrypoint rather than preserving a separate public route/build; required `VITE_SUPABASE_*` variables are absent from `.env.example`; populated map/marker/sheet/filter integration and real Tab wrapping remain unproved; public corpus loading is unbounded; visual/device gates remain closed.
 - Prior fixes verified: zoom restriction removed, attribution restored, language switch removed, geolocation is user-triggered, and implementation commits are pushed. No deploy, DB apply, secret/webhook change, PR, main merge, or external message occurred.
 - Recovery sequence now advances to immutable T3 `faa7993` re-review. Next disk checkpoint remains due within 20 minutes while the critical path is open.
+
+## 2026-07-15 17:52 MSK — SOL — T3 immutable re-review complete; G2 HOLD
+
+- Immutable T3 `faa7993` was reviewed independently and recorded in `briefs/T3-REREVIEW-2026-07-15.md`. Verdict: **CHANGES REQUIRED**; not ready for G2/deploy. No migration apply, secret, webhook, deploy, external Telegram message, PR, or merge occurred.
+- Exact local checks: fmt PASS (30 files), lint PASS (29), Deno tests PASS 49/49, check PASS. `git diff --check` FAILS on five trailing-whitespace lines in `T3-REPORT.md`, contrary to the handoff. Local Supabase DB lint remains unavailable because Postgres on `127.0.0.1:54322` is not running.
+- Functional blocker reproduced directly: the create flow enters `create_status` and sends `st:*`, while callback validation allows `st:*` only in `verify_detail`; a valid `st:green` is rejected as `wrong_state`. No full-flow handler test exercises create/verify/edit.
+- Critical retry risks remain: after DB create succeeds but later Telegram/session/completion fails, retry can upsert then delete the already-committed facade; a process killed after idempotency claim can leave `processing` forever because `claimed_at` has no lease/reclaim path.
+- Callback protection is incomplete: old skip/enum buttons from prior fact steps remain valid for the whole flow nonce. Real SQL/RPC rollback is tested only by a self-fulfilling memory fake, not an applied schema.
+- Recovery items 1 and 2 are now complete with explicit HOLD/changes-required verdicts. SOL next incorporates the permanent signature-statistics and session-name contract, audits current session/tab names, writes the handoff passport, and stops at the director-rotation gate before any side-lane activation.
