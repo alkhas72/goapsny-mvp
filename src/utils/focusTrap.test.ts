@@ -23,4 +23,38 @@ describe('focusTrap', () => {
     release();
     container.remove();
   });
+
+  it('wraps focus forward with Tab on last element', () => {
+    const container = document.createElement('div');
+    container.innerHTML = `
+      <button type="button" id="first">First</button>
+      <button type="button" id="last">Last</button>
+    `;
+    document.body.appendChild(container);
+    const first = container.querySelector('#first') as HTMLButtonElement;
+    const last = container.querySelector('#last') as HTMLButtonElement;
+    const release = trapFocus(container);
+    last.focus();
+    last.dispatchEvent(new KeyboardEvent('keydown', { key: 'Tab', bubbles: true }));
+    expect(document.activeElement).toBe(first);
+    release();
+    container.remove();
+  });
+
+  it('wraps focus backward with Shift+Tab on first element', () => {
+    const container = document.createElement('div');
+    container.innerHTML = `
+      <button type="button" id="first">First</button>
+      <button type="button" id="last">Last</button>
+    `;
+    document.body.appendChild(container);
+    const first = container.querySelector('#first') as HTMLButtonElement;
+    const last = container.querySelector('#last') as HTMLButtonElement;
+    const release = trapFocus(container);
+    first.focus();
+    first.dispatchEvent(new KeyboardEvent('keydown', { key: 'Tab', shiftKey: true, bubbles: true }));
+    expect(document.activeElement).toBe(last);
+    release();
+    container.remove();
+  });
 });
