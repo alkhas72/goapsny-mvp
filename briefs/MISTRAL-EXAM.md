@@ -1,5 +1,7 @@
 # Vibe / Mistral Medium 3.5 — field task 1: G1 seed utility
 
+> **CLOSED BY ARBITER — 2026-07-15.** Mistral/Vibe is removed from the field roster. Do not start, resume, review for integration, or issue follow-up tasks from this brief. The pushed exam artifact is historical evidence only; no live apply is authorized.
+
 Owner: Mistral Vibe CLI, model `mistral-medium-3.5`
 Worktree/branch: `feat/mistral-probe`
 Role: draft horse for bounded mechanics; continuing field exam through real work

@@ -215,3 +215,10 @@
 - Artifact/report: `feat/mistral-probe/MISTRAL-FIELD-REPORT.md`, final marker `READY FOR SOL FIELD REVIEW`. No live Supabase call, migration, deploy, secret use, PR, or merge occurred.
 - Preliminary model observation, not yet a production acceptance: Mistral can produce and self-correct working bounded Node code, but showed severe token inefficiency, one false-success/tool-call failure, and very large output for the scope. The dormant Supabase adapter remains contract-unverified; no live apply is authorized. Full SOL code-quality/contract verdict follows separately.
 - No WALL is open. The Mistral lane is no longer idle and remains outside the G1 critical path.
+
+## 2026-07-15 05:33 MSK — ARBITER DECISION — Mistral removed from roster
+
+- Alkhas closes the Mistral/Vibe track permanently for this sprint/team assessment: the player is judged non-useful and removed from the active field roster.
+- Effective immediately: no new tasks, retries, follow-up queue, review-for-integration work, live apply, subscription justification, or critical-path dependency may be assigned to Mistral/Vibe. The prior directive to keep this lane continuously loaded is superseded by this arbiter decision.
+- `briefs/MISTRAL-EXAM.md` is marked closed. Branch `feat/mistral-probe` and SHA `4ad831c` remain historical exam evidence only and are not accepted into product scope or `main`.
+- Active capacity returns to the remaining lanes: Composer T1/T3, Z T2, Kimi test belt, and Antigravity external audit/research. No replacement lane or scope expansion is inferred.
