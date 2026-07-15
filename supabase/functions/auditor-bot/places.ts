@@ -281,6 +281,18 @@ export async function uploadFacadePhoto(
   return await storage.uploadFacade(placeId, bytes);
 }
 
+export async function findReplayableCommittedCreate(
+  store: PlacesStore,
+  placeId: string,
+  profileId: string,
+): Promise<PlaceRow | null> {
+  const existing = await store.getPlace(placeId);
+  if (!existing) return null;
+  if (existing.created_by !== profileId) return null;
+  if (!isVerifiedPublished(existing)) return null;
+  return existing;
+}
+
 export async function finalizeCreateWithPhoto(
   store: PlacesStore,
   storage: StorageClient,
@@ -301,10 +313,22 @@ export async function finalizeCreateWithPhoto(
     ...input,
     facadeUploaded: true,
   });
-  if (!createResult.ok) {
-    await storage.removeFacade(input.placeId);
+  if (createResult.ok) {
     return createResult;
   }
 
+  const replay = await findReplayableCommittedCreate(
+    store,
+    input.placeId,
+    input.profile.id,
+  );
+  if (replay) {
+    return { ok: true, place: replay };
+  }
+
+  const existing = await store.getPlace(input.placeId);
+  if (!existing) {
+    await storage.removeFacade(input.placeId);
+  }
   return createResult;
 }

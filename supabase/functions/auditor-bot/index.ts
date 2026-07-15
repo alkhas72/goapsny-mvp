@@ -10,6 +10,7 @@ import {
   handleAuthorizedUpdate,
   handleUnauthorized,
 } from "./handler.ts";
+import type { ClaimIdentity } from "./idempotency.ts";
 import {
   createIdempotencyStore,
   createPlacesStore,
@@ -26,6 +27,13 @@ import {
 } from "./webhook.ts";
 
 export { readAuditorBotToken, readAuditorWebhookSecret, requireAuditorEnv };
+
+function newClaimIdentity(): ClaimIdentity {
+  return {
+    owner: crypto.randomUUID(),
+    attempt: crypto.randomUUID(),
+  };
+}
 
 export async function handleWebhookRequest(req: Request): Promise<Response> {
   if (req.method !== "POST") {
@@ -75,7 +83,11 @@ export async function handleWebhookRequest(req: Request): Promise<Response> {
     { auth: { persistSession: false } },
   );
   const idempotency = createIdempotencyStore(admin);
-  const claim = await idempotency.claimUpdate(parsed.update.update_id);
+  const claimIdentity = newClaimIdentity();
+  const claim = await idempotency.claimUpdate(
+    parsed.update.update_id,
+    claimIdentity,
+  );
   if (claim === "completed") {
     return new Response(JSON.stringify({ ok: true, duplicate: true }), {
       status: 200,
@@ -87,10 +99,23 @@ export async function handleWebhookRequest(req: Request): Promise<Response> {
     });
   }
 
+  if (parsed.kind === "ignored") {
+    await idempotency.completeUpdate(
+      parsed.update.update_id,
+      claimIdentity.owner,
+    );
+    return new Response(JSON.stringify({ ok: true, ignored: true }), {
+      status: 200,
+    });
+  }
+
   const telegramId = extractTelegramId(parsed.update);
   const chatId = extractChatId(parsed.update);
   if (!telegramId || !chatId) {
-    await idempotency.releaseUpdate(parsed.update.update_id);
+    await idempotency.releaseUpdate(
+      parsed.update.update_id,
+      claimIdentity.owner,
+    );
     return new Response(JSON.stringify({ error: "missing_actor" }), {
       status: 400,
     });
@@ -103,7 +128,10 @@ export async function handleWebhookRequest(req: Request): Promise<Response> {
     const access = resolveAuditorAccess(profile);
     if (!access.allowed) {
       await handleUnauthorized({ telegram }, chatId);
-      await idempotency.completeUpdate(parsed.update.update_id);
+      await idempotency.completeUpdate(
+        parsed.update.update_id,
+        claimIdentity.owner,
+      );
       return new Response(JSON.stringify({ ok: true, denied: true }), {
         status: 200,
       });
@@ -122,14 +150,20 @@ export async function handleWebhookRequest(req: Request): Promise<Response> {
       session,
     );
     await sessions.upsert(session);
-    await idempotency.completeUpdate(parsed.update.update_id);
+    await idempotency.completeUpdate(
+      parsed.update.update_id,
+      claimIdentity.owner,
+    );
     return new Response(JSON.stringify({ ok: true }), { status: 200 });
   } catch (error) {
     console.error(
       "auditor_bot_error",
       error instanceof Error ? error.message : "unknown",
     );
-    await idempotency.releaseUpdate(parsed.update.update_id);
+    await idempotency.releaseUpdate(
+      parsed.update.update_id,
+      claimIdentity.owner,
+    );
     try {
       await telegram.sendMessage({
         chat_id: chatId,

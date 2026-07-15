@@ -6,6 +6,7 @@ import {
   mergeVerificationDetails,
 } from "./validation.ts";
 import type { IdempotencyStore } from "./idempotency.ts";
+import { DEFAULT_CLAIM_LEASE_MS } from "./idempotency.ts";
 import type { PlacesStore } from "./places.ts";
 import type { SessionStore } from "./session.ts";
 import type { StorageClient } from "./places.ts";
@@ -51,25 +52,49 @@ export function createIdempotencyStore(
   admin: SupabaseClient,
 ): IdempotencyStore {
   return {
-    async claimUpdate(updateId) {
+    async claimUpdate(updateId, identity, leaseMs = DEFAULT_CLAIM_LEASE_MS) {
+      const leaseExpiresAt = new Date(Date.now() + leaseMs).toISOString();
       const { error } = await admin.from("auditor_bot_processed_updates")
         .insert({
           update_id: updateId,
           status: "processing",
+          claim_owner: identity.owner,
+          claim_attempt: identity.attempt,
+          lease_expires_at: leaseExpiresAt,
         });
       if (!error) return "claimed";
       if (error.code !== "23505") throw error;
 
       const { data, error: lookupError } = await admin
         .from("auditor_bot_processed_updates")
-        .select("status")
+        .select("status, lease_expires_at")
         .eq("update_id", updateId)
         .maybeSingle();
       if (lookupError) throw lookupError;
       if (data?.status === "completed") return "completed";
-      return "processing";
+
+      const nowIso = new Date().toISOString();
+      if (data?.lease_expires_at && data.lease_expires_at > nowIso) {
+        return "processing";
+      }
+
+      const { data: reclaimed, error: reclaimError } = await admin
+        .from("auditor_bot_processed_updates")
+        .update({
+          claim_owner: identity.owner,
+          claim_attempt: identity.attempt,
+          lease_expires_at: leaseExpiresAt,
+          claimed_at: nowIso,
+        })
+        .eq("update_id", updateId)
+        .eq("status", "processing")
+        .lt("lease_expires_at", nowIso)
+        .select("update_id")
+        .maybeSingle();
+      if (reclaimError) throw reclaimError;
+      return reclaimed ? "claimed" : "processing";
     },
-    async completeUpdate(updateId) {
+    async completeUpdate(updateId, _owner) {
       const { error } = await admin
         .from("auditor_bot_processed_updates")
         .update({
@@ -79,12 +104,13 @@ export function createIdempotencyStore(
         .eq("update_id", updateId);
       if (error) throw error;
     },
-    async releaseUpdate(updateId) {
+    async releaseUpdate(updateId, owner) {
       const { error } = await admin
         .from("auditor_bot_processed_updates")
         .delete()
         .eq("update_id", updateId)
-        .eq("status", "processing");
+        .eq("status", "processing")
+        .eq("claim_owner", owner);
       if (error) throw error;
     },
   };
