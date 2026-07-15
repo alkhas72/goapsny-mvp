@@ -222,3 +222,14 @@
 - Effective immediately: no new tasks, retries, follow-up queue, review-for-integration work, live apply, subscription justification, or critical-path dependency may be assigned to Mistral/Vibe. The prior directive to keep this lane continuously loaded is superseded by this arbiter decision.
 - `briefs/MISTRAL-EXAM.md` is marked closed. Branch `feat/mistral-probe` and SHA `4ad831c` remain historical exam evidence only and are not accepted into product scope or `main`.
 - Active capacity returns to the remaining lanes: Composer T1/T3, Z T2, Kimi test belt, and Antigravity external audit/research. No replacement lane or scope expansion is inferred.
+
+## 2026-07-15 05:41 MSK — SOL — direct field-link audit
+
+- Orchestration contract corrected: SOL owns last-mile directive delivery and response collection, not merely brief creation. A brief on disk is not a dispatched task.
+- Existing Composer sessions are directly addressable without Supacode tabs. Read-only probes to Cursor chat `0f612cc8-592a-43da-b3e1-7b5316696270` in `feat/pwa-public` and chat `5e0e4d3c-f9ed-4cf6-8dec-60d986d80b79` in `feat/tg-auditors` returned exact acknowledgements `T1_SESSION_LINK_OK` and `T3_SESSION_LINK_OK`.
+- Direct engines independently confirmed: Cursor Composer returned `COMPOSER_LINK_OK`; Kimi CLI returned `KIMI_LINK_OK` and a resumable session ID; Claude Code returned `CLAUDE_LINK_OK`.
+- Supacode application/socket remains unavailable even after an app-open attempt, so tab/surface addressing is not currently a usable control plane. This does not block T1/T3 because their persisted Cursor chat IDs work directly.
+- ZCode CLI `0.15.2` is installed, but headless contact is blocked by missing `~/.zcode/cli/config.json` explicit model-provider configuration. No `feat/t2-roles-rls` worktree/session exists yet.
+- Antigravity applications are installed, but the executable probe exits `134`; no direct chat/session API is exposed to SOL. Its operational link remains staff-mediated external chat.
+- Telegram MCP is callable but still declares transport through forbidden product `@GoApsnyBot`, not `@AbhAIS_CodexBot`; SOL will not use it. Therefore direct safe Telegram voice remains unavailable pending rebind.
+- Honest status: direct two-way links are proven for T1, T3, Kimi, and Claude staff CLI; not yet proven/usable for Z or Antigravity.
