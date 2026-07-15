@@ -1,13 +1,7 @@
-import {
-  CATEGORY_LABELS,
-  GRAY_PAGE_SIZE,
-  RAMP_LABELS,
-  STATUS_LABELS,
-} from "./constants.ts";
-import { signCallback } from "./callbacks.ts";
 import { GENERIC_DENIAL } from "./auth.ts";
 import { staleCallbackMessage, validateCallback } from "./callbacks.ts";
 import { deliverGrayFacadePreview } from "./facade_delivery.ts";
+import { finalizeFlow } from "./finalize_flow.ts";
 import {
   applyEnumCallback,
   applyTextFactStep,
@@ -30,28 +24,30 @@ import {
   editVerifiedObject,
   fetchGrayQueue,
   fetchVerifiedQueue,
-  finalizeCreateWithPhoto,
-  verifyGraySelection,
 } from "./places.ts";
+import type { HandlerDeps } from "./handler_deps.ts";
+export type { HandlerDeps } from "./handler_deps.ts";
+import { requireNonce, resetSession, send, withSession } from "./handler_support.ts";
+import {
+  formatAuditSummary,
+  formatPlaceLine,
+  sendEditList,
+  sendGrayList,
+} from "./queue_render.ts";
+import { emptyAudit, emptyAuditFromPlace } from "./supabase_stores.ts";
+import type { PlacesStore, StorageClient } from "./places.ts";
+import type { SessionStore } from "./session.ts";
 import {
   bindSelectedPlace,
   isSessionExpired,
   newSession,
-  resetSession,
   startCreateFlow,
   startEditFlow,
   startVerifyFlow,
-  withSession,
 } from "./session.ts";
-import { emptyAudit, emptyAuditFromPlace } from "./supabase_stores.ts";
-import type { PlacesStore, StorageClient } from "./places.ts";
-import type { SessionStore } from "./session.ts";
 import type {
   BotSession,
-  FinalStatus,
-  OutgoingMessage,
   Profile,
-  TelegramClient,
   TelegramUpdate,
 } from "./types.ts";
 import {
@@ -60,58 +56,6 @@ import {
   validateCoordinates,
   validateTrimmedName,
 } from "./validation.ts";
-
-export type HandlerDeps = {
-  places: PlacesStore;
-  sessions: SessionStore;
-  storage: StorageClient;
-  telegram: TelegramClient;
-  now?: () => Date;
-};
-
-function formatPlaceLine(
-  place: { name: string; category: string; lat: number; lng: number },
-): string {
-  const category = CATEGORY_LABELS[place.category] ?? place.category;
-  return `${place.name} · ${category} · ${place.lat.toFixed(5)}, ${
-    place.lng.toFixed(5)
-  }`;
-}
-
-function formatAuditSummary(
-  status: FinalStatus,
-  audit: ReturnType<typeof emptyAudit>,
-  address?: string,
-  elevator?: string,
-): string {
-  return [
-    `Статус: ${STATUS_LABELS[status]}`,
-    `Ступени: ${audit.steps_count ?? "—"}`,
-    `Высота ступени, см: ${audit.step_height_cm ?? "—"}`,
-    `Пандус: ${RAMP_LABELS[audit.ramp_type] ?? audit.ramp_type}`,
-    `Ширина двери, см: ${audit.door_width_cm ?? "—"}`,
-    `Парковка ИНВ: ${audit.parking}`,
-    `Туалет: ${audit.toilet_exists}`,
-    `Доступный туалет: ${audit.toilet_accessible}`,
-    `Вход: ${audit.entrance_notes ?? "—"}`,
-    `Комментарий: ${audit.comment ?? "—"}`,
-    `Адрес: ${address ?? "—"}`,
-    `Лифт: ${elevator ?? "—"}`,
-  ].join("\n");
-}
-
-async function send(
-  deps: HandlerDeps,
-  chatId: number,
-  text: string,
-  reply_markup?: OutgoingMessage["reply_markup"],
-) {
-  await deps.telegram.sendMessage({ chat_id: chatId, text, reply_markup });
-}
-
-function requireNonce(session: BotSession): string {
-  return session.draft.nonce ?? crypto.randomUUID().slice(0, 8);
-}
 
 export async function handleAuthorizedUpdate(
   deps: HandlerDeps,
