@@ -9,6 +9,8 @@
     "lint": "eslint .",
     "test": "vitest run",
     "smoke": "node scripts/smoke-public.mjs",
+    "smoke:setup": "node scripts/setup-test-fixtures.mjs",
+    "smoke:gate-offline": "node scripts/test-db-gate-offline.mjs",
     "browser-smoke": "node scripts/browser-smoke.mjs",
     "preview": "vite preview"
   },

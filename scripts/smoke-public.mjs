@@ -1,17 +1,15 @@
 #!/usr/bin/env node
 /**
- * T1 public-read smoke: fixture-backed anon proofs (FIELD-DELTA + T1-REVIEW).
- * Loads .env + .env.test.local (values never logged). Uses TEST_SUPABASE_* for
- * privileged fixture discovery, then exercises a fresh anon client.
+ * T1 public-read smoke: fail-closed test-project gate with stable fixture IDs.
+ * Reads ONLY .env.test.local / TEST_SUPABASE_* (no VITE_* or SUPABASE_* fallbacks).
  */
 import { createClient } from '@supabase/supabase-js';
 import { randomUUID } from 'node:crypto';
-import { existsSync, readFileSync } from 'node:fs';
-import { dirname, resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
+import { requireTestSupabaseEnv, REPO_ROOT } from './lib/test-db-gate.mjs';
+import { T1_SMOKE_FIXTURES } from './fixtures/t1-smoke-fixtures.mjs';
 
-const __dirname = dirname(fileURLToPath(import.meta.url));
-const ROOT = resolve(__dirname, '..');
 const verdicts = [];
 
 function record(name, pass, detail = '') {
@@ -20,45 +18,11 @@ function record(name, pass, detail = '') {
   console.log(`[${tag}] ${name}${detail ? `: ${detail}` : ''}`);
 }
 
-function loadEnvFile(filename) {
-  const path = resolve(ROOT, filename);
-  if (!existsSync(path)) return false;
-  try {
-    const raw = readFileSync(path, 'utf8');
-    for (const line of raw.split('\n')) {
-      const trimmed = line.trim();
-      if (!trimmed || trimmed.startsWith('#')) continue;
-      const eq = trimmed.indexOf('=');
-      if (eq === -1) continue;
-      const key = trimmed.slice(0, eq).trim();
-      let value = trimmed.slice(eq + 1).trim();
-      if (
-        (value.startsWith('"') && value.endsWith('"')) ||
-        (value.startsWith("'") && value.endsWith("'"))
-      ) {
-        value = value.slice(1, -1);
-      }
-      if (process.env[key] === undefined) process.env[key] = value;
-    }
-    return true;
-  } catch {
-    return false;
-  }
-}
-
 function readExportedConstant(name) {
-  const source = readFileSync(resolve(ROOT, 'src/services/places.ts'), 'utf8');
+  const source = readFileSync(resolve(REPO_ROOT, 'src/services/places.ts'), 'utf8');
   const match = source.match(new RegExp(`export const ${name}\\s*=\\s*\\n?\\s*'([^']+)'`));
   if (!match) throw new Error(`Could not parse ${name} from src/services/places.ts`);
   return match[1];
-}
-
-function env(name, aliases = []) {
-  for (const key of [name, ...aliases]) {
-    const value = process.env[key];
-    if (value) return value;
-  }
-  return '';
 }
 
 function printSummary() {
@@ -67,131 +31,110 @@ function printSummary() {
   console.log(`\n=== SUMMARY: ${passed}/${verdicts.length} PASS, ${failed} FAIL ===`);
 }
 
-async function discoverFixtures(admin) {
-  const explicit = {
-    gray: env('SMOKE_GRAY_PUBLISHED_PLACE_ID'),
-    colored: env('SMOKE_COLORED_PUBLISHED_PLACE_ID'),
-    hidden: env('SMOKE_HIDDEN_PLACE_ID'),
-    pending: env('SMOKE_PENDING_PLACE_ID'),
-    publishedPath: env('SMOKE_PUBLISHED_FACADE_PATH'),
-    hiddenPath: env('SMOKE_HIDDEN_FACADE_PATH'),
+async function verifyStableFixtures(admin) {
+  const f = T1_SMOKE_FIXTURES;
+  const fixtures = {
+    gray: '',
+    colored: '',
+    hidden: '',
+    pending: '',
+    grayFacadePath: '',
+    coloredFacadePath: '',
+    hiddenFacadePath: '',
   };
-
-  if (Object.values(explicit).every(Boolean)) {
-    return explicit;
-  }
 
   const { data: grayRow } = await admin
     .from('places')
-    .select('id')
-    .eq('moderation_status', 'published')
-    .eq('status', 'gray')
-    .limit(1)
+    .select('id,status,moderation_status')
+    .eq('id', f.grayPlaceId)
     .maybeSingle();
+  if (grayRow?.moderation_status === 'published' && grayRow.status === 'gray') {
+    fixtures.gray = grayRow.id;
+  }
 
   const { data: coloredRow } = await admin
     .from('places')
-    .select('id')
-    .eq('moderation_status', 'published')
-    .in('status', ['green', 'yellow', 'red'])
-    .limit(1)
+    .select('id,status,moderation_status')
+    .eq('id', f.coloredPlaceId)
     .maybeSingle();
+  if (
+    coloredRow?.moderation_status === 'published' &&
+    ['green', 'yellow', 'red'].includes(coloredRow.status ?? '')
+  ) {
+    fixtures.colored = coloredRow.id;
+  }
 
   const { data: hiddenRow } = await admin
     .from('places')
-    .select('id')
-    .eq('moderation_status', 'hidden')
-    .limit(1)
+    .select('id,moderation_status')
+    .eq('id', f.hiddenPlaceId)
     .maybeSingle();
+  if (hiddenRow?.moderation_status === 'hidden') {
+    fixtures.hidden = hiddenRow.id;
+  }
 
   const { data: pendingRow } = await admin
     .from('places')
-    .select('id')
-    .eq('moderation_status', 'pending')
-    .limit(1)
+    .select('id,moderation_status')
+    .eq('id', f.pendingPlaceId)
     .maybeSingle();
-
-  const grayId = explicit.gray || grayRow?.id || '';
-  const coloredId = explicit.colored || coloredRow?.id || '';
-
-  let publishedPath = explicit.publishedPath;
-  if (!publishedPath && grayId) {
-    const { data: photo } = await admin
-      .from('photos')
-      .select('storage_path')
-      .eq('place_id', grayId)
-      .eq('kind', 'facade')
-      .maybeSingle();
-    publishedPath = photo?.storage_path ?? '';
+  if (pendingRow?.moderation_status === 'pending') {
+    fixtures.pending = pendingRow.id;
   }
 
-  let hiddenPath = explicit.hiddenPath;
-  const hiddenId = explicit.hidden || hiddenRow?.id || '';
-  if (!hiddenPath && hiddenId) {
+  for (const [key, placeId, path] of [
+    ['grayFacadePath', f.grayPlaceId, f.grayFacadePath],
+    ['coloredFacadePath', f.coloredPlaceId, f.coloredFacadePath],
+    ['hiddenFacadePath', f.hiddenPlaceId, f.hiddenFacadePath],
+  ]) {
     const { data: photo } = await admin
       .from('photos')
-      .select('storage_path')
-      .eq('place_id', hiddenId)
+      .select('storage_path,place_id')
+      .eq('place_id', placeId)
+      .eq('storage_path', path)
       .eq('kind', 'facade')
       .maybeSingle();
-    hiddenPath = photo?.storage_path ?? '';
+    if (photo?.storage_path === path) {
+      fixtures[key] = path;
+    }
   }
 
-  return {
-    gray: grayId,
-    colored: coloredId,
-    hidden: hiddenId,
-    pending: explicit.pending || pendingRow?.id || '',
-    publishedPath: publishedPath ?? '',
-    hiddenPath: hiddenPath ?? '',
-  };
+  return fixtures;
 }
 
 async function main() {
-  console.log('=== GoApsny T1 public-read smoke (fixture-backed) ===\n');
-  loadEnvFile('.env');
-  const hasTestEnv = loadEnvFile('.env.test.local');
-  record('env: .env.test.local present', hasTestEnv, hasTestEnv ? 'loaded' : 'missing');
+  console.log('=== GoApsny T1 public-read smoke (fail-closed test gate) ===\n');
 
-  const supabaseUrl = env('TEST_SUPABASE_URL', ['SUPABASE_URL', 'VITE_SUPABASE_URL']);
-  const anonKey = env('TEST_SUPABASE_ANON_KEY', ['SUPABASE_ANON_KEY', 'VITE_SUPABASE_ANON_KEY']);
-  const serviceRoleKey = env('TEST_SUPABASE_SERVICE_ROLE_KEY', [
-    'SUPABASE_SERVICE_ROLE_KEY',
-    'SMOKE_SERVICE_ROLE_KEY',
-  ]);
-
-  record(
-    'env: test Supabase URL + anon key',
-    Boolean(supabaseUrl && anonKey),
-    supabaseUrl ? 'configured' : 'missing TEST_SUPABASE_URL / anon',
-  );
-  record(
-    'env: test service role for fixture discovery',
-    Boolean(serviceRoleKey),
-    serviceRoleKey ? 'configured' : 'missing TEST_SUPABASE_SERVICE_ROLE_KEY',
-  );
-
-  if (!supabaseUrl || !anonKey || !serviceRoleKey) {
+  let env;
+  try {
+    env = requireTestSupabaseEnv();
+    record('env: .env.test.local + TEST_SUPABASE_*', true, 'loaded');
+    record('env: project host boundary', true, env.projectRef);
+  } catch (error) {
+    record('env: test gate preflight', false, error.message);
     printSummary();
     process.exit(1);
   }
+
+  const { url: supabaseUrl, anonKey, serviceRoleKey } = env;
 
   const admin = createClient(supabaseUrl, serviceRoleKey, {
     auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
   });
 
-  const fixtures = await discoverFixtures(admin);
+  const fixtures = await verifyStableFixtures(admin);
   const required = [
     ['gray published place', fixtures.gray],
     ['colored published place', fixtures.colored],
     ['hidden place', fixtures.hidden],
     ['pending place', fixtures.pending],
-    ['published facade path', fixtures.publishedPath],
-    ['hidden facade path', fixtures.hiddenPath],
+    ['gray published facade path', fixtures.grayFacadePath],
+    ['colored published facade path', fixtures.coloredFacadePath],
+    ['hidden facade path', fixtures.hiddenFacadePath],
   ];
 
   for (const [label, value] of required) {
-    record(`fixtures: ${label} discovered`, Boolean(value), value ? 'ok' : 'not found in test DB');
+    record(`fixtures: ${label} present`, Boolean(value), value ? 'ok' : 'run npm run smoke:setup after migrations');
   }
 
   if (required.some(([, value]) => !value)) {
@@ -238,21 +181,26 @@ async function main() {
     record(`anon read: ${label} place denied`, !error && !data, error?.message ?? (data ? 'leaked' : 'hidden'));
   }
 
-  const { data: publishedPhoto, error: publishedPhotoError } = await anon
-    .from('photos')
-    .select(photoColumns)
-    .eq('storage_path', fixtures.publishedPath)
-    .maybeSingle();
-  record(
-    'anon read: published facade metadata',
-    !publishedPhotoError && publishedPhoto?.kind === 'facade',
-    publishedPhotoError?.message ?? 'ok',
-  );
+  for (const [label, path] of [
+    ['gray published facade metadata', fixtures.grayFacadePath],
+    ['colored published facade metadata', fixtures.coloredFacadePath],
+  ]) {
+    const { data: photo, error: photoError } = await anon
+      .from('photos')
+      .select(photoColumns)
+      .eq('storage_path', path)
+      .maybeSingle();
+    record(
+      `anon read: ${label}`,
+      !photoError && photo?.kind === 'facade',
+      photoError?.message ?? 'ok',
+    );
+  }
 
   const { data: hiddenPhoto, error: hiddenPhotoError } = await anon
     .from('photos')
     .select('id')
-    .eq('storage_path', fixtures.hiddenPath)
+    .eq('storage_path', fixtures.hiddenFacadePath)
     .maybeSingle();
   record(
     'anon read: hidden facade metadata denied',
@@ -260,18 +208,23 @@ async function main() {
     hiddenPhotoError?.message ?? (hiddenPhoto ? 'leaked' : 'hidden'),
   );
 
-  const { data: signedPublished, error: signPublishedError } = await anon.storage
-    .from('place-photos')
-    .createSignedUrl(fixtures.publishedPath, 120);
-  record(
-    'anon signed URL: published facade succeeds',
-    !signPublishedError && Boolean(signedPublished?.signedUrl),
-    signPublishedError?.message ?? 'ok',
-  );
+  for (const [label, path] of [
+    ['gray published facade', fixtures.grayFacadePath],
+    ['colored published facade', fixtures.coloredFacadePath],
+  ]) {
+    const { data: signed, error: signError } = await anon.storage
+      .from('place-photos')
+      .createSignedUrl(path, 120);
+    record(
+      `anon signed URL: ${label} succeeds`,
+      !signError && Boolean(signed?.signedUrl),
+      signError?.message ?? 'ok',
+    );
+  }
 
   const { data: signedHidden, error: signHiddenError } = await anon.storage
     .from('place-photos')
-    .createSignedUrl(fixtures.hiddenPath, 120);
+    .createSignedUrl(fixtures.hiddenFacadePath, 120);
   record(
     'anon signed URL: hidden facade denied',
     Boolean(signHiddenError) || !signedHidden?.signedUrl,
@@ -304,6 +257,6 @@ async function main() {
 }
 
 main().catch((error) => {
-  console.error('\nUnhandled error:', error);
+  console.error('\nUnhandled error:', error.message);
   process.exit(1);
 });
