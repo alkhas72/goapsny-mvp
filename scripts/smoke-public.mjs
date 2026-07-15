@@ -11,10 +11,14 @@ import { requireTestSupabaseEnv, REPO_ROOT } from './lib/test-db-gate.mjs';
 import { T1_SMOKE_FIXTURES } from './fixtures/t1-smoke-fixtures.mjs';
 import {
   REQUIRED_FIXTURE_FIELDS,
+  PUBLISHED_STORAGE_PREFIX,
+  adminStorageObjectExists,
   isBucketPrivate,
   isFacadeMetadataDenied,
+  isPublishedStoragePrefixListed,
+  isRestrictedPrefixAbsentFromRootList,
+  isRestrictedStorageListingHidden,
   isSignedUrlDenied,
-  isStorageListDenied,
   isStorageUploadDenied,
 } from './lib/smoke-storage-proofs.mjs';
 
@@ -118,6 +122,8 @@ async function verifyStableFixtures(admin) {
 }
 
 async function proveStorageGate(admin, anon) {
+  const f = T1_SMOKE_FIXTURES;
+
   const { data: buckets, error: bucketsError } = await admin.storage.listBuckets();
   const placePhotosBucket = buckets?.find(
     (bucket) => bucket.id === 'place-photos' || bucket.name === 'place-photos',
@@ -128,11 +134,55 @@ async function proveStorageGate(admin, anon) {
     bucketsError?.message ?? (placePhotosBucket ? `public=${placePhotosBucket.public}` : 'bucket missing'),
   );
 
-  const { data: listed, error: listError } = await anon.storage.from('place-photos').list('', { limit: 1 });
+  const pendingObject = await admin.storage.from('place-photos').download(f.pendingFacadePath);
   record(
-    'anon storage: place-photos list denied',
-    isStorageListDenied(listError, listed),
-    listError?.message ?? `rows=${listed?.length ?? 0}`,
+    'admin storage: pending fixture object exists',
+    adminStorageObjectExists(pendingObject.error, pendingObject.data),
+    pendingObject.error?.message ?? (pendingObject.data ? 'ok' : 'missing object'),
+  );
+
+  const hiddenObject = await admin.storage.from('place-photos').download(f.hiddenFacadePath);
+  record(
+    'admin storage: hidden fixture object exists',
+    adminStorageObjectExists(hiddenObject.error, hiddenObject.data),
+    hiddenObject.error?.message ?? (hiddenObject.data ? 'ok' : 'missing object'),
+  );
+
+  const { data: rootListed, error: rootListError } = await anon.storage
+    .from('place-photos')
+    .list('', { limit: 100 });
+  record(
+    'anon storage: pending prefix absent from root',
+    !rootListError && isRestrictedPrefixAbsentFromRootList(rootListed, f.pendingPlaceId),
+    rootListError?.message ?? `rows=${rootListed?.length ?? 0}`,
+  );
+  record(
+    'anon storage: hidden prefix absent from root',
+    !rootListError && isRestrictedPrefixAbsentFromRootList(rootListed, f.hiddenPlaceId),
+    rootListError?.message ?? `rows=${rootListed?.length ?? 0}`,
+  );
+
+  const pendingPrefixListed = await anon.storage.from('place-photos').list(f.pendingPlaceId);
+  record(
+    'anon storage: pending prefix listing hidden',
+    isRestrictedStorageListingHidden(pendingPrefixListed.error, pendingPrefixListed.data),
+    pendingPrefixListed.error?.message ?? `rows=${pendingPrefixListed.data?.length ?? 0}`,
+  );
+
+  const hiddenPrefixListed = await anon.storage.from('place-photos').list(f.hiddenPlaceId);
+  record(
+    'anon storage: hidden prefix listing hidden',
+    isRestrictedStorageListingHidden(hiddenPrefixListed.error, hiddenPrefixListed.data),
+    hiddenPrefixListed.error?.message ?? `rows=${hiddenPrefixListed.data?.length ?? 0}`,
+  );
+
+  const { data: publishedListed, error: publishedListError } = await anon.storage
+    .from('place-photos')
+    .list(PUBLISHED_STORAGE_PREFIX);
+  record(
+    'anon storage: published prefix listable',
+    isPublishedStoragePrefixListed(publishedListError, publishedListed),
+    publishedListError?.message ?? `rows=${publishedListed?.length ?? 0}`,
   );
 
   const probePath = `${randomUUID()}/facade.jpg`;

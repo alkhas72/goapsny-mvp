@@ -12,6 +12,13 @@ export const REQUIRED_FIXTURE_FIELDS = [
   ['hidden facade path', 'hiddenFacadePath'],
 ];
 
+export const RESTRICTED_STORAGE_PREFIXES = [
+  ['pending', T1_SMOKE_FIXTURES.pendingPlaceId],
+  ['hidden', T1_SMOKE_FIXTURES.hiddenPlaceId],
+];
+
+export const PUBLISHED_STORAGE_PREFIX = T1_SMOKE_FIXTURES.grayPlaceId;
+
 export function isFacadeMetadataDenied(error, data) {
   return !error && !data;
 }
@@ -24,9 +31,23 @@ export function isBucketPrivate(bucket) {
   return Boolean(bucket) && bucket.public === false;
 }
 
-export function isStorageListDenied(error, data) {
+export function adminStorageObjectExists(error, data) {
+  return !error && data != null;
+}
+
+export function isRestrictedStorageListingHidden(error, entries) {
   if (error) return true;
-  return (data?.length ?? 0) === 0;
+  return !(entries ?? []).some((entry) => entry.name === 'facade.jpg');
+}
+
+export function isRestrictedPrefixAbsentFromRootList(rootEntries, restrictedPrefix) {
+  const names = (rootEntries ?? []).map((entry) => entry.name);
+  return !names.includes(restrictedPrefix);
+}
+
+export function isPublishedStoragePrefixListed(error, entries) {
+  if (error) return false;
+  return (entries ?? []).some((entry) => entry.name === 'facade.jpg');
 }
 
 export function isStorageUploadDenied(error) {
