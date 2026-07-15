@@ -92,6 +92,23 @@ async function main() {
     await menuButton.evaluate((el) => el === document.activeElement),
   );
 
+  await menuButton.focus();
+  await page.keyboard.press('Enter');
+  const menuDialog = page.getByRole('dialog', { name: /меню/i });
+  const menuCloseBtn = menuDialog.getByRole('button', { name: /закрыть меню/i });
+  await menuCloseBtn.focus();
+  await page.keyboard.press('Tab');
+  record(
+    'browser: menu forward Tab stays in dialog',
+    await menuDialog.evaluate((dialog) => dialog.contains(document.activeElement)),
+  );
+  await page.keyboard.press('Shift+Tab');
+  record(
+    'browser: menu Shift+Tab stays in dialog',
+    await menuDialog.evaluate((dialog) => dialog.contains(document.activeElement)),
+  );
+  await page.keyboard.press('Escape');
+
   const filterButton = page.getByRole('button', { name: /поиск и фильтр/i });
   await filterButton.focus();
   await page.keyboard.press('Enter');
@@ -102,6 +119,23 @@ async function main() {
     'browser: filter escape returns focus to trigger',
     await filterButton.evaluate((el) => el === document.activeElement),
   );
+
+  await filterButton.focus();
+  await page.keyboard.press('Enter');
+  const filterDialog = page.getByRole('dialog', { name: /поиск и фильтр/i });
+  const filterCloseBtn = filterDialog.getByRole('button', { name: /закрыть фильтр/i });
+  await filterCloseBtn.focus();
+  await page.keyboard.press('Tab');
+  record(
+    'browser: filter forward Tab stays in dialog',
+    await filterDialog.evaluate((dialog) => dialog.contains(document.activeElement)),
+  );
+  await page.keyboard.press('Shift+Tab');
+  record(
+    'browser: filter Shift+Tab stays in dialog',
+    await filterDialog.evaluate((dialog) => dialog.contains(document.activeElement)),
+  );
+  await page.keyboard.press('Escape');
 
   const locateButton = page.getByRole('button', { name: /найти меня/i });
   record('browser: locate button is keyboard reachable', await locateButton.isVisible());

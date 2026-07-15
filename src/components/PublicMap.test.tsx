@@ -1,5 +1,5 @@
-import { describe, expect, it, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
+import { cleanup, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { PublicMap } from './PublicMap';
 import type { PublicPlace } from '../services/places';
@@ -33,7 +33,7 @@ const mockPlaces: PublicPlace[] = [
   {
     id: 'place-green',
     name: 'Магазин Зелёный',
-    category: 'shop',
+    category: 'food',
     lat: 43.002,
     lng: 41.024,
     status: 'green',
@@ -99,25 +99,36 @@ vi.mock('./LeafletMap', () => ({
 
 import { fetchPlaceById, fetchPublishedPlaces } from '../services/places';
 
+async function renderLoadedMap() {
+  vi.mocked(fetchPublishedPlaces).mockResolvedValueOnce(mockPlaces);
+  render(<PublicMap />);
+  await screen.findByRole('button', { name: 'Кафе Серый' });
+}
+
+function filterTriggerButton() {
+  return screen.getByRole('button', { name: 'Поиск и фильтр' });
+}
+
 describe('PublicMap integration', () => {
   beforeEach(() => {
     vi.mocked(fetchPublishedPlaces).mockReset();
     vi.mocked(fetchPlaceById).mockReset();
+    vi.mocked(fetchPublishedPlaces).mockResolvedValue(mockPlaces);
+    vi.mocked(fetchPlaceById).mockImplementation(async (id) => mockPlaces.find((p) => p.id === id) ?? null);
+  });
+
+  afterEach(() => {
+    cleanup();
   });
 
   it('loads published places and renders markers', async () => {
-    vi.mocked(fetchPublishedPlaces).mockResolvedValue(mockPlaces);
-
-    render(<PublicMap />);
-
-    await waitFor(() => {
-      expect(screen.getByRole('button', { name: 'Кафе Серый' })).toBeTruthy();
-      expect(screen.getByRole('button', { name: 'Магазин Зелёный' })).toBeTruthy();
-    });
+    await renderLoadedMap();
+    expect(screen.getByRole('button', { name: 'Магазин Зелёный' })).toBeTruthy();
   });
 
   it('shows configuration error when Supabase fetch fails', async () => {
-    vi.mocked(fetchPublishedPlaces).mockRejectedValue(new Error('network down'));
+    vi.mocked(fetchPublishedPlaces).mockReset();
+    vi.mocked(fetchPublishedPlaces).mockRejectedValueOnce(new Error('network down'));
 
     render(<PublicMap />);
 
@@ -128,13 +139,10 @@ describe('PublicMap integration', () => {
   });
 
   it('filters visible markers by status', async () => {
-    vi.mocked(fetchPublishedPlaces).mockResolvedValue(mockPlaces);
     const user = userEvent.setup();
+    await renderLoadedMap();
 
-    render(<PublicMap />);
-    await screen.findByRole('button', { name: 'Кафе Серый' });
-
-    await user.click(screen.getByRole('button', { name: /поиск и фильтр/i }));
+    await user.click(filterTriggerButton());
     await user.click(screen.getByRole('button', { name: /На проверке/i }));
 
     await waitFor(() => {
@@ -144,29 +152,27 @@ describe('PublicMap integration', () => {
   });
 
   it('opens place sheet on marker selection with partial photo state', async () => {
-    vi.mocked(fetchPublishedPlaces).mockResolvedValue(mockPlaces);
-    vi.mocked(fetchPlaceById).mockResolvedValue({
+    vi.mocked(fetchPlaceById).mockResolvedValueOnce({
       ...mockPlaces[1],
       facadePhotoUrl: null,
       facadePhotoError: true,
     });
     const user = userEvent.setup();
 
-    render(<PublicMap />);
-    await screen.findByRole('button', { name: 'Магазин Зелёный' });
+    await renderLoadedMap();
     await user.click(screen.getByRole('button', { name: 'Магазин Зелёный' }));
 
     await waitFor(() => {
       expect(screen.getByRole('dialog', { name: 'Магазин Зелёный' })).toBeTruthy();
+      expect(screen.getByText('Фото недоступно')).toBeTruthy();
     });
   });
 
   it('closes filters and restores focus to filter trigger after apply', async () => {
-    vi.mocked(fetchPublishedPlaces).mockResolvedValue(mockPlaces);
     const user = userEvent.setup();
+    await renderLoadedMap();
 
-    render(<PublicMap />);
-    const filterTrigger = await screen.findByRole('button', { name: /поиск и фильтр/i });
+    const filterTrigger = filterTriggerButton();
     await user.click(filterTrigger);
     await user.click(screen.getByRole('button', { name: /На проверке/i }));
 
