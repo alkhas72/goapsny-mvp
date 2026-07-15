@@ -7,6 +7,9 @@ export const PLACE_COLUMNS =
 /** Explicit photo metadata fields for anon read (published parents only). */
 export const PHOTO_COLUMNS = 'id,place_id,storage_path,kind,created_at';
 
+/** Upper bound for anonymous published-place reads (full-map MVP). */
+export const PUBLIC_PLACES_FETCH_LIMIT = 500;
+
 export const WELCOME_STORAGE_KEY = 'goapsny_welcome_seen_v1';
 
 export interface PlaceDetailsV1 {
@@ -177,7 +180,8 @@ export async function fetchPublishedPlaces(): Promise<PublicPlace[]> {
     .from('places')
     .select(PLACE_COLUMNS)
     .eq('moderation_status', 'published')
-    .order('created_at', { ascending: false });
+    .order('created_at', { ascending: false })
+    .range(0, PUBLIC_PLACES_FETCH_LIMIT - 1);
 
   if (error) {
     throw new Error(`Failed to load published places: ${error.message}`);
