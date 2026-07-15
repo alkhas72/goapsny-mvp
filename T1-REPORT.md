@@ -84,4 +84,4 @@ Current test project has no fixtures yet → smoke exits 1. **SOL/Alkhas:** appl
 
 ## READY FOR SOL REVIEW
 
-Push: `origin/feat/pwa-public` @ tip `9d67b8f`. Deploy / secrets / merge — not touched.
+Push: `origin/feat/pwa-public` (tip = block 4). Deploy / secrets / merge — not touched.
