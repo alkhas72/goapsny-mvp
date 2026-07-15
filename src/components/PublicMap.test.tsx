@@ -69,20 +69,6 @@ vi.mock('../services/places', async (importOriginal) => {
     fetchPublishedPlaces: vi.fn(),
     fetchPlaceById: vi.fn(),
   };
-  it('returns focus to remounted marker when place sheet closes', async () => {
-    const user = userEvent.setup();
-    await renderLoadedMap();
-    await user.click(screen.getByRole('button', { name: 'Кафе Серый' }));
-    await screen.findByRole('dialog', { name: 'Кафе Серый' });
-    await user.click(screen.getByRole('button', { name: /закрыть карточку/i }));
-    await new Promise<void>((resolve) => {
-      requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
-    });
-    const currentMarker = screen.getByRole('button', { name: 'Кафе Серый' });
-    await waitFor(() => {
-      expect(currentMarker).toBe(document.activeElement);
-    });
-  });
 });
 
 vi.mock('./LeafletMap', () => ({
@@ -154,6 +140,18 @@ describe('PublicMap integration', () => {
     });
   });
 
+  it('recovers from load error when retry is activated', async () => {
+    vi.mocked(fetchPublishedPlaces)
+      .mockRejectedValueOnce(new Error('network down'))
+      .mockResolvedValueOnce(mockPlaces);
+    const user = userEvent.setup();
+
+    render(<PublicMap />);
+    await screen.findByText('network down');
+    await user.click(screen.getByRole('button', { name: /повторить/i }));
+    await screen.findByRole('button', { name: 'Кафе Серый' });
+  });
+
   it('filters visible markers by status', async () => {
     const user = userEvent.setup();
     await renderLoadedMap();
@@ -182,6 +180,19 @@ describe('PublicMap integration', () => {
       expect(screen.getByRole('dialog', { name: 'Магазин Зелёный' })).toBeTruthy();
       expect(screen.getByText('Фото недоступно')).toBeTruthy();
     });
+  });
+
+  it('recovers place sheet from error on retry', async () => {
+    vi.mocked(fetchPlaceById)
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce(mockPlaces[0]);
+    const user = userEvent.setup();
+
+    await renderLoadedMap();
+    await user.click(screen.getByRole('button', { name: 'Кафе Серый' }));
+    await screen.findByText('Место не найдено или скрыто');
+    await user.click(screen.getByRole('button', { name: /повторить/i }));
+    await screen.findByRole('dialog', { name: 'Кафе Серый' });
   });
 
   it('closes filters and restores focus to filter trigger after apply', async () => {

@@ -50,6 +50,7 @@ export function PublicMap() {
   const [places, setPlaces] = useState<PublicPlace[]>([]);
   const [loadState, setLoadState] = useState<'loading' | 'ready' | 'error'>('loading');
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [loadAttempt, setLoadAttempt] = useState(0);
   const [selectedPlaceId, setSelectedPlaceId] = useState<string | null>(null);
   const [sheetPlace, setSheetPlace] = useState<PublicPlace | null>(null);
   const [sheetState, setSheetState] = useState<PlaceSheetState>('idle');
@@ -105,7 +106,7 @@ export function PublicMap() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [loadAttempt]);
 
   const visiblePlaces = useMemo(
     () => applyPlaceFilters(places, filters).map(toMapPlace),
@@ -188,7 +189,7 @@ export function PublicMap() {
     return (
       <div className="public-error" role="alert">
         <p>{loadError}</p>
-        <button type="button" className="primary-btn" onClick={() => window.location.reload()}>
+        <button type="button" className="primary-btn" onClick={() => setLoadAttempt((attempt) => attempt + 1)}>
           Повторить
         </button>
       </div>
