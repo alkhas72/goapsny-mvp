@@ -264,3 +264,11 @@
 - The expanded roster was also not converted into live field capacity: no `feat/t2-roles-rls` worktree/session exists for Z and no `feat/test-belt` worktree exists for Kimi. Antigravity has only a bounded direct-link proof, not an executing field queue. Brief creation was incorrectly counted as lane activation.
 - Current blockers are therefore explicit: (1) overdue SOL immutable re-review of T1 `fc2b7dd`; (2) overdue SOL immutable re-review of T3 `faa7993`; (3) T1 test-DB apply remains HOLD pending accepted migrations/fixture harness and role-default safety sequencing; (4) visual/device and Arbiter deploy/apply gates remain closed. No executor `WALL` explains the stall.
 - Recovery order: T1 immutable review and DB HOLD/GO verdict first; T3 immutable review second; only then activate noncritical replacement lanes through SOL-owned controllable sessions. Research must not preempt G1 again.
+
+## 2026-07-15 17:43 MSK — SOL — Arbiter recovery directive received; T1 review started
+
+- Echo accepted. Active conductor channels are the current Codex Desktop/SOL thread, filesystem+git across sprint worktrees, Supacode/zmx, direct persisted Cursor chats for T1 `0f612cc8…` and T3 `5e0e4d3c…`, and the Architect cross-process `codex exec resume` path. The prior one-time Telegram exception remains closed.
+- Arbiter directs immediate execution of the existing recovery order after the continued 13:51–17:43 silence: immutable T1 `fc2b7dd` review and test-DB HOLD/GO first; immutable T3 `faa7993` review second; side lanes only afterward.
+- T1 review is now open at the immutable pushed SHA. Independent review profiles and local safe checks are running. No test-DB apply, deploy, secret/webhook mutation, external message, PR, or main merge is authorized or being performed.
+- Two permanent operating requirements are accepted for incorporation into the working contract: machine-sourced session statistics in conductor signatures, with honest `UNKNOWN` where unavailable; and human-readable session/tab naming `Surface-Model — task`, with `TECH-` first for non-agent technical sessions.
+- Progress cadence is restored: append a factual run-log checkpoint no later than 20 minutes while the critical review is open. After T1 and T3 verdicts SOL will write the handoff passport and stop at the director-rotation gate.
