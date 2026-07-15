@@ -9,6 +9,19 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { requireTestSupabaseEnv, REPO_ROOT } from './lib/test-db-gate.mjs';
 import { T1_SMOKE_FIXTURES } from './fixtures/t1-smoke-fixtures.mjs';
+import {
+  REQUIRED_FIXTURE_FIELDS,
+  isBucketPrivate,
+  isFacadeMetadataDenied,
+  isSignedUrlDenied,
+  isStorageListDenied,
+  isStorageUploadDenied,
+} from './lib/smoke-storage-proofs.mjs';
+
+const MIN_JPEG = Buffer.from(
+  '/9j/4AAQSkZJRgABAQEASABIAAD/2wBDAAgGBgcGBQgHBwcJCQgKDBQNDAsLDBkSEw8UHRofHh0aHBwgJC4nICIsIxwcKDcpLDAxNDQ0Hyc5PTgyPC4zNDL/2wBDAQkJCQwLDBgNDRgyIRwhMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjL/wAARCAABAAEDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAn/xAAUEAEAAAAAAAAAAAAAAAAAAAAA/8QAFQEBAQAAAAAAAAAAAAAAAAAAAAX/xAAUEQEAAAAAAAAAAAAAAAAAAAAA/9oADAMBAAIRAxEAPwCwAB//2Q==',
+  'base64',
+);
 
 const verdicts = [];
 
@@ -40,6 +53,7 @@ async function verifyStableFixtures(admin) {
     pending: '',
     grayFacadePath: '',
     coloredFacadePath: '',
+    pendingFacadePath: '',
     hiddenFacadePath: '',
   };
 
@@ -59,7 +73,7 @@ async function verifyStableFixtures(admin) {
     .maybeSingle();
   if (
     coloredRow?.moderation_status === 'published' &&
-    ['green', 'yellow', 'red'].includes(coloredRow.status ?? '')
+    ['green', 'yellow', 'red'].includes(coloredRow?.status ?? '')
   ) {
     fixtures.colored = coloredRow.id;
   }
@@ -85,6 +99,7 @@ async function verifyStableFixtures(admin) {
   for (const [key, placeId, path] of [
     ['grayFacadePath', f.grayPlaceId, f.grayFacadePath],
     ['coloredFacadePath', f.coloredPlaceId, f.coloredFacadePath],
+    ['pendingFacadePath', f.pendingPlaceId, f.pendingFacadePath],
     ['hiddenFacadePath', f.hiddenPlaceId, f.hiddenFacadePath],
   ]) {
     const { data: photo } = await admin
@@ -100,6 +115,35 @@ async function verifyStableFixtures(admin) {
   }
 
   return fixtures;
+}
+
+async function proveStorageGate(admin, anon) {
+  const { data: buckets, error: bucketsError } = await admin.storage.listBuckets();
+  const placePhotosBucket = buckets?.find(
+    (bucket) => bucket.id === 'place-photos' || bucket.name === 'place-photos',
+  );
+  record(
+    'storage: place-photos bucket private',
+    !bucketsError && isBucketPrivate(placePhotosBucket),
+    bucketsError?.message ?? (placePhotosBucket ? `public=${placePhotosBucket.public}` : 'bucket missing'),
+  );
+
+  const { data: listed, error: listError } = await anon.storage.from('place-photos').list('', { limit: 1 });
+  record(
+    'anon storage: place-photos list denied',
+    isStorageListDenied(listError, listed),
+    listError?.message ?? `rows=${listed?.length ?? 0}`,
+  );
+
+  const probePath = `${randomUUID()}/facade.jpg`;
+  const { error: uploadError } = await anon.storage
+    .from('place-photos')
+    .upload(probePath, MIN_JPEG, { contentType: 'image/jpeg', upsert: false });
+  record(
+    'anon storage: place-photos upload denied',
+    isStorageUploadDenied(uploadError),
+    uploadError?.message ?? 'unexpected upload success',
+  );
 }
 
 async function main() {
@@ -121,33 +165,24 @@ async function main() {
   const admin = createClient(supabaseUrl, serviceRoleKey, {
     auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
   });
+  const anon = createClient(supabaseUrl, anonKey, {
+    auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
+  });
+
+  await proveStorageGate(admin, anon);
 
   const fixtures = await verifyStableFixtures(admin);
-  const required = [
-    ['gray published place', fixtures.gray],
-    ['colored published place', fixtures.colored],
-    ['hidden place', fixtures.hidden],
-    ['pending place', fixtures.pending],
-    ['gray published facade path', fixtures.grayFacadePath],
-    ['colored published facade path', fixtures.coloredFacadePath],
-    ['hidden facade path', fixtures.hiddenFacadePath],
-  ];
-
-  for (const [label, value] of required) {
-    record(`fixtures: ${label} present`, Boolean(value), value ? 'ok' : 'run npm run smoke:setup after migrations');
+  for (const [label, field] of REQUIRED_FIXTURE_FIELDS) {
+    record(`fixtures: ${label} present`, Boolean(fixtures[field]), fixtures[field] ? 'ok' : 'run smoke:setup after migrations');
   }
 
-  if (required.some(([, value]) => !value)) {
+  if (REQUIRED_FIXTURE_FIELDS.some(([, field]) => !fixtures[field])) {
     printSummary();
     process.exit(1);
   }
 
   const placeColumns = readExportedConstant('PLACE_COLUMNS');
   const photoColumns = readExportedConstant('PHOTO_COLUMNS');
-
-  const anon = createClient(supabaseUrl, anonKey, {
-    auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
-  });
 
   const { data: grayRow, error: grayError } = await anon
     .from('places')
@@ -197,16 +232,21 @@ async function main() {
     );
   }
 
-  const { data: hiddenPhoto, error: hiddenPhotoError } = await anon
-    .from('photos')
-    .select('id')
-    .eq('storage_path', fixtures.hiddenFacadePath)
-    .maybeSingle();
-  record(
-    'anon read: hidden facade metadata denied',
-    !hiddenPhotoError && !hiddenPhoto,
-    hiddenPhotoError?.message ?? (hiddenPhoto ? 'leaked' : 'hidden'),
-  );
+  for (const [label, path] of [
+    ['hidden facade metadata', fixtures.hiddenFacadePath],
+    ['pending facade metadata', fixtures.pendingFacadePath],
+  ]) {
+    const { data: photo, error: photoError } = await anon
+      .from('photos')
+      .select('id')
+      .eq('storage_path', path)
+      .maybeSingle();
+    record(
+      `anon read: ${label} denied`,
+      isFacadeMetadataDenied(photoError, photo),
+      photoError?.message ?? (photo ? 'leaked' : 'hidden'),
+    );
+  }
 
   for (const [label, path] of [
     ['gray published facade', fixtures.grayFacadePath],
@@ -222,14 +262,19 @@ async function main() {
     );
   }
 
-  const { data: signedHidden, error: signHiddenError } = await anon.storage
-    .from('place-photos')
-    .createSignedUrl(fixtures.hiddenFacadePath, 120);
-  record(
-    'anon signed URL: hidden facade denied',
-    Boolean(signHiddenError) || !signedHidden?.signedUrl,
-    signHiddenError?.message ?? 'unexpected signed URL',
-  );
+  for (const [label, path] of [
+    ['hidden facade', fixtures.hiddenFacadePath],
+    ['pending facade', fixtures.pendingFacadePath],
+  ]) {
+    const { data: signed, error: signError } = await anon.storage
+      .from('place-photos')
+      .createSignedUrl(path, 120);
+    record(
+      `anon signed URL: ${label} denied`,
+      isSignedUrlDenied(signError, signed),
+      signError?.message ?? 'unexpected signed URL',
+    );
+  }
 
   const { error: writeError } = await anon.from('places').insert({
     name: 'smoke-should-fail',
