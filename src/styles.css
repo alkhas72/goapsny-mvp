@@ -1595,3 +1595,69 @@ body {
   font-size: 10px;
   background: rgba(255, 255, 255, 0.8);
 }
+
+.auth-scrim,
+.add-scrim {
+  align-items: flex-end;
+  padding: 0;
+}
+
+.public-auth-sheet,
+.public-add-sheet {
+  width: 100%;
+  max-height: min(92vh, 760px);
+  overflow: auto;
+  border-radius: 16px 16px 0 0;
+  padding: 12px 16px 20px;
+}
+
+.otp-input {
+  letter-spacing: 0.35em;
+  font-size: 20px;
+  text-align: center;
+}
+
+.form-error {
+  margin-top: 12px;
+  color: var(--status-red);
+  font-size: 14px;
+}
+
+.text-btn {
+  margin-top: 8px;
+  min-height: 44px;
+  border: none;
+  background: transparent;
+  color: var(--accent);
+  cursor: pointer;
+  font: inherit;
+}
+
+.public-add-summary {
+  display: grid;
+  gap: 10px;
+  margin: 12px 0;
+}
+
+.public-add-summary div {
+  display: grid;
+  gap: 2px;
+}
+
+.public-add-summary dt {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.public-add-summary dd {
+  margin: 0;
+  font-weight: 600;
+}
+
+.public-add-success {
+  margin-top: 12px;
+  padding: 12px;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--status-yellow) 18%, transparent);
+  border: 1px solid var(--status-yellow);
+}
