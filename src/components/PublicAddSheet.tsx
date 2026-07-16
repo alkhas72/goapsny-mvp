@@ -1,10 +1,35 @@
 import { useCallback, useEffect, useRef, useState, type ChangeEvent } from 'react';
 import { Camera, X } from 'lucide-react';
 import { CATEGORIES } from '../shared/index';
-import { createPlaceId, submitPublicPlaceWithPhoto } from '../services/publicSubmit';
+import {
+  SubmitPlaceError,
+  type SubmitPlaceErrorKind,
+  submitPublicPlace,
+} from '../services/submit-place';
 import { getBrowserLocation } from '../utils/location';
 import { trapFocus } from '../utils/focusTrap';
 import { LeafletMap } from './LeafletMap';
+
+/**
+ * Deterministic Russian copy for each hardened {@link SubmitPlaceErrorKind}.
+ * The UI never shows a raw Supabase message; it always branches on the kind.
+ */
+const SUBMIT_ERROR_MESSAGES: Record<SubmitPlaceErrorKind, string> = {
+  not_configured: 'Сервис недоступен. Попробуйте позже.',
+  missing_photo: 'Не удалось загрузить фото. Попробуйте ещё раз.',
+  auth_required: 'Войдите, чтобы добавить место.',
+  profile_required: 'Профиль не найден. Обратитесь к администратору.',
+  role_required: 'Нет прав для добавления места.',
+  name_required: 'Укажите название.',
+  category_invalid: 'Выберите категорию из списка.',
+  facade_object_missing: 'Фото не найдено. Добавьте фото снова.',
+  already_submitted: 'Вы уже добавили место. Спасибо!',
+  place_id_reused: 'Ошибка идентификатора. Попробуйте ещё раз.',
+  facade_reused: 'Это фото уже используется.',
+  coordinates_invalid: 'Укажите корректные координаты.',
+  storage_path_invalid: 'Ошибка пути фото. Попробуйте ещё раз.',
+  unknown: 'Не удалось опубликовать место. Попробуйте позже.',
+};
 
 interface PublicAddSheetProps {
   open: boolean;
@@ -92,19 +117,25 @@ export function PublicAddSheet({ open, theme, onClose, onSubmitted }: PublicAddS
     setSubmitting(true);
     setError(null);
     try {
-      const placeId = createPlaceId();
-      const result = await submitPublicPlaceWithPhoto({
-        placeId,
+      // Route through the hardened submission boundary (submit-place.ts). It
+      // generates the place id, uploads the facade at {place_id}/facade.jpg,
+      // and calls submit_public_place with the exact server signature. Photo is
+      // required (File is a Blob); any failure surfaces as a SubmitPlaceError.
+      const result = await submitPublicPlace({
         name: name.trim(),
         category,
         lat,
         lng,
-        photoFile,
+        photo: photoFile,
       });
       setSuccessMessage('Серая метка уже на карте. Её проверят аудиторы сообщества.');
-      onSubmitted(result.id);
+      onSubmitted(result.placeId);
     } catch (submitError) {
-      setError(submitError instanceof Error ? submitError.message : 'Не удалось опубликовать место');
+      setError(
+        submitError instanceof SubmitPlaceError
+          ? SUBMIT_ERROR_MESSAGES[submitError.kind]
+          : 'Не удалось опубликовать место',
+      );
     } finally {
       setSubmitting(false);
     }
