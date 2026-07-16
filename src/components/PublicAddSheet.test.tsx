@@ -78,7 +78,7 @@ describe('PublicAddSheet', () => {
     const user = userEvent.setup();
     render(<PublicAddSheet open theme="light" onClose={() => undefined} onSubmitted={onSubmitted} />);
 
-    const file = new File([0xff, 0xd8, 0xff], 'facade.jpg', { type: 'image/jpeg' });
+    const file = new File([new Uint8Array([0xff, 0xd8, 0xff])], 'facade.jpg', { type: 'image/jpeg' });
     await user.upload(screen.getByLabelText(/фото входа/i), file);
     await user.click(screen.getByRole('button', { name: /далее/i }));
 

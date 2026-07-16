@@ -284,4 +284,53 @@ describe('PublicMap integration', () => {
     await user.click(screen.getByRole('button', { name: 'Mock verify OTP' }));
     expect(screen.getByRole('button', { name: 'Mock publish gray pin' })).toBeTruthy();
   });
+
+  it('reloads places after a successful submit and renders the new gray marker', async () => {
+    const newGrayPlace: PublicPlace = {
+      id: 'new-gray-place',
+      name: 'Новая серая метка',
+      category: 'food',
+      lat: 43.05,
+      lng: 41.05,
+      status: 'gray',
+      stepsCount: null,
+      stepHeightCm: null,
+      rampType: 'none',
+      doorWidthCm: null,
+      entranceNotes: null,
+      toiletExists: 'unknown',
+      toiletAccessible: 'unknown',
+      parking: 'unknown',
+      comment: null,
+      osmTags: {},
+      details: { schema_version: 1 },
+      moderationStatus: 'published',
+      source: 'public',
+      createdBy: null,
+      createdAt: '2026-07-16T00:00:00Z',
+      updatedAt: '2026-07-16T00:00:00Z',
+      facadePhotoUrl: null,
+    };
+
+    const user = userEvent.setup();
+    await renderLoadedMap();
+
+    // The reload after submit returns the existing places plus the new gray pin.
+    vi.mocked(fetchPublishedPlaces).mockResolvedValueOnce([...mockPlaces, newGrayPlace]);
+
+    await user.click(screen.getByRole('button', { name: /меню/i }));
+    await user.click(screen.getByRole('button', { name: /добавить локацию/i }));
+    await user.click(screen.getByRole('button', { name: 'Mock verify OTP' }));
+
+    const callsBefore = vi.mocked(fetchPublishedPlaces).mock.calls.length;
+    await user.click(screen.getByRole('button', { name: 'Mock publish gray pin' }));
+
+    // 1) The map reloaded (fetchPublishedPlaces called again after submit)...
+    await waitFor(() => {
+      expect(vi.mocked(fetchPublishedPlaces).mock.calls.length).toBeGreaterThan(callsBefore);
+    });
+    // 2) ...and the new gray place is now in the visible marker list.
+    await screen.findByRole('button', { name: 'Новая серая метка' });
+    expect(screen.getByRole('button', { name: 'Новая серая метка' })).toBeTruthy();
+  });
 });
