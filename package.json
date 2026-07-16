@@ -12,6 +12,7 @@
     "smoke:setup": "node scripts/setup-test-fixtures.mjs",
     "smoke:gate-offline": "node scripts/test-db-gate-offline.mjs",
     "smoke:harness-offline": "node scripts/smoke-harness-offline.mjs",
+    "smoke:preview-harness-offline": "node scripts/smoke-preview-harness-offline.mjs",
     "browser-smoke": "node scripts/browser-smoke.mjs",
     "preview": "vite preview"
   },
