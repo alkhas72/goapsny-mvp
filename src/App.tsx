@@ -6,6 +6,7 @@ import { LeafletMap } from "./components/LeafletMap";
 import { AddWizard } from "./components/AddWizard";
 import { Profile as ProfileView } from "./components/Profile";
 import { AdminPanel } from "./components/AdminPanel";
+import { canAddPlace, canViewAdminPanel } from "./auth/capabilities";
 import { Map, Plus, User, ShieldAlert, Compass, Moon, Sun } from "lucide-react";
 
 // Official Accessible Icon Project SVG Component
@@ -409,7 +410,7 @@ export function App() {
           </div>
         )}
 
-        {activeTab === "add" && profile && (
+        {activeTab === "add" && profile && canAddPlace(profile.role) && (
           <AddWizard
             theme={theme}
             onSave={handleCreatePlace}
@@ -451,17 +452,19 @@ export function App() {
           <span>Карта</span>
         </button>
 
-        <button
-          type="button"
-          className={`nav-tab ${activeTab === "add" ? "active" : ""}`}
-          onClick={() => {
-            setActiveTab("add");
-            telegram.hapticSelection();
-          }}
-        >
-          <Plus size={22} />
-          <span>Добавить</span>
-        </button>
+        {profile && canAddPlace(profile.role) && (
+          <button
+            type="button"
+            className={`nav-tab ${activeTab === "add" ? "active" : ""}`}
+            onClick={() => {
+              setActiveTab("add");
+              telegram.hapticSelection();
+            }}
+          >
+            <Plus size={22} />
+            <span>Добавить</span>
+          </button>
+        )}
 
         <button
           type="button"
@@ -475,7 +478,7 @@ export function App() {
           <span>Профиль</span>
         </button>
 
-        {profile && ["owner", "admin", "operator", "tester"].includes(profile.role) && (
+        {profile && canViewAdminPanel(profile.role) && (
           <button
             type="button"
             className={`nav-tab ${activeTab === "admin" ? "active" : ""}`}
