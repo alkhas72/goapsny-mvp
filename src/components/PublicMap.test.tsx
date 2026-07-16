@@ -62,6 +62,50 @@ vi.mock('../services/supabase', () => ({
   isSupabaseConfigured: () => true,
 }));
 
+vi.mock('../services/publicAuth', () => ({
+  getPublicSession: vi.fn().mockResolvedValue(null),
+  subscribePublicSession: vi.fn(() => () => undefined),
+  maskEmailDomain: (email: string) => email,
+  signOutPublicUser: vi.fn().mockResolvedValue(undefined),
+  requestEmailOtp: vi.fn(),
+  verifyEmailOtp: vi.fn(),
+  isValidEmail: (email: string) => email.includes('@'),
+  isValidOtpCode: (code: string) => /^\d{6}$/.test(code),
+  normalizeEmail: (email: string) => email.trim().toLowerCase(),
+  otpResendRemainingMs: () => 0,
+  OTP_RESEND_COOLDOWN_MS: 60_000,
+}));
+
+vi.mock('./EmailOtpSheet', () => ({
+  EmailOtpSheet: ({
+    open,
+    onVerified,
+  }: {
+    open: boolean;
+    onVerified: () => void;
+  }) =>
+    open ? (
+      <button type="button" onClick={onVerified}>
+        Mock verify OTP
+      </button>
+    ) : null,
+}));
+
+vi.mock('./PublicAddSheet', () => ({
+  PublicAddSheet: ({
+    open,
+    onSubmitted,
+  }: {
+    open: boolean;
+    onSubmitted: (placeId: string) => void;
+  }) =>
+    open ? (
+      <button type="button" onClick={() => onSubmitted('new-gray-place')}>
+        Mock publish gray pin
+      </button>
+    ) : null,
+}));
+
 vi.mock('../services/places', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../services/places')>();
   return {
@@ -222,5 +266,22 @@ describe('PublicMap integration', () => {
     await waitFor(() => {
       expect(currentMarker).toBe(document.activeElement);
     });
+  });
+
+  it('opens OTP auth when adding a location without a session', async () => {
+    const user = userEvent.setup();
+    await renderLoadedMap();
+    await user.click(screen.getByRole('button', { name: /меню/i }));
+    await user.click(screen.getByRole('button', { name: /добавить локацию/i }));
+    expect(screen.getByRole('button', { name: 'Mock verify OTP' })).toBeTruthy();
+  });
+
+  it('opens add sheet after OTP verification', async () => {
+    const user = userEvent.setup();
+    await renderLoadedMap();
+    await user.click(screen.getByRole('button', { name: /меню/i }));
+    await user.click(screen.getByRole('button', { name: /добавить локацию/i }));
+    await user.click(screen.getByRole('button', { name: 'Mock verify OTP' }));
+    expect(screen.getByRole('button', { name: 'Mock publish gray pin' })).toBeTruthy();
   });
 });

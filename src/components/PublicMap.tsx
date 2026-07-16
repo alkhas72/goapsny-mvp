@@ -5,14 +5,23 @@ import { MapFooter } from './MapFooter';
 import { MapFilters } from './MapFilters';
 import { MenuOverlay } from './MenuOverlay';
 import { PlaceSheet, type PlaceSheetState } from './PlaceSheet';
+import { EmailOtpSheet } from './EmailOtpSheet';
+import { PublicAddSheet } from './PublicAddSheet';
 import {
   applyPlaceFilters,
   fetchPlaceById,
   fetchPublishedPlaces,
+  mapPlaceRow,
   type PlaceFilters,
   type PublicPlace,
   type StatusFilter,
 } from '../services/places';
+import {
+  getPublicSession,
+  maskEmailDomain,
+  signOutPublicUser,
+  subscribePublicSession,
+} from '../services/publicAuth';
 import { isSupabaseConfigured } from '../services/supabase';
 import type { Place } from '../types';
 
@@ -63,6 +72,12 @@ export function PublicMap() {
     query: '',
   });
   const [cabinetNote, setCabinetNote] = useState<string | null>(null);
+  const [authOpen, setAuthOpen] = useState(false);
+  const [addOpen, setAddOpen] = useState(false);
+  const [authEmail, setAuthEmail] = useState<string | null>(null);
+  const [pendingAddAfterAuth, setPendingAddAfterAuth] = useState(false);
+  const [authSheetKey, setAuthSheetKey] = useState(0);
+  const [addSheetKey, setAddSheetKey] = useState(0);
 
   const menuButtonRef = useRef<HTMLButtonElement | null>(null);
   const filterButtonRef = useRef<HTMLButtonElement | null>(null);
@@ -72,6 +87,29 @@ export function PublicMap() {
   useEffect(() => {
     document.documentElement.className = theme;
   }, [theme]);
+
+  useEffect(() => {
+    let cancelled = false;
+    void getPublicSession().then((session) => {
+      if (!cancelled) {
+        setAuthEmail(session?.user.email ?? null);
+      }
+    });
+    const unsubscribe = subscribePublicSession((session) => {
+      setAuthEmail(session?.user.email ?? null);
+    });
+    return () => {
+      cancelled = true;
+      unsubscribe();
+    };
+  }, []);
+
+  const reloadPlaces = useCallback(async () => {
+    const data = await fetchPublishedPlaces();
+    setPlaces(data);
+    setLoadState('ready');
+    setLoadError(null);
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -173,6 +211,73 @@ export function PublicMap() {
     filterButtonRef.current?.focus();
   };
 
+  const beginAddFlow = useCallback(() => {
+    if (authEmail) {
+      setAddSheetKey((key) => key + 1);
+      setAddOpen(true);
+      return;
+    }
+    setPendingAddAfterAuth(true);
+    setAuthSheetKey((key) => key + 1);
+    setAuthOpen(true);
+  }, [authEmail]);
+
+  const handleCabinet = useCallback(() => {
+    if (authEmail) {
+      setCabinetNote(`Вход выполнен: ${maskEmailDomain(authEmail)}. Можно добавить одно место.`);
+      return;
+    }
+    setPendingAddAfterAuth(false);
+    setAuthSheetKey((key) => key + 1);
+    setAuthOpen(true);
+  }, [authEmail]);
+
+  const handleAuthVerified = useCallback(() => {
+    setAuthOpen(false);
+    if (pendingAddAfterAuth) {
+      setPendingAddAfterAuth(false);
+      setAddSheetKey((key) => key + 1);
+      setAddOpen(true);
+    }
+  }, [pendingAddAfterAuth]);
+
+  const handlePlaceSubmitted = useCallback(
+    async (placeId: string) => {
+      setAddOpen(false);
+      try {
+        await reloadPlaces();
+      } catch {
+        const optimistic: PublicPlace = mapPlaceRow({
+          id: placeId,
+          name: 'Новое место',
+          category: 'food',
+          lat: 43,
+          lng: 41,
+          status: 'gray',
+          steps_count: null,
+          step_height_cm: null,
+          ramp_type: 'none',
+          door_width_cm: null,
+          entrance_notes: null,
+          toilet_exists: 'unknown',
+          toilet_accessible: 'unknown',
+          parking: 'unknown',
+          comment: null,
+          osm_tags: {},
+          details: { schema_version: 1 },
+          moderation_status: 'published',
+          source: 'public',
+          created_by: null,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        });
+        setPlaces((current) => [optimistic, ...current.filter((item) => item.id !== placeId)]);
+      }
+      void openPlaceSheet(placeId);
+    },
+    [openPlaceSheet, reloadPlaces],
+  );
+
   if (loadState === 'loading') {
     return (
       <div className="public-loading" role="status">
@@ -225,7 +330,7 @@ export function PublicMap() {
           onClose={() => setMenuOpen(false)}
           onAddLocation={() => {
             setMenuOpen(false);
-            setCabinetNote('Добавление локации — вход по email (T2, в разработке)');
+            beginAddFlow();
           }}
           returnFocusRef={menuButtonRef}
         />
@@ -248,16 +353,41 @@ export function PublicMap() {
           }}
           onRetry={() => selectedPlaceId && void openPlaceSheet(selectedPlaceId)}
         />
+        <EmailOtpSheet
+          key={authSheetKey}
+          open={authOpen}
+          onClose={() => {
+            setAuthOpen(false);
+            setPendingAddAfterAuth(false);
+          }}
+          onVerified={handleAuthVerified}
+        />
+        <PublicAddSheet
+          key={addSheetKey}
+          open={addOpen}
+          theme={theme}
+          onClose={() => setAddOpen(false)}
+          onSubmitted={(placeId) => void handlePlaceSubmitted(placeId)}
+        />
       </main>
 
       <MapFooter
-        onCabinet={() => setCabinetNote('Кабинет — вход по email (T2, в разработке)')}
+        onCabinet={handleCabinet}
         onDisabledLink={(label) => setCabinetNote(`${label} — ссылка появится позже`)}
       />
 
       {cabinetNote && (
         <div className="public-toast" role="status">
           {cabinetNote}
+          {authEmail && (
+            <button
+              type="button"
+              className="public-toast-close"
+              onClick={() => void signOutPublicUser().then(() => setCabinetNote(null))}
+            >
+              Выйти
+            </button>
+          )}
           <button type="button" className="public-toast-close" onClick={() => setCabinetNote(null)}>
             Закрыть
           </button>
