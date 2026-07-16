@@ -372,19 +372,22 @@ body {
   border: 0;
 }
 
-.leaflet-pin-wrapper {
+.leaflet-pin-wrapper,
+.map-pin-wrapper {
   position: relative;
   display: grid;
   place-items: center;
 }
 
-.leaflet-pin-wrapper svg {
+.leaflet-pin-wrapper svg,
+.map-pin-wrapper svg {
   transition: transform 0.2s ease, filter 0.2s ease;
   transform-origin: bottom center;
   filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.25));
 }
 
-.leaflet-pin-wrapper.is-selected svg {
+.leaflet-pin-wrapper.is-selected svg,
+.map-pin-wrapper.is-selected svg {
   transform: scale(1.18);
   filter: drop-shadow(0 0 1px #FFFFFF) drop-shadow(0 0 3px #FFFFFF) drop-shadow(0 4px 12px rgba(0, 0, 0, 0.45));
 }
@@ -1594,4 +1597,18 @@ body {
 .leaflet-container .leaflet-control-attribution {
   font-size: 10px;
   background: rgba(255, 255, 255, 0.8);
+}
+
+.map-wrapper--maplibre .maplibregl-map {
+  font-family: inherit;
+}
+
+.map-wrapper--maplibre .maplibregl-ctrl-attrib {
+  font-size: 10px;
+  background: rgba(255, 255, 255, 0.8);
+}
+
+.goapsny-maplibre-marker {
+  background: transparent;
+  border: 0;
 }

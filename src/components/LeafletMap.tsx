@@ -1,62 +1,16 @@
 import L from "leaflet";
 import { useEffect, useRef, useState } from "react";
-import type { Place } from "../types";
-import { telegram } from "../utils/telegram";
+import { buildPinHtml } from "./map/pinMarkup";
+import type { MapViewProps } from "./map/types";
+import { DEFAULT_MAP_ZOOM, SUKHUM_CENTER } from "./map/vectorStyle";
 import { getBrowserLocation } from "../utils/location";
-import { statusColor, statusLabel } from "../utils/status";
-import type { AccessibilityStatus } from "../shared/index";
+import { telegram } from "../utils/telegram";
 
-const SUKHUM_CENTER: L.LatLngExpression = [43.0033, 41.0237];
+const SUKHUM_CENTER_LEAFLET: L.LatLngExpression = [SUKHUM_CENTER.lat, SUKHUM_CENTER.lng];
 const ATTRIBUTION =
   '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>';
 
-function escapeAttr(value: string): string {
-  return value.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;");
-}
-
-function getPinHtml(
-  placeName: string,
-  status: string,
-  rampType: string,
-  isSelected: boolean,
-  placeId: string,
-): string {
-  const statusColorValue =
-    status === "green" || status === "yellow" || status === "red" || status === "gray"
-      ? statusColor(status as AccessibilityStatus)
-      : "#A0A8B0";
-  const hasPortableRamp = rampType === "portable_available" || rampType === "portable_on_request";
-  const isPurpleCenter = hasPortableRamp && (status === "green" || status === "yellow");
-  const centerFill = isPurpleCenter ? "#7A5AF8" : "#FFFFFF";
-  const centerStroke = isPurpleCenter ? 'stroke="#FFFFFF" stroke-width="2.5"' : "";
-  const label = escapeAttr(`${placeName}, ${statusLabel(status as AccessibilityStatus)}`);
-
-  return `
-    <button type="button" class="map-pin-button ${isSelected ? "is-selected" : ""}" data-place-id="${placeId}" aria-label="${label}">
-      <span class="leaflet-pin-wrapper ${isSelected ? "is-selected" : ""}" aria-hidden="true">
-        <svg width="28" height="36" viewBox="0 0 28 36" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <path d="M14 36C14 36 27 24 27 14C27 6.8 21.2 1 14 1C6.8 1 1 6.8 1 14C1 24 14 36 14 36Z" fill="${statusColorValue}" stroke="#FFFFFF" stroke-width="1.8" stroke-linejoin="round"/>
-          <circle cx="14" cy="14" r="5.5" fill="${centerFill}" ${centerStroke}/>
-        </svg>
-      </span>
-    </button>
-  `;
-}
-
-interface LeafletMapProps {
-  places: Place[];
-  selectedPlaceId: string | null;
-  theme: "dark" | "light";
-  onSelectPlace?: (id: string) => void;
-  onClearSelection?: () => void;
-  dragMode?: {
-    lat: number;
-    lng: number;
-    onChange: (lat: number, lng: number) => void;
-  };
-  useBrowserGeolocation?: boolean;
-  onMarkerButton?: (placeId: string, button: HTMLButtonElement | null) => void;
-}
+type LeafletMapProps = MapViewProps;
 
 export function LeafletMap({
   places,
@@ -76,13 +30,12 @@ export function LeafletMap({
   const userMarkerRef = useRef<L.Marker | null>(null);
   const draggableMarkerRef = useRef<L.Marker | null>(null);
 
-  // 1. Initialize Map
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return;
 
     const map = L.map(containerRef.current, {
-      center: SUKHUM_CENTER,
-      zoom: 15,
+      center: SUKHUM_CENTER_LEAFLET,
+      zoom: DEFAULT_MAP_ZOOM,
       zoomControl: false,
       attributionControl: false,
     });
@@ -96,7 +49,6 @@ export function LeafletMap({
       map.on("click", onClearSelection);
     }
 
-    // Set up ResizeObserver to invalidate size dynamically and correctly
     const resizeObserver = new ResizeObserver(() => {
       requestAnimationFrame(() => {
         map.invalidateSize();
@@ -119,12 +71,10 @@ export function LeafletMap({
     };
   }, [onClearSelection]);
 
-  // 2. Dynamic Theme Tiles
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
 
-    // Clean up previous layers
     if (baseLayerRef.current) {
       map.removeLayer(baseLayerRef.current);
       baseLayerRef.current = null;
@@ -161,7 +111,6 @@ export function LeafletMap({
     }
   }, [theme]);
 
-  // 3. Render POI Markers
   useEffect(() => {
     const group = markersGroupRef.current;
     const map = mapRef.current;
@@ -173,7 +122,13 @@ export function LeafletMap({
       const isSelected = place.id === selectedPlaceId;
       const icon = L.divIcon({
         className: "goapsny-leaflet-marker",
-        html: getPinHtml(place.name, place.status, place.rampType || "none", isSelected, place.id),
+        html: buildPinHtml({
+          placeName: place.name,
+          status: place.status,
+          rampType: place.rampType || "none",
+          isSelected,
+          placeId: place.id,
+        }),
         iconSize: [44, 44],
         iconAnchor: [22, 44],
       });
@@ -216,7 +171,6 @@ export function LeafletMap({
     });
   }, [places, selectedPlaceId, onSelectPlace, dragMode, onMarkerButton]);
 
-  // 5. Select Center Panning
   useEffect(() => {
     const map = mapRef.current;
     if (!map || dragMode) return;
@@ -227,16 +181,14 @@ export function LeafletMap({
     }
   }, [selectedPlaceId, places, dragMode]);
 
-  // 6. Handle Draggable Pin Step 4
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
 
-    // Remove POI markers group when in drag mode to avoid overlap confusion
     const group = markersGroupRef.current;
     if (dragMode) {
       if (group) map.removeLayer(group);
-      
+
       const pinPosition: L.LatLngExpression = [dragMode.lat, dragMode.lng];
       map.setView(pinPosition, 17, { animate: false });
 
@@ -245,7 +197,13 @@ export function LeafletMap({
       } else {
         const icon = L.divIcon({
           className: "goapsny-leaflet-marker",
-          html: getPinHtml("Новое место", "yellow", "none", true, "draft"),
+          html: buildPinHtml({
+            placeName: "Новое место",
+            status: "yellow",
+            rampType: "none",
+            isSelected: true,
+            placeId: "draft",
+          }),
           iconSize: [28, 36],
           iconAnchor: [14, 36],
         });
@@ -259,9 +217,7 @@ export function LeafletMap({
         draggableMarkerRef.current = marker;
       }
     } else {
-      // Restore group
       if (group) group.addTo(map);
-      // Clean up draggable marker
       if (draggableMarkerRef.current) {
         map.removeLayer(draggableMarkerRef.current);
         draggableMarkerRef.current = null;
@@ -282,7 +238,6 @@ export function LeafletMap({
         : await telegram.getUserLocation();
       map.setView([pos.lat, pos.lng], 16, { animate: true });
 
-      // Update/add user marker
       if (userMarkerRef.current) {
         map.removeLayer(userMarkerRef.current);
       }

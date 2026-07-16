@@ -71,8 +71,8 @@ vi.mock('../services/places', async (importOriginal) => {
   };
 });
 
-vi.mock('./LeafletMap', () => ({
-  LeafletMap: ({
+vi.mock('./map/MapView', () => ({
+  MapView: ({
     places,
     selectedPlaceId,
     onSelectPlace,
