@@ -18,7 +18,7 @@
  * text; we never edit it). The two T2 migrations are additive and own the new
  * behavior.
  */
-import { readFileSync, readdirSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
@@ -38,7 +38,11 @@ function listMigrations(): string[] {
 const baseline = readMigration('0001_initial_schema.sql');
 const migrationA = readMigration('20260715100000_profiles_public_user_default.sql');
 const migrationB = readMigration('20260715120000_submit_public_place_rls_rpc.sql');
-const t2Source = [migrationA, migrationB].join('\n');
+const migrationCName = '20260715123000_public_user_orphan_storage_read.sql';
+const migrationC = existsSync(resolve(migrationsDir, migrationCName))
+  ? readMigration(migrationCName)
+  : '';
+const t2Source = [migrationA, migrationB, migrationC].join('\n');
 
 // Fold to a single space + lower-case for resilient substring matching of SQL
 // constructs where incidental whitespace/casing must not break the assertion.
@@ -295,6 +299,39 @@ describe('Block B — public-user Storage boundary (required area #5, #6)', () =
     expect(t2Source).not.toMatch(
       /insert into storage\.buckets[\s\S]*true/i,
     );
+  });
+});
+
+describe('Block B follow-up — Storage API orphan cleanup regression', () => {
+  it('adds only the narrow SELECT visibility required to delete an owned orphan facade', () => {
+    expect(listMigrations()).toContain(migrationCName);
+    const policy = norm(migrationC).match(
+      /create policy place_photos_storage_read_public_user_unreferenced_facade[\s\S]*?\);/,
+    )?.[0];
+    expect(policy, 'orphan facade SELECT policy must exist').toBeTruthy();
+    expect(policy!).toContain('for select to authenticated');
+    expect(policy!).toContain("bucket_id = 'place-photos'");
+    expect(policy!).toContain('owner = (select auth.uid())');
+    expect(policy!).toContain('select 1 from public.profiles p');
+    expect(policy!).toContain('p.id = (select auth.uid())');
+    expect(policy!).toContain("p.role = 'public_user'");
+    expect(policy!).toContain(
+      "name ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/facade\\.jpg$'",
+    );
+    expect(policy!).toContain(
+      'goapsny_private.claim_unreferenced_storage_path(storage.objects.name)',
+    );
+  });
+
+  it('does not widen Storage writes or replace existing policies', () => {
+    const executableC = norm(stripLineComments(migrationC));
+    expect(executableC).not.toMatch(/for (insert|update|delete)/);
+    expect(executableC).not.toContain('drop policy');
+    expect(executableC).not.toContain('alter table');
+  });
+
+  it('does not COMMENT on a policy attached to extension-owned storage.objects', () => {
+    expect(norm(stripLineComments(migrationC))).not.toContain('comment on policy');
   });
 });
 
