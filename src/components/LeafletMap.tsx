@@ -270,11 +270,20 @@ export function LeafletMap({
   }, [dragMode]);
 
   const [locating, setLocating] = useState(false);
+  const [userLocationActive, setUserLocationActive] = useState(false);
 
   const handleLocate = async (e: React.MouseEvent) => {
     e.stopPropagation();
     const map = mapRef.current;
     if (!map) return;
+
+    if (userLocationActive && userMarkerRef.current) {
+      map.removeLayer(userMarkerRef.current);
+      userMarkerRef.current = null;
+      setUserLocationActive(false);
+      return;
+    }
+
     setLocating(true);
     try {
       const pos = useBrowserGeolocation
@@ -293,6 +302,7 @@ export function LeafletMap({
         iconAnchor: [12, 12],
       });
       userMarkerRef.current = L.marker([pos.lat, pos.lng], { icon, interactive: false }).addTo(map);
+      setUserLocationActive(true);
     } catch (err) {
       console.warn("Could not retrieve geolocation on manual trigger", err);
     } finally {
@@ -305,11 +315,12 @@ export function LeafletMap({
       {!dragMode && (
         <button
           type="button"
-          className={`gps-locate-btn ${locating ? "locating" : ""}`}
+          className={`gps-locate-btn ${locating ? "locating" : ""} ${userLocationActive ? "is-active" : ""}`}
           onClick={handleLocate}
           style={{ pointerEvents: "auto" }}
-          title="Найти меня"
-          aria-label="Найти меня"
+          title={userLocationActive ? "Скрыть моё местоположение" : "Показать моё местоположение"}
+          aria-label={userLocationActive ? "Скрыть моё местоположение" : "Показать моё местоположение"}
+          aria-pressed={userLocationActive}
         >
           <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2.5">
             <circle cx="12" cy="12" r="10" />
