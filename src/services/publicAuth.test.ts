@@ -41,11 +41,11 @@ describe('isValidEmail', () => {
 });
 
 describe('isValidOtpCode', () => {
-  it('requires exactly six digits', () => {
-    expect(isValidOtpCode('123456')).toBe(true);
-    expect(isValidOtpCode('12345')).toBe(false);
-    expect(isValidOtpCode('1234567')).toBe(false);
-    expect(isValidOtpCode('12a456')).toBe(false);
+  it('requires exactly eight digits from the configured Supabase project', () => {
+    expect(isValidOtpCode('12345678')).toBe(true);
+    expect(isValidOtpCode('123456')).toBe(false);
+    expect(isValidOtpCode('123456789')).toBe(false);
+    expect(isValidOtpCode('12a45678')).toBe(false);
   });
 });
 
@@ -100,11 +100,11 @@ describe('verifyEmailOtp', () => {
       data: { session: { user: { id: 'u1', email: 'user@example.com' } } },
       error: null,
     });
-    const session = await verifyEmailOtp(' User@Example.com ', '654321');
+    const session = await verifyEmailOtp(' User@Example.com ', '65432109');
     expect(session?.user.id).toBe('u1');
     expect(verifyOtp).toHaveBeenCalledWith({
       email: 'user@example.com',
-      token: '654321',
+      token: '65432109',
       type: 'email',
     });
   });

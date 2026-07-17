@@ -2,8 +2,10 @@ import type { Session } from '@supabase/supabase-js';
 import { getSupabaseClient, isSupabaseConfigured } from './supabase';
 
 export const OTP_RESEND_COOLDOWN_MS = 60_000;
+export const OTP_CODE_LENGTH = 8;
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const OTP_PATTERN = new RegExp(`^\\d{${OTP_CODE_LENGTH}}$`);
 
 export function normalizeEmail(email: string): string {
   return email.trim().toLowerCase();
@@ -15,7 +17,7 @@ export function isValidEmail(email: string): boolean {
 }
 
 export function isValidOtpCode(code: string): boolean {
-  return /^\d{6}$/.test(code.trim());
+  return OTP_PATTERN.test(code.trim());
 }
 
 export function otpResendRemainingMs(lastSentAt: number | null, now = Date.now()): number {

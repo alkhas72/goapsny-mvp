@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { X } from 'lucide-react';
 import {
+  OTP_CODE_LENGTH,
   isValidEmail,
   isValidOtpCode,
   otpResendRemainingMs,
@@ -69,7 +70,7 @@ export function EmailOtpSheet({ open, onClose, onVerified }: EmailOtpSheetProps)
   const handleVerify = async () => {
     if (pending) return;
     if (!isValidOtpCode(code)) {
-      setError('Введите шестизначный код из письма');
+      setError('Введите восьмизначный код из письма');
       return;
     }
     setPending(true);
@@ -152,11 +153,13 @@ export function EmailOtpSheet({ open, onClose, onVerified }: EmailOtpSheetProps)
                 type="text"
                 inputMode="numeric"
                 autoComplete="one-time-code"
-                maxLength={6}
+                maxLength={OTP_CODE_LENGTH}
                 pattern="[0-9]*"
                 className="form-input otp-input"
                 value={code}
-                onChange={(event) => setCode(event.target.value.replace(/\D/g, '').slice(0, 6))}
+                onChange={(event) =>
+                  setCode(event.target.value.replace(/\D/g, '').slice(0, OTP_CODE_LENGTH))
+                }
               />
             </div>
             <button

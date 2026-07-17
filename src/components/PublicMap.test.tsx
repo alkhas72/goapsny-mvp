@@ -70,7 +70,7 @@ vi.mock('../services/publicAuth', () => ({
   requestEmailOtp: vi.fn(),
   verifyEmailOtp: vi.fn(),
   isValidEmail: (email: string) => email.includes('@'),
-  isValidOtpCode: (code: string) => /^\d{6}$/.test(code),
+  isValidOtpCode: (code: string) => /^\d{8}$/.test(code),
   normalizeEmail: (email: string) => email.trim().toLowerCase(),
   otpResendRemainingMs: () => 0,
   OTP_RESEND_COOLDOWN_MS: 60_000,

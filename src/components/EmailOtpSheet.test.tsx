@@ -42,7 +42,7 @@ describe('EmailOtpSheet', () => {
     expect(requestEmailOtp).not.toHaveBeenCalled();
   });
 
-  it('requests OTP and moves to the six-digit step', async () => {
+  it('requests OTP and moves to the code step', async () => {
     const user = userEvent.setup();
     render(<EmailOtpSheet open onClose={() => undefined} onVerified={() => undefined} />);
     await user.type(screen.getByRole('textbox', { name: 'Email' }), 'user@example.com');
@@ -53,17 +53,17 @@ describe('EmailOtpSheet', () => {
     });
   });
 
-  it('verifies a six-digit code and calls onVerified', async () => {
+  it('accepts all eight OTP digits and calls onVerified', async () => {
     const onVerified = vi.fn();
     const user = userEvent.setup();
     render(<EmailOtpSheet open onClose={() => undefined} onVerified={onVerified} />);
     await user.type(screen.getByRole('textbox', { name: 'Email' }), 'user@example.com');
     await user.click(screen.getByRole('button', { name: /получить код/i }));
     await screen.findByLabelText(/код из письма/i);
-    await user.type(screen.getByLabelText(/код из письма/i), '123456');
+    await user.type(screen.getByLabelText(/код из письма/i), '12345678');
     await user.click(screen.getByRole('button', { name: /подтвердить/i }));
     await waitFor(() => {
-      expect(verifyEmailOtp).toHaveBeenCalledWith('user@example.com', '123456');
+      expect(verifyEmailOtp).toHaveBeenCalledWith('user@example.com', '12345678');
       expect(onVerified).toHaveBeenCalled();
     });
   });
