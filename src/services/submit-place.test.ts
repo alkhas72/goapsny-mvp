@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
+import * as supabaseModule from './supabase';
 import {
   FACADE_MIME_TYPE,
   FACADE_PHOTO_FILENAME,
@@ -117,7 +118,12 @@ describe('classifySubmitError', () => {
 
 describe('submitPublicPlace', () => {
   it('throws not_configured when Supabase is not configured and no client is injected', async () => {
-    await expect(submitPublicPlace(validInput)).rejects.toMatchObject({ kind: 'not_configured' });
+    const spy = vi.spyOn(supabaseModule, 'isSupabaseConfigured').mockReturnValue(false);
+    try {
+      await expect(submitPublicPlace(validInput)).rejects.toMatchObject({ kind: 'not_configured' });
+    } finally {
+      spy.mockRestore();
+    }
   });
 
   it('uploads facade to the exact place-photos/{place_id}/facade.jpg path and calls the RPC with the exact signature', async () => {
