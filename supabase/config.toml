@@ -6,3 +6,11 @@ verify_jwt = true
 
 [functions.export-drive]
 verify_jwt = false
+
+[db.seed]
+# If enabled, seeds the database after migrations during a db reset.
+enabled = true
+# Load-bearing for submit_public_place: methodology.sql provides the
+# accessibility_statuses row 'gray' that places.status FKs to; categories.sql
+# provides the active slugs the RPC's C.5 guard accepts.
+sql_paths = ["./seed/categories.sql", "./seed/methodology.sql"]
