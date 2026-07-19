@@ -378,7 +378,19 @@ body {
   border: 0;
 }
 
+/* Custom Marker CSS rules inside MapLibre (kept byte-for-byte equivalent to Leaflet) */
+.goapsny-maplibre-marker {
+  background: transparent;
+  border: 0;
+}
+
 .leaflet-pin-wrapper {
+  position: relative;
+  display: grid;
+  place-items: center;
+}
+
+.map-pin-wrapper {
   position: relative;
   display: grid;
   place-items: center;
@@ -390,7 +402,18 @@ body {
   filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.25));
 }
 
+.map-pin-wrapper svg {
+  transition: transform 0.2s ease, filter 0.2s ease;
+  transform-origin: bottom center;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.25));
+}
+
 .leaflet-pin-wrapper.is-selected svg {
+  transform: scale(1.18);
+  filter: drop-shadow(0 0 1px #FFFFFF) drop-shadow(0 0 3px #FFFFFF) drop-shadow(0 4px 12px rgba(0, 0, 0, 0.45));
+}
+
+.map-pin-wrapper.is-selected svg {
   transform: scale(1.18);
   filter: drop-shadow(0 0 1px #FFFFFF) drop-shadow(0 0 3px #FFFFFF) drop-shadow(0 4px 12px rgba(0, 0, 0, 0.45));
 }
