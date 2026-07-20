@@ -22,7 +22,12 @@ const UUID_A = '11111111-1111-4111-8111-111111111111';
  * needed when injecting the fake into the typed `SubmitPublicPlaceOptions`.
  */
 type SubmitSupabaseLike = {
-  storage: { from: (bucket: string) => { upload: (path: string, body: Blob, opts: unknown) => Promise<unknown> } };
+  storage: {
+    from: (bucket: string) => {
+      upload: (path: string, body: Blob, opts: unknown) => Promise<unknown>;
+      remove: (paths: string[]) => Promise<unknown>;
+    };
+  };
   rpc: (fn: string, args: unknown) => Promise<unknown>;
 };
 
@@ -31,14 +36,16 @@ function makeFakeSupabase(options: {
   uploadError?: { message: string } | null;
   rpcError?: { code: string; message: string } | null;
   rpcData?: unknown;
+  removeError?: { message: string } | null;
 } = {}) {
   const upload = vi.fn().mockResolvedValue({ data: { path: 'x' }, error: options.uploadError ?? null });
+  const remove = vi.fn().mockResolvedValue({ data: null, error: options.removeError ?? null });
   const rpc = vi.fn().mockResolvedValue({ data: options.rpcData ?? null, error: options.rpcError ?? null });
   const client: SubmitSupabaseLike = {
-    storage: { from: vi.fn(() => ({ upload })) },
+    storage: { from: vi.fn(() => ({ upload, remove })) },
     rpc,
   };
-  return { client, upload, rpc };
+  return { client, upload, remove, rpc };
 }
 
 /** Cast helper: the fake only implements the structural slice submitPublicPlace touches. */
@@ -181,5 +188,34 @@ describe('submitPublicPlace', () => {
     expect(typeof args.p_lng).toBe('number');
     expect(args.p_lat).toBeCloseTo(43.00085, 5);
     expect(args.p_lng).toBeCloseTo(41.0159, 5);
+  });
+
+  it('removes the uploaded facade when the RPC fails, leaving no orphan', async () => {
+    const fake = makeFakeSupabase({
+      rpcError: { code: 'P0001', message: 'submit_public_place: rejected' },
+    });
+    await expect(
+      submitPublicPlace(validInput, { supabase: asSupabase(fake.client), generateId: () => UUID_A }),
+    ).rejects.toBeTruthy();
+    // Файл уже загружен, но записи о нём не появится — убираем, иначе он
+    // останется в бакете навсегда и никем не будет востребован.
+    expect(fake.remove).toHaveBeenCalledWith([`${UUID_A}/facade.jpg`]);
+  });
+
+  it('keeps the original RPC error even if cleanup itself fails', async () => {
+    const fake = makeFakeSupabase({
+      rpcError: { code: '23505', message: 'submit_public_place: public submission already used' },
+      removeError: { message: 'storage unavailable' },
+    });
+    // Сбой уборки не должен подменять причину, о которой узнает пользователь.
+    await expect(
+      submitPublicPlace(validInput, { supabase: asSupabase(fake.client), generateId: () => UUID_A }),
+    ).rejects.toMatchObject({ kind: 'already_submitted', code: '23505' });
+  });
+
+  it('does not remove anything when the submission succeeds', async () => {
+    const fake = makeFakeSupabase();
+    await submitPublicPlace(validInput, { supabase: asSupabase(fake.client), generateId: () => UUID_A });
+    expect(fake.remove).not.toHaveBeenCalled();
   });
 });

@@ -257,6 +257,16 @@ export async function submitPublicPlace(
 
   const rpcError = (rpcResult as { error?: unknown }).error;
   if (rpcError) {
+    // Фасад уже в бакете, но записи о нём не появится — без уборки он останется
+    // там навсегда. Миграция 20260715120000 специально даёт public_user право
+    // удалить собственный неиспользуемый фасад
+    // (place_photos_storage_delete_public_user_unreferenced).
+    // Сбой самой уборки глушим: подменять им причину отказа нельзя.
+    try {
+      await supabase.storage.from(FACADE_STORAGE_BUCKET).remove([storagePath]);
+    } catch {
+      // Осиротевший объект переживёт эту попытку; исходная ошибка важнее.
+    }
     throw classifySubmitError(rpcError);
   }
 
