@@ -6,3 +6,34 @@ verify_jwt = true
 
 [functions.export-drive]
 verify_jwt = false
+
+[auth.email]
+# Клиент ждёт ровно 8 цифр (publicAuth.ts: OTP_CODE_LENGTH = 8, ^\d{8}$).
+# Дефолт Supabase — 6, при нём код не пройдёт валидацию на клиенте.
+otp_length = 8
+otp_expiry = 3600
+
+# Тело письма — supabase/templates/otp.html, версионируется в репозитории.
+# Оно ОБЯЗАНО содержать {{ .Token }}: клиент ждёт восьмизначный код и ссылку
+# не обрабатывает вовсе.
+#
+# Автоприменение через content_path намеренно НЕ включено: Supabase CLI 2.104
+# монтирует указанный путь как директорию, и вместо письма уходит листинг
+# каталога — проверено 20.07 на локальном стеке (тема применяется, тело нет),
+# на трёх разных расположениях файла. Пока поведение не проверено на свежей
+# версии CLI, шаблон переносится в дашборд вручную.
+#
+# Это известный долг, а не норма: конфигурация, живущая только в дашборде,
+# невоспроизводима локально и теряется при пересоздании проекта. Именно так
+# и вышло 19.07 — правки существовали лишь в настройках production.
+#
+# На production rujxthjaquvwbdnrftua шаблоны Magic link и Confirm signup
+# приведены к supabase/templates/otp.html вручную 19.07.
+
+[db.seed]
+# If enabled, seeds the database after migrations during a db reset.
+enabled = true
+# Load-bearing for submit_public_place: methodology.sql provides the
+# accessibility_statuses row 'gray' that places.status FKs to; categories.sql
+# provides the active slugs the RPC's C.5 guard accepts.
+sql_paths = ["./seed/categories.sql", "./seed/methodology.sql"]

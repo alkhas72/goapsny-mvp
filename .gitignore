@@ -10,6 +10,7 @@ lerna-debug.log*
 node_modules
 dist
 dist-ssr
+artifacts
 .env
 .env.*
 !.env.example
@@ -27,3 +28,7 @@ dist-ssr
 *.sw?
 .vercel
 supabase/.temp/
+
+# Локальная конфигурация MCP: указывает на конкретные проекты Supabase,
+# у каждого разработчика своя. В общую ветку не идёт.
+.mcp.json

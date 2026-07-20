@@ -17,7 +17,7 @@ export const STATUS_META: Record<AccessibilityStatus, StatusMeta> = {
   green: { ru: 'Доступно', description: 'вход, зал и туалет доступны', color: '#2EA84A', wheelchairTag: 'yes', operatorSelectable: true },
   yellow: { ru: 'Частично', description: 'въезд есть, но с ограничениями', color: '#EBA92B', wheelchairTag: 'limited', operatorSelectable: true },
   red: { ru: 'Недоступно', description: 'входная группа недоступна', color: '#E24B4A', wheelchairTag: 'no', operatorSelectable: true },
-  gray: { ru: 'Не обследовано', description: 'зарезервировано: импорт/публичные точки', color: '#A0A8B0', wheelchairTag: 'unknown', operatorSelectable: false },
+  gray: { ru: 'На проверке', description: 'предварительно, ожидает проверки сообщества', color: '#A0A8B0', wheelchairTag: 'unknown', operatorSelectable: false },
 };
 
 // Statuses an operator may pick in v1 (gray is reserved, not offered).
@@ -69,19 +69,22 @@ export interface Category {
 }
 
 export const CATEGORIES: Category[] = [
-  { slug: 'public_transport', ru: 'Общественный транспорт', wheelmapGroup: 'public_transport', icon: 'bus' },
-  { slug: 'food', ru: 'Питание', wheelmapGroup: 'food', icon: 'utensils' },
-  { slug: 'leisure', ru: 'Досуг', wheelmapGroup: 'leisure', icon: 'ticket' },
-  { slug: 'bank_post', ru: 'Банки и почта', wheelmapGroup: 'bank_post', icon: 'landmark' },
   { slug: 'shops', ru: 'Магазины', wheelmapGroup: 'shops', icon: 'shopping-bag' },
-  { slug: 'education', ru: 'Образование', wheelmapGroup: 'education', icon: 'graduation-cap' },
-  { slug: 'sport', ru: 'Спорт', wheelmapGroup: 'sport', icon: 'dumbbell' },
-  { slug: 'tourism', ru: 'Туризм', wheelmapGroup: 'tourism', icon: 'map' },
+  { slug: 'food', ru: 'Еда и напитки', wheelmapGroup: 'food', icon: 'utensils' },
+  { slug: 'public_transport', ru: 'Транспорт', wheelmapGroup: 'public_transport', icon: 'bus' },
+  { slug: 'tourism', ru: 'Достопримечательности', wheelmapGroup: 'tourism', icon: 'map' },
+  { slug: 'leisure', ru: 'Культура', wheelmapGroup: 'leisure', icon: 'ticket' },
   { slug: 'accommodation', ru: 'Гостиницы', wheelmapGroup: 'accommodation', icon: 'hotel' },
+  { slug: 'education', ru: 'Обучение', wheelmapGroup: 'education', icon: 'graduation-cap' },
   { slug: 'government', ru: 'Госучреждения', wheelmapGroup: 'government', icon: 'building-2' },
-  { slug: 'health', ru: 'Здравоохранение', wheelmapGroup: 'health', icon: 'hospital' },
-  { slug: 'other', ru: 'Прочее', wheelmapGroup: 'other', icon: 'map-pin' },
+  { slug: 'health', ru: 'Здоровье', wheelmapGroup: 'health', icon: 'hospital' },
+  { slug: 'bank_post', ru: 'Финансы', wheelmapGroup: 'bank_post', icon: 'landmark' },
+  { slug: 'sport', ru: 'Спорт', wheelmapGroup: 'sport', icon: 'dumbbell' },
+  { slug: 'toilets', ru: 'Туалеты', wheelmapGroup: 'toilets', icon: 'toilet' },
 ];
+
+/** Legacy rows may still reference `other`; not offered for new selection. */
+export const LEGACY_CATEGORY_SLUGS = ['other'] as const;
 
 export const CATEGORY_SLUGS = CATEGORIES.map((c) => c.slug);
 
