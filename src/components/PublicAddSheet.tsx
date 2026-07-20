@@ -8,6 +8,7 @@ import {
 } from '../services/submit-place';
 import { getBrowserLocation } from '../utils/location';
 import { trapFocus } from '../utils/focusTrap';
+import { FacadePhotoError, prepareFacadePhoto } from '../utils/photo';
 import { LeafletMap } from './LeafletMap';
 
 /**
@@ -82,12 +83,26 @@ export function PublicAddSheet({ open, theme, onClose, onSubmitted }: PublicAddS
     });
   }, [open, handleClose]);
 
-  const handlePhotoChange = (event: ChangeEvent<HTMLInputElement>) => {
+  const handlePhotoChange = async (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
-    setPhotoFile(file);
-    setPhotoUrl(URL.createObjectURL(file));
     setError(null);
+    try {
+      // Бакет принимает только JPEG до 10 MiB. Телефон отдаёт что угодно —
+      // iPhone снимает в HEIC, размер снимка часто выше лимита. Приводим
+      // здесь, иначе Storage отклонит загрузку без внятного объяснения.
+      const prepared = await prepareFacadePhoto(file);
+      setPhotoFile(prepared);
+      setPhotoUrl(URL.createObjectURL(prepared));
+    } catch (cause) {
+      setPhotoFile(null);
+      setPhotoUrl(null);
+      setError(
+        cause instanceof FacadePhotoError
+          ? cause.message
+          : 'Не удалось обработать фотографию. Попробуйте другой снимок.',
+      );
+    }
   };
 
   const canAdvance = () => {

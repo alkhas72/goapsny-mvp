@@ -333,4 +333,31 @@ describe('PublicMap integration', () => {
     await screen.findByRole('button', { name: 'Новая серая метка' });
     expect(screen.getByRole('button', { name: 'Новая серая метка' })).toBeTruthy();
   });
+
+  // DG-3: при сбое сервера показываем правду, а не выдуманные данные.
+  it('does not invent a marker when the reload after submit fails', async () => {
+    const user = userEvent.setup();
+    await renderLoadedMap();
+
+    // Запись прошла, но перезагрузка списка не удалась.
+    vi.mocked(fetchPublishedPlaces).mockRejectedValueOnce(new Error('network down'));
+
+    await user.click(screen.getByRole('button', { name: /меню/i }));
+    await user.click(screen.getByRole('button', { name: /добавить локацию/i }));
+    await user.click(screen.getByRole('button', { name: 'Mock verify OTP' }));
+
+    const callsBefore = vi.mocked(fetchPublishedPlaces).mock.calls.length;
+    await user.click(screen.getByRole('button', { name: 'Mock publish gray pin' }));
+
+    await waitFor(() => {
+      expect(vi.mocked(fetchPublishedPlaces).mock.calls.length).toBeGreaterThan(callsBefore);
+    });
+
+    // Ни подставного названия, ни метки с выдуманными координатами появиться не должно.
+    expect(screen.queryByRole('button', { name: 'Новое место' })).toBeNull();
+    // Видимые маркеры остаются прежними — ровно те, что пришли с сервера.
+    for (const place of mockPlaces) {
+      expect(screen.getByRole('button', { name: place.name })).toBeTruthy();
+    }
+  });
 });

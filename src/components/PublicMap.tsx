@@ -11,7 +11,6 @@ import {
   applyPlaceFilters,
   fetchPlaceById,
   fetchPublishedPlaces,
-  mapPlaceRow,
   type PlaceFilters,
   type PublicPlace,
   type StatusFilter,
@@ -247,31 +246,13 @@ export function PublicMap() {
       try {
         await reloadPlaces();
       } catch {
-        const optimistic: PublicPlace = mapPlaceRow({
-          id: placeId,
-          name: 'Новое место',
-          category: 'food',
-          lat: 43,
-          lng: 41,
-          status: 'gray',
-          steps_count: null,
-          step_height_cm: null,
-          ramp_type: 'none',
-          door_width_cm: null,
-          entrance_notes: null,
-          toilet_exists: 'unknown',
-          toilet_accessible: 'unknown',
-          parking: 'unknown',
-          comment: null,
-          osm_tags: {},
-          details: { schema_version: 1 },
-          moderation_status: 'published',
-          source: 'public',
-          created_by: null,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        });
-        setPlaces((current) => [optimistic, ...current.filter((item) => item.id !== placeId)]);
+        // DG-3: не подставляем выдуманные данные вместо серверных. Запись прошла,
+        // но список не обновился — говорим об этом прямо. Прежняя версия рисовала
+        // метку с чужим названием и координатами 43,41, из-за чего человек видел
+        // свою точку не там, где ставил, и считал это нормой.
+        setCabinetNote(
+          'Место отправлено. Обновить список сейчас не удалось — перезагрузите страницу, чтобы увидеть метку.',
+        );
       }
       void openPlaceSheet(placeId);
     },
