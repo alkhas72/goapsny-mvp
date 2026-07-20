@@ -8,7 +8,10 @@ import { mkdirSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { BROWSER_SMOKE_PLACE_ROW, BROWSER_SMOKE_MARKER_LABEL } from './browser-smoke-fixtures.mjs';
 
-const BASE_URL = process.env.BROWSER_SMOKE_URL ?? 'http://127.0.0.1:4173/public.html';
+// Проверяем корень: именно его отдаёт Vercel (index.html -> main.tsx -> App).
+// Раньше здесь стоял /public.html — старый отдельный вход, который в проде
+// уже не является точкой входа, и smoke проходил мимо реального продукта.
+const BASE_URL = process.env.BROWSER_SMOKE_URL ?? 'http://127.0.0.1:4173/';
 const SCREENSHOT_DIR = resolve('artifacts/browser-smoke');
 const VIEWPORTS = [
   { width: 360, height: 740 },
@@ -95,6 +98,16 @@ async function main() {
     if (msg.type() === 'error') errors.push(msg.text());
   });
 
+  // Регрессия: публичный вход не должен зависеть от telegram.org.
+  // Синхронный <script> в <head> заставлял каждого посетителя ждать ответа
+  // этого домена до первой отрисовки — там, где он недоступен, был белый экран.
+  // Домен блокируем: если запрос всё же уйдёт, проверка ниже это покажет.
+  const telegramRequests = [];
+  await context.route('**://telegram.org/**', (route) => {
+    telegramRequests.push(route.request().url());
+    return route.abort();
+  });
+
   try {
     await page.goto(BASE_URL, { waitUntil: 'networkidle', timeout: 30000 });
   } catch (error) {
@@ -105,6 +118,13 @@ async function main() {
   }
 
   record('browser: preview reachable', true, BASE_URL);
+
+  // Страница отрисовалась при заблокированном telegram.org — и не обращалась к нему.
+  record(
+    'browser: public entry does not depend on telegram.org',
+    telegramRequests.length === 0,
+    telegramRequests.length ? `запросов: ${telegramRequests.length}` : 'запросов нет',
+  );
 
   for (const viewport of VIEWPORTS) {
     await page.setViewportSize(viewport);
@@ -213,8 +233,29 @@ async function main() {
   }
   record('browser: place sheet escape returns focus to current marker', focusReturned);
 
-  const locateButton = page.getByRole('button', { name: /найти меня/i });
+  // Название кнопки задаётся в LeafletMap и переключается по состоянию:
+  // «Показать моё местоположение» / «Скрыть моё местоположение».
+  const locateButton = page.getByRole('button', { name: /мо[её] местоположение/i });
   record('browser: locate button is keyboard reachable', await locateButton.isVisible());
+
+  // Геолокация — основной мобильный сценарий, одной видимости кнопки мало.
+  // Активируем с клавиатуры: так проверяется доступность и не мешает
+  // перекрытие контролами зума Leaflet, которые лежат поверх кнопки.
+  await page.context().grantPermissions(['geolocation']);
+  await page.context().setGeolocation({ latitude: 43.0, longitude: 41.0 });
+  await locateButton.focus();
+  await page.keyboard.press('Enter');
+  const locateAllowed = await page
+    .getByRole('button', { name: /скрыть моё местоположение/i })
+    .waitFor({ state: 'visible', timeout: 5000 })
+    .then(() => true)
+    .catch(() => false);
+  record('browser: geolocation allow switches button to active state', locateAllowed);
+
+  // Отказ в доступе не должен ронять страницу: карта остаётся живой.
+  await page.context().clearPermissions();
+  const mapAliveAfterDeny = await page.getByRole('button', { name: /меню/i }).isVisible();
+  record('browser: map stays usable after geolocation denial', mapAliveAfterDeny);
 
   const swRegistered = await page.evaluate(async () => {
     const reg = await navigator.serviceWorker.getRegistration();
