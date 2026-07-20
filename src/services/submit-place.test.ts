@@ -11,10 +11,36 @@ import {
   facadeStoragePath,
   generatePlaceId,
   isPlaceId,
+  parseRpcPlaceRow,
   submitPublicPlace,
 } from './submit-place';
 
 const UUID_A = '11111111-1111-4111-8111-111111111111';
+
+const RPC_PLACE_ROW = {
+  id: UUID_A,
+  name: 'Кафе у моря',
+  category: 'food',
+  lat: 43.00085,
+  lng: 41.0159,
+  status: 'gray',
+  steps_count: null,
+  step_height_cm: null,
+  ramp_type: 'none',
+  door_width_cm: null,
+  entrance_notes: null,
+  toilet_exists: 'unknown',
+  toilet_accessible: 'unknown',
+  parking: 'unknown',
+  comment: null,
+  osm_tags: {},
+  details: { schema_version: 1 },
+  moderation_status: 'published',
+  source: 'public',
+  created_by: UUID_A,
+  created_at: '2026-07-16T00:00:00Z',
+  updated_at: '2026-07-16T00:00:00Z',
+};
 
 /**
  * Structural shape of the Supabase surface exercised by submitPublicPlace.
@@ -40,7 +66,10 @@ function makeFakeSupabase(options: {
 } = {}) {
   const upload = vi.fn().mockResolvedValue({ data: { path: 'x' }, error: options.uploadError ?? null });
   const remove = vi.fn().mockResolvedValue({ data: null, error: options.removeError ?? null });
-  const rpc = vi.fn().mockResolvedValue({ data: options.rpcData ?? null, error: options.rpcError ?? null });
+  const rpc = vi.fn().mockResolvedValue({
+    data: options.rpcData !== undefined ? options.rpcData : RPC_PLACE_ROW,
+    error: options.rpcError ?? null,
+  });
   const client: SubmitSupabaseLike = {
     storage: { from: vi.fn(() => ({ upload, remove })) },
     rpc,
@@ -123,6 +152,15 @@ describe('classifySubmitError', () => {
   });
 });
 
+describe('parseRpcPlaceRow', () => {
+  it('accepts a matching inserted place row and rejects empty or mismatched payloads', () => {
+    expect(parseRpcPlaceRow(RPC_PLACE_ROW, UUID_A)?.id).toBe(UUID_A);
+    expect(parseRpcPlaceRow(null, UUID_A)).toBeNull();
+    expect(parseRpcPlaceRow({ ...RPC_PLACE_ROW, id: 'other' }, UUID_A)).toBeNull();
+    expect(parseRpcPlaceRow({ ...RPC_PLACE_ROW, lat: Number.NaN }, UUID_A)).toBeNull();
+  });
+});
+
 describe('submitPublicPlace', () => {
   it('throws not_configured when Supabase is not configured and no client is injected', async () => {
     const spy = vi.spyOn(supabaseModule, 'isSupabaseConfigured').mockReturnValue(false);
@@ -140,7 +178,18 @@ describe('submitPublicPlace', () => {
       generateId: () => UUID_A,
     });
 
-    expect(result).toEqual({ placeId: UUID_A, storagePath: `${UUID_A}/facade.jpg` });
+    expect(result).toMatchObject({
+      placeId: UUID_A,
+      storagePath: `${UUID_A}/facade.jpg`,
+      snapshot: {
+        placeId: UUID_A,
+        name: validInput.name,
+        category: validInput.category,
+        lat: validInput.lat,
+        lng: validInput.lng,
+      },
+    });
+    expect(result.place?.name).toBe('Кафе у моря');
 
     // Storage: exact bucket + exact path + jpeg content type, no upsert.
     expect(fake.client.storage.from).toHaveBeenCalledWith(FACADE_STORAGE_BUCKET);
@@ -169,6 +218,14 @@ describe('submitPublicPlace', () => {
       submitPublicPlace(validInput, { supabase: asSupabase(fake.client), generateId: () => UUID_A }),
     ).rejects.toMatchObject({ kind: 'missing_photo' });
     expect(fake.rpc).not.toHaveBeenCalled();
+  });
+
+  it('treats an RPC response without a place row as a failed submit (DG-3)', async () => {
+    const fake = makeFakeSupabase({ rpcData: null });
+    await expect(
+      submitPublicPlace(validInput, { supabase: asSupabase(fake.client), generateId: () => UUID_A }),
+    ).rejects.toMatchObject({ kind: 'unknown' });
+    expect(fake.remove).toHaveBeenCalledWith([`${UUID_A}/facade.jpg`]);
   });
 
   it('classifies an RPC failure deterministically and surfaces its SQLSTATE', async () => {

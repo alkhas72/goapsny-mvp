@@ -11,10 +11,13 @@ import {
   applyPlaceFilters,
   fetchPlaceById,
   fetchPublishedPlaces,
+  publicPlaceFromSubmission,
+  upsertPublicPlace,
   type PlaceFilters,
   type PublicPlace,
   type StatusFilter,
 } from '../services/places';
+import type { SubmitPublicPlaceResult } from '../services/submit-place';
 import {
   getPublicSession,
   signOutPublicUser,
@@ -245,22 +248,41 @@ export function PublicMap() {
   }, [pendingAddAfterAuth]);
 
   const handlePlaceSubmitted = useCallback(
-    async (placeId: string) => {
+    async (result: SubmitPublicPlaceResult) => {
       setAddOpen(false);
+      const immediatePlace = result.place ?? publicPlaceFromSubmission(result.snapshot);
+
+      // Карта должна обновиться сразу: ждать полной перезагрузки списка нельзя.
+      // Берём подтверждённые данные подачи (RPC-строка или снимок формы), не заглушки.
+      setPlaces((current) => upsertPublicPlace(current, immediatePlace));
+
       try {
         await reloadPlaces();
       } catch {
-        // DG-3: не подставляем выдуманные данные вместо серверных. Запись прошла,
-        // но список не обновился — говорим об этом прямо. Прежняя версия рисовала
-        // метку с чужим названием и координатами 43,41, из-за чего человек видел
-        // свою точку не там, где ставил, и считал это нормой.
+        // DG-3: координаты и название — те, что человек только что отправил, не выдумка.
         setCabinetNote(
-          'Место отправлено. Обновить список сейчас не удалось — перезагрузите страницу, чтобы увидеть метку.',
+          'Место отправлено. Синхронизировать список сейчас не удалось — метка на карте по вашим данным.',
         );
       }
-      void openPlaceSheet(placeId);
+
+      setSelectedPlaceId(result.placeId);
+      setSheetPlace(immediatePlace);
+      setSheetState('loading');
+      setSheetError(undefined);
+      try {
+        const fresh = await fetchPlaceById(result.placeId);
+        if (!fresh) {
+          setSheetState('partial');
+          return;
+        }
+        setSheetPlace(fresh);
+        setPlaces((current) => upsertPublicPlace(current, fresh));
+        setSheetState(fresh.facadePhotoError ? 'partial' : 'idle');
+      } catch {
+        setSheetState('partial');
+      }
     },
-    [openPlaceSheet, reloadPlaces],
+    [reloadPlaces],
   );
 
   if (loadState === 'loading') {
@@ -355,7 +377,7 @@ export function PublicMap() {
           open={addOpen}
           theme={theme}
           onClose={() => setAddOpen(false)}
-          onSubmitted={(placeId) => void handlePlaceSubmitted(placeId)}
+          onSubmitted={(result) => void handlePlaceSubmitted(result)}
         />
       </main>
 

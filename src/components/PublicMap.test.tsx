@@ -97,10 +97,29 @@ vi.mock('./PublicAddSheet', () => ({
     onSubmitted,
   }: {
     open: boolean;
-    onSubmitted: (placeId: string) => void;
+    onSubmitted: (result: {
+      placeId: string;
+      storagePath: string;
+      snapshot: { placeId: string; name: string; category: string; lat: number; lng: number };
+    }) => void;
   }) =>
     open ? (
-      <button type="button" onClick={() => onSubmitted('new-gray-place')}>
+      <button
+        type="button"
+        onClick={() =>
+          onSubmitted({
+            placeId: 'new-gray-place',
+            storagePath: 'new-gray-place/facade.jpg',
+            snapshot: {
+              placeId: 'new-gray-place',
+              name: 'Новая серая метка',
+              category: 'food',
+              lat: 43.05,
+              lng: 41.05,
+            },
+          })
+        }
+      >
         Mock publish gray pin
       </button>
     ) : null,
@@ -347,8 +366,54 @@ describe('PublicMap integration', () => {
     expect(screen.getByRole('button', { name: 'Новая серая метка' })).toBeTruthy();
   });
 
+  it('shows the submitted gray marker immediately before the list reload finishes', async () => {
+    const user = userEvent.setup();
+    await renderLoadedMap();
+
+    let resolveReload: ((value: PublicPlace[]) => void) | undefined;
+    const reloadPromise = new Promise<PublicPlace[]>((resolve) => {
+      resolveReload = resolve;
+    });
+    vi.mocked(fetchPublishedPlaces).mockReturnValueOnce(reloadPromise);
+
+    await user.click(screen.getByRole('button', { name: /меню/i }));
+    await user.click(screen.getByRole('button', { name: /добавить локацию/i }));
+    await user.click(screen.getByRole('button', { name: 'Mock verify OTP' }));
+    await user.click(screen.getByRole('button', { name: 'Mock publish gray pin' }));
+
+    await screen.findByRole('button', { name: 'Новая серая метка' });
+    resolveReload?.([...mockPlaces, {
+      id: 'new-gray-place',
+      name: 'Новая серая метка',
+      category: 'food',
+      lat: 43.05,
+      lng: 41.05,
+      status: 'gray',
+      stepsCount: null,
+      stepHeightCm: null,
+      rampType: 'none',
+      doorWidthCm: null,
+      entranceNotes: null,
+      toiletExists: 'unknown',
+      toiletAccessible: 'unknown',
+      parking: 'unknown',
+      comment: null,
+      osmTags: {},
+      details: { schema_version: 1 },
+      moderationStatus: 'published',
+      source: 'public',
+      createdBy: null,
+      createdAt: '2026-07-16T00:00:00Z',
+      updatedAt: '2026-07-16T00:00:00Z',
+      facadePhotoUrl: null,
+    }]);
+    await waitFor(() => {
+      expect(vi.mocked(fetchPublishedPlaces).mock.calls.length).toBeGreaterThan(1);
+    });
+  });
+
   // DG-3: при сбое сервера показываем правду, а не выдуманные данные.
-  it('does not invent a marker when the reload after submit fails', async () => {
+  it('keeps the submitted marker with real form data when reload after submit fails', async () => {
     const user = userEvent.setup();
     await renderLoadedMap();
 
@@ -366,9 +431,9 @@ describe('PublicMap integration', () => {
       expect(vi.mocked(fetchPublishedPlaces).mock.calls.length).toBeGreaterThan(callsBefore);
     });
 
-    // Ни подставного названия, ни метки с выдуманными координатами появиться не должно.
+    // Метка с реальными данными формы остаётся видимой; выдуманных координат нет.
+    expect(screen.getByRole('button', { name: 'Новая серая метка' })).toBeTruthy();
     expect(screen.queryByRole('button', { name: 'Новое место' })).toBeNull();
-    // Видимые маркеры остаются прежними — ровно те, что пришли с сервера.
     for (const place of mockPlaces) {
       expect(screen.getByRole('button', { name: place.name })).toBeTruthy();
     }

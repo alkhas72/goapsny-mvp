@@ -42,7 +42,17 @@ const PLACE_ID = '11111111-1111-4111-8111-111111111111';
 describe('PublicAddSheet', () => {
   beforeEach(() => {
     submitPublicPlace.mockReset();
-    submitPublicPlace.mockResolvedValue({ placeId: PLACE_ID, storagePath: `${PLACE_ID}/facade.jpg` });
+    submitPublicPlace.mockResolvedValue({
+      placeId: PLACE_ID,
+      storagePath: `${PLACE_ID}/facade.jpg`,
+      snapshot: {
+        placeId: PLACE_ID,
+        name: 'Кафе у моря',
+        category: 'food',
+        lat: 43.01,
+        lng: 41.02,
+      },
+    });
   });
 
   afterEach(() => {
@@ -90,7 +100,12 @@ describe('PublicAddSheet', () => {
 
     await user.click(screen.getByRole('button', { name: /опубликовать серую метку/i }));
     await waitFor(() => {
-      expect(onSubmitted).toHaveBeenCalledWith(PLACE_ID);
+      expect(onSubmitted).toHaveBeenCalledWith(
+        expect.objectContaining({
+          placeId: PLACE_ID,
+          storagePath: `${PLACE_ID}/facade.jpg`,
+        }),
+      );
     });
 
     // Exact hardened-boundary contract: name trimmed, photo required as a Blob.
@@ -121,5 +136,28 @@ describe('PublicAddSheet', () => {
       expect(screen.getByRole('alert')).toBeTruthy();
     });
     expect(screen.getByRole('alert').textContent).toContain('уже добавили место');
+  });
+
+  it('does not call onSubmitted when the hardened boundary rejects the RPC', async () => {
+    submitPublicPlace.mockRejectedValueOnce(
+      new SubmitPlaceError('unknown', 'network down', null),
+    );
+    const onSubmitted = vi.fn();
+    const user = userEvent.setup();
+    render(<PublicAddSheet open theme="light" onClose={() => undefined} onSubmitted={onSubmitted} />);
+
+    const file = new File(['x'], 'facade.jpg', { type: 'image/jpeg' });
+    await user.upload(screen.getByLabelText(/фото входа/i), file);
+    await user.click(screen.getByRole('button', { name: /далее/i }));
+    await user.type(screen.getByLabelText(/название/i), 'Кафе');
+    await user.click(screen.getByRole('button', { name: /далее/i }));
+    await user.click(screen.getByRole('button', { name: /установить пин/i }));
+    await user.click(screen.getByRole('button', { name: /далее/i }));
+    await user.click(screen.getByRole('button', { name: /опубликовать серую метку/i }));
+
+    await waitFor(() => {
+      expect(screen.getByRole('alert')).toBeTruthy();
+    });
+    expect(onSubmitted).not.toHaveBeenCalled();
   });
 });
