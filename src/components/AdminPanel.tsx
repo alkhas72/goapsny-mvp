@@ -6,9 +6,16 @@ import { telegram } from "../utils/telegram";
 
 interface AdminPanelProps {
   places: Place[];
-  onDeletePlace: (id: string) => void;
-  onUpdateStatus: (id: string, status: AccessibilityStatus) => void;
+  onDeletePlace: (id: string) => Promise<void>;
+  onUpdateStatus: (id: string, status: AccessibilityStatus) => Promise<void>;
 }
+
+const SOURCE_LABELS: Record<Place["source"], string> = {
+  operator: "Оператор",
+  public: "Публичная заявка",
+  import: "Импорт",
+  ai_seed: "AI-импорт"
+};
 
 export function AdminPanel({ places, onDeletePlace, onUpdateStatus }: AdminPanelProps) {
   const [filterStatus, setFilterStatus] = useState<AccessibilityStatus | "all">("all");
@@ -25,8 +32,14 @@ export function AdminPanel({ places, onDeletePlace, onUpdateStatus }: AdminPanel
 
   const handleDelete = (id: string, name: string) => {
     telegram.alert(`Вы уверены, что хотите удалить объект "${name}"?`, () => {
-      onDeletePlace(id);
-      telegram.hapticNotify("warning");
+      void (async () => {
+        try {
+          await onDeletePlace(id);
+          telegram.hapticNotify("warning");
+        } catch (e) {
+          telegram.alert(e instanceof Error ? e.message : "Не удалось удалить объект.");
+        }
+      })();
     });
   };
 
@@ -36,9 +49,15 @@ export function AdminPanel({ places, onDeletePlace, onUpdateStatus }: AdminPanel
   };
 
   const handleSelectNewStatus = (id: string, newStatus: AccessibilityStatus) => {
-    onUpdateStatus(id, newStatus);
-    setEditingPlaceId(null);
-    telegram.hapticNotify("success");
+    void (async () => {
+      try {
+        await onUpdateStatus(id, newStatus);
+        setEditingPlaceId(null);
+        telegram.hapticNotify("success");
+      } catch (e) {
+        telegram.alert(e instanceof Error ? e.message : "Не удалось изменить статус.");
+      }
+    })();
   };
 
   return (
@@ -158,7 +177,7 @@ export function AdminPanel({ places, onDeletePlace, onUpdateStatus }: AdminPanel
 
               <div style={{ display: "flex", gap: 12, fontSize: 11, color: "var(--text-secondary)", borderTop: "1px solid var(--border-color)", paddingTop: 6, width: "100%" }}>
                 <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
-                  <User size={12} /> {place.createdBy === "u-owner" ? "Алхас" : "Оператор"}
+                  <User size={12} /> {SOURCE_LABELS[place.source] ?? place.source}
                 </span>
                 <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
                   <Calendar size={12} /> {new Date(place.createdAt).toLocaleDateString("ru-RU")}

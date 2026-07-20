@@ -14,13 +14,15 @@ const getWebApp = () => window.Telegram?.WebApp;
 export const telegram = {
   isTelegram,
 
-  // Get initData string for authentication
+  // Get initData string for authentication.
+  // Вне Telegram initData нет — возвращаем пустую строку. Поддельный
+  // initData удалён (DG-3): auth-telegram обязан отклонять фальшивку,
+  // а не пропускать её за реальный вход.
   getInitData(): string {
     if (isTelegram()) {
       return getWebApp().initData || "";
     }
-    // Development mock initData
-    return "query_id=AAH0...&user=%7B%22id%22%3A215263723%2C%22first_name%22%3A%22Alkhas%22%2C%22last_name%22%3A%22Thagushev%22%2C%22username%22%3A%22alkhas_abaza%22%2C%22language_code%22%3A%22ru%22%7D&auth_date=1716942000&hash=mocked_hash";
+    return "";
   },
 
   // Get theme parameters

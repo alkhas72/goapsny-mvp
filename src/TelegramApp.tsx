@@ -2,11 +2,12 @@ import { useState, useEffect } from "react";
 import type { Place, Profile, Tab, AccessibilityStatus } from "./types";
 import { telegram } from "./utils/telegram";
 import { api, categoriesList } from "./services/api";
+import { STATUS_META } from "./shared/index";
 import { LeafletMap } from "./components/LeafletMap";
 import { AddWizard } from "./components/AddWizard";
 import { Profile as ProfileView } from "./components/Profile";
 import { AdminPanel } from "./components/AdminPanel";
-import { Map, Plus, User, ShieldAlert, Compass, Moon, Sun } from "lucide-react";
+import { Map, Plus, User, ShieldAlert, Compass, Moon, Sun, AlertCircle } from "lucide-react";
 
 // Official Accessible Icon Project SVG Component
 function AccessibleIconLogo() {
@@ -38,6 +39,9 @@ export function TelegramApp() {
   const [theme, setTheme] = useState<"dark" | "light">(telegram.getTelegramTheme);
   const [filter, setFilter] = useState<AccessibilityStatus | "all">("all");
   const [loading, setLoading] = useState(true);
+  // Отказ входа/загрузки показываем честно (DG-3), с кнопкой повтора.
+  const [initError, setInitError] = useState<string | null>(null);
+  const [initAttempt, setInitAttempt] = useState(0);
   
   // Geolocation Primer Splash State
   const [showPrimer, setShowPrimer] = useState(() => {
@@ -47,18 +51,22 @@ export function TelegramApp() {
   // 1. Initial Authentication & Load Data
   useEffect(() => {
     const initApp = async () => {
+      setLoading(true);
+      setInitError(null);
       try {
         // Sync Initial Telegram Theme
         const tgTheme = telegram.getTelegramTheme();
         setTheme(tgTheme);
         document.documentElement.className = tgTheme;
 
-        // Login using Telegram initialization data
+        // Login using Telegram initialization data. Без моков: отказ
+        // auth-telegram (плохая подпись, истёкший initData, сеть) — это
+        // ошибка инициализации, а не тихий вход под локальным owner.
         const initData = telegram.getInitData();
         const authData = await api.loginTelegram(initData);
         setProfile(authData.profile);
 
-        // Fetch POIs
+        // Fetch POIs из общей базы (тот же published-набор, что видит сайт)
         const fetchedPlaces = await api.getPlaces();
         setPlaces(fetchedPlaces);
 
@@ -66,12 +74,13 @@ export function TelegramApp() {
         telegram.expand();
       } catch (e) {
         console.error("Initialization failed", e);
+        setInitError(e instanceof Error ? e.message : "Не удалось запустить приложение");
       } finally {
         setLoading(false);
       }
     };
     initApp();
-  }, []);
+  }, [initAttempt]);
 
   // 2. React to Theme Change
   useEffect(() => {
@@ -92,15 +101,17 @@ export function TelegramApp() {
     }
   };
 
-  const handleCreatePlace = async (newPlace: Place) => {
+  const handleCreatePlace = async (newPlace: Place, freshProfile?: Profile) => {
     setPlaces(prev => [newPlace, ...prev]);
     
-    // Refresh user profile state by re-running loginTelegram to sync mock/server awards
-    if (profile) {
+    // Карма и статус начисляются серверными триггерами; AddWizard уже
+    // перечитал профиль после сохранения — просто применяем свежий.
+    // Если свежего нет (перечитать не удалось), дочитываем здесь.
+    if (freshProfile) {
+      setProfile(freshProfile);
+    } else if (profile) {
       try {
-        const initData = telegram.getInitData();
-        const authData = await api.loginTelegram(initData);
-        setProfile(authData.profile);
+        setProfile(await api.getProfile());
       } catch (e) {
         console.error("Failed to sync profile after place creation", e);
       }
@@ -110,14 +121,18 @@ export function TelegramApp() {
     setSelectedPlaceId(newPlace.id);
   };
 
-  const handleDeletePlace = (id: string) => {
+  // Админ-действия идут на сервер; RLS сам решит, хватает ли прав.
+  // Ошибка пробрасывается в AdminPanel и показывается пользователю.
+  const handleDeletePlace = async (id: string) => {
+    await api.deletePlace(id);
     setPlaces(prev => prev.filter(p => p.id !== id));
     if (selectedPlaceId === id) {
       setSelectedPlaceId(null);
     }
   };
 
-  const handleUpdateStatus = (id: string, newStatus: AccessibilityStatus) => {
+  const handleUpdateStatus = async (id: string, newStatus: AccessibilityStatus) => {
+    await api.updatePlaceStatus(id, newStatus);
     setPlaces(prev =>
       prev.map(p => (p.id === id ? { ...p, status: newStatus } : p))
     );
@@ -135,6 +150,23 @@ export function TelegramApp() {
             <AccessibleIconLogo />
           </div>
           <div>Загрузка GoApsny...</div>
+        </div>
+      </div>
+    );
+  }
+
+  if (initError) {
+    return (
+      <div style={{ minHeight: "100vh", display: "grid", placeItems: "center", backgroundColor: "var(--bg-color)", padding: 24 }}>
+        <div style={{ textAlign: "center", color: "var(--text-secondary)", maxWidth: 320, display: "flex", flexDirection: "column", gap: 12, alignItems: "center" }}>
+          <div style={{ width: 44, height: 44, color: "var(--status-red)" }}>
+            <AlertCircle size={44} />
+          </div>
+          <div style={{ fontWeight: 600, color: "var(--text-color)" }}>GoApsny не запустился</div>
+          <div style={{ fontSize: 13 }}>{initError}</div>
+          <button type="button" className="primary-btn" onClick={() => setInitAttempt(a => a + 1)}>
+            Повторить
+          </button>
         </div>
       </div>
     );
@@ -308,7 +340,7 @@ export function TelegramApp() {
                     </div>
                   </div>
                   <span className={`sheet-badge ${selectedPlace.status}`}>
-                    {selectedPlace.status === "green" ? "Доступно" : selectedPlace.status === "yellow" ? "Частично" : "Недоступно"}
+                    {STATUS_META[selectedPlace.status]?.ru ?? selectedPlace.status}
                   </span>
                 </div>
 

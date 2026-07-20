@@ -7,6 +7,17 @@ verify_jwt = true
 [functions.export-drive]
 verify_jwt = false
 
+# auth-telegram валидирует подпись initData токеном бота и подписывает JWT
+# секретом проекта. Локально оба пробрасываются из окружения CLI (env(...)):
+# перед `supabase start` задайте TELEGRAM_BOT_TOKEN и SUPABASE_JWT_SECRET
+# (для e2e — тестовые значения, боевые сюда не вписывать). Имя EDGE_JWT_SECRET,
+# а не SUPABASE_JWT_SECRET: CLI не отдаёт функциям пользовательские секреты
+# с префиксом SUPABASE_. Без переменных стек поднимается, но функция честно
+# отвечает Missing env.
+[edge_runtime.secrets]
+TELEGRAM_BOT_TOKEN = "env(TELEGRAM_BOT_TOKEN)"
+EDGE_JWT_SECRET = "env(SUPABASE_JWT_SECRET)"
+
 [auth.email]
 # Клиент ждёт ровно 8 цифр (publicAuth.ts: OTP_CODE_LENGTH = 8, ^\d{8}$).
 # Дефолт Supabase — 6, при нём код не пройдёт валидацию на клиенте.
