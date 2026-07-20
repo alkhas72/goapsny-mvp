@@ -4,6 +4,7 @@ import { CATEGORIES } from '../shared/index';
 import {
   SubmitPlaceError,
   type SubmitPlaceErrorKind,
+  type SubmitPublicPlaceResult,
   submitPublicPlace,
 } from '../services/submit-place';
 import { getBrowserLocation } from '../utils/location';
@@ -36,7 +37,7 @@ interface PublicAddSheetProps {
   open: boolean;
   theme: 'light' | 'dark';
   onClose: () => void;
-  onSubmitted: (placeId: string) => void;
+  onSubmitted: (result: SubmitPublicPlaceResult) => void;
 }
 
 type Step = 1 | 2 | 3 | 4;
@@ -144,7 +145,7 @@ export function PublicAddSheet({ open, theme, onClose, onSubmitted }: PublicAddS
         photo: photoFile,
       });
       setSuccessMessage('Серая метка уже на карте. Её проверят аудиторы сообщества.');
-      onSubmitted(result.placeId);
+      onSubmitted(result);
     } catch (submitError) {
       setError(
         submitError instanceof SubmitPlaceError

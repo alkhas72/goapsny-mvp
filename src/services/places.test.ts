@@ -4,6 +4,8 @@ import {
   hasSeenWelcome,
   mapPlaceRow,
   markWelcomeSeen,
+  publicPlaceFromSubmission,
+  upsertPublicPlace,
   WELCOME_STORAGE_KEY,
   type PlaceRow,
   type PublicPlace,
@@ -56,6 +58,56 @@ describe('mapPlaceRow', () => {
     });
     expect(mapped.details.schema_version).toBe(1);
     expect(mapped.facadePhotoUrl).toBeNull();
+  });
+});
+
+describe('publicPlaceFromSubmission', () => {
+  it('builds a gray published pin from the confirmed form snapshot', () => {
+    const place = publicPlaceFromSubmission({
+      placeId: '11111111-1111-4111-8111-111111111111',
+      name: '  Кафе  ',
+      category: 'food',
+      lat: 43.01,
+      lng: 41.02,
+    });
+
+    expect(place).toMatchObject({
+      id: '11111111-1111-4111-8111-111111111111',
+      name: 'Кафе',
+      category: 'food',
+      lat: 43.01,
+      lng: 41.02,
+      status: 'gray',
+      moderationStatus: 'published',
+    });
+  });
+});
+
+describe('upsertPublicPlace', () => {
+  it('replaces an existing id and prepends the fresh row', () => {
+    const existing = publicPlaceFromSubmission({
+      placeId: 'a',
+      name: 'Old',
+      category: 'food',
+      lat: 1,
+      lng: 2,
+    });
+    const updated = publicPlaceFromSubmission({
+      placeId: 'a',
+      name: 'New',
+      category: 'food',
+      lat: 3,
+      lng: 4,
+    });
+    const other = publicPlaceFromSubmission({
+      placeId: 'b',
+      name: 'Other',
+      category: 'food',
+      lat: 5,
+      lng: 6,
+    });
+
+    expect(upsertPublicPlace([existing, other], updated)).toEqual([updated, other]);
   });
 });
 

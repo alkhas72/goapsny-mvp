@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { mapPlaceRow, type PlaceRow, type SubmittedPlaceSnapshot } from './places';
 import { isSupabaseConfigured } from './supabase';
 
 /**
@@ -56,6 +57,10 @@ export interface SubmitPublicPlaceResult {
   placeId: string;
   /** The exact `{place_id}/facade.jpg` path the RPC revalidated and indexed. */
   storagePath: string;
+  /** Server row mapped for immediate map update; present only when RPC returned a row. */
+  place?: ReturnType<typeof mapPlaceRow>;
+  /** Echo of the confirmed form fields for immediate map pin rendering. */
+  snapshot: SubmittedPlaceSnapshot;
 }
 
 /** Injection seam so unit tests do not touch the shared module-level client. */
@@ -129,6 +134,17 @@ export function isPlaceId(value: unknown): value is string {
 }
 
 type RpcErrorLike = { code?: unknown; message?: unknown } | null | undefined;
+
+/** RPC must return the inserted `places` row; empty/mismatched data is a failed submit. */
+export function parseRpcPlaceRow(data: unknown, expectedPlaceId: string): PlaceRow | null {
+  if (!data || typeof data !== 'object' || Array.isArray(data)) return null;
+  const row = data as Record<string, unknown>;
+  if (row.id !== expectedPlaceId) return null;
+  if (typeof row.name !== 'string' || typeof row.category !== 'string') return null;
+  if (typeof row.lat !== 'number' || typeof row.lng !== 'number') return null;
+  if (!Number.isFinite(row.lat) || !Number.isFinite(row.lng)) return null;
+  return row as unknown as PlaceRow;
+}
 
 /**
  * Map a raw Supabase/PostgREST error to a stable {@link SubmitPlaceErrorKind}.
@@ -270,5 +286,34 @@ export async function submitPublicPlace(
     throw classifySubmitError(rpcError);
   }
 
-  return { placeId, storagePath };
+  const rpcData = (rpcResult as { data?: unknown }).data;
+  const insertedRow = parseRpcPlaceRow(rpcData, placeId);
+  if (!insertedRow) {
+    // DG-3: без подтверждённой строки в places успех рисовать нельзя — иначе
+    // отказ RPC (лимит, RLS, сеть) может выглядеть как «добавлено».
+    try {
+      await supabase.storage.from(FACADE_STORAGE_BUCKET).remove([storagePath]);
+    } catch {
+      // Осиротевший фасад не должен подменять причину отказа.
+    }
+    throw new SubmitPlaceError(
+      'unknown',
+      'RPC completed without a place row',
+      null,
+      rpcData ?? null,
+    );
+  }
+
+  return {
+    placeId,
+    storagePath,
+    place: mapPlaceRow(insertedRow),
+    snapshot: {
+      placeId,
+      name: input.name,
+      category: input.category,
+      lat: input.lat,
+      lng: input.lng,
+    },
+  };
 }

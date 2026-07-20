@@ -144,6 +144,49 @@ export function isPartialPlace(place: PublicPlace): boolean {
   return missingAddress || missingPhoto || missingAudit;
 }
 
+/** Minimal client snapshot of a just-submitted gray pin (real form data, not placeholders). */
+export interface SubmittedPlaceSnapshot {
+  placeId: string;
+  name: string;
+  category: string;
+  lat: number;
+  lng: number;
+}
+
+/** Build a map-visible place from the submission the user just confirmed. */
+export function publicPlaceFromSubmission(snapshot: SubmittedPlaceSnapshot): PublicPlace {
+  const now = new Date().toISOString();
+  return mapPlaceRow({
+    id: snapshot.placeId,
+    name: snapshot.name.trim(),
+    category: snapshot.category,
+    lat: snapshot.lat,
+    lng: snapshot.lng,
+    status: 'gray',
+    steps_count: null,
+    step_height_cm: null,
+    ramp_type: 'none',
+    door_width_cm: null,
+    entrance_notes: null,
+    toilet_exists: 'unknown',
+    toilet_accessible: 'unknown',
+    parking: 'unknown',
+    comment: null,
+    osm_tags: {},
+    details: { schema_version: 1 },
+    moderation_status: 'published',
+    source: 'public',
+    created_by: null,
+    created_at: now,
+    updated_at: now,
+  });
+}
+
+/** Insert or replace one place in the in-memory published list. */
+export function upsertPublicPlace(places: PublicPlace[], place: PublicPlace): PublicPlace[] {
+  return [place, ...places.filter((item) => item.id !== place.id)];
+}
+
 export function applyPlaceFilters(places: PublicPlace[], filters: PlaceFilters): PublicPlace[] {
   const query = filters.query.trim().toLowerCase();
   return places.filter((place) => {
