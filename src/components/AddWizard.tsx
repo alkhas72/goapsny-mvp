@@ -39,26 +39,26 @@ export function AddWizard({ profile, theme, onSave, onCancel }: AddWizardProps) 
   const [aiFilled, setAiFilled] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
-  // Auto-fetch location on Mount or when photo is added
-  useEffect(() => {
-    if (step === 1 && !draft.lat && !draft.lng) {
-      captureLocation();
-    }
-  }, [step]);
-
   const captureLocation = async () => {
     setLocating(true);
     setLocationError(null);
     try {
       const pos = await telegram.getUserLocation();
       setDraft(prev => ({ ...prev, lat: pos.lat, lng: pos.lng }));
-    } catch (e: any) {
+    } catch (e: unknown) {
       console.error(e);
       setLocationError("Не удалось получить геопозицию. Установите координаты вручную на шаге 4.");
     } finally {
       setLocating(false);
     }
   };
+
+  // Auto-fetch location on Mount or when photo is added
+  useEffect(() => {
+    if (step === 1 && !draft.lat && !draft.lng) {
+      void captureLocation(); // eslint-disable-line react-hooks/set-state-in-effect -- geo bootstrap on step 1
+    }
+  }, [step, draft.lat, draft.lng]);
 
   const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -189,7 +189,9 @@ export function AddWizard({ profile, theme, onSave, onCancel }: AddWizardProps) 
       telegram.hideMainButton();
       telegram.hideBackButton();
     };
-  }, [step, draft, isSaving]);
+  // Handlers are recreated each render; rebinding Telegram chrome is intentional here.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [step, draft, isSaving, onCancel]);
 
   return (
     <div className="wizard-container">
@@ -340,7 +342,7 @@ export function AddWizard({ profile, theme, onSave, onCancel }: AddWizardProps) 
             <select 
               className="form-select"
               value={draft.rampType}
-              onChange={e => setDraft(prev => ({ ...prev, rampType: e.target.value as any }))}
+              onChange={e => setDraft(prev => ({ ...prev, rampType: e.target.value as AddDraft["rampType"] }))}
             >
               <option value="none">Нет пандуса</option>
               <option value="permanent">Стационарный пандус</option>

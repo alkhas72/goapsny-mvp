@@ -162,7 +162,12 @@ export const getKarmaStatusAndNextLimit = (points: number): { status: string; ne
 };
 
 // Real Live Supabase fetch helper (uses standard fetch wrapper to make calls to Edge Functions)
-const supabaseRequest = async (endpoint: string, method: string = "POST", body?: any, token?: string) => {
+const supabaseRequest = async (
+  endpoint: string,
+  method: string = "POST",
+  body?: Record<string, unknown>,
+  token?: string,
+) => {
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
     Authorization: token ? `Bearer ${token}` : `Bearer ${SUPABASE_ANON_KEY}`,
@@ -231,8 +236,8 @@ export const api = {
         }
       });
       if (!response.ok) throw new Error("Fetch failed");
-      const list = await response.json();
-      return list.map((item: any) => ({
+      const list = (await response.json()) as Array<Record<string, unknown>>;
+      return list.map((item) => ({
         id: item.id,
         name: item.name,
         category: item.category,

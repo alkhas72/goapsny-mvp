@@ -1,15 +1,56 @@
 // Wrapper for the Telegram WebApp API
 
+interface TelegramLocationData {
+  Latitude?: number;
+  Longitude?: number;
+}
+
+interface TelegramWebApp {
+  initData?: string;
+  themeParams?: Record<string, string>;
+  colorScheme?: string;
+  ready: () => void;
+  expand: () => void;
+  HapticFeedback?: {
+    notificationOccurred: (type: string) => void;
+    selectionChanged: () => void;
+  };
+  MainButton: {
+    setText: (text: string) => void;
+    setParams: (params: Record<string, unknown>) => void;
+    offClick: () => void;
+    onClick: (cb: () => void) => void;
+    hide: () => void;
+  };
+  BackButton: {
+    show: () => void;
+    hide: () => void;
+    offClick: () => void;
+    onClick: (cb: () => void) => void;
+  };
+  LocationManager?: {
+    isInited: boolean;
+    isLocationAvailable: boolean;
+    init: (cb: (success: boolean) => void) => void;
+    getLocation: (
+      options: { AllowHighAccuracy: boolean },
+      onSuccess: (data: TelegramLocationData) => void,
+      onError: (err: unknown) => void,
+    ) => void;
+  };
+  showAlert: (message: string, callback?: () => void) => void;
+}
+
 declare global {
   interface Window {
     Telegram?: {
-      WebApp: any;
+      WebApp: TelegramWebApp;
     };
   }
 }
 
 const isTelegram = () => typeof window !== "undefined" && !!window.Telegram?.WebApp?.initData;
-const getWebApp = () => window.Telegram?.WebApp;
+const getWebApp = (): TelegramWebApp => window.Telegram!.WebApp;
 
 export const telegram = {
   isTelegram,
@@ -138,7 +179,7 @@ export const telegram = {
           const retrieveLocation = () => {
             lm.getLocation(
               { AllowHighAccuracy: true },
-              (data: any) => {
+              (data: TelegramLocationData) => {
                 if (data && data.Latitude && data.Longitude) {
                   resolve({ lat: data.Latitude, lng: data.Longitude });
                 } else {
@@ -146,7 +187,7 @@ export const telegram = {
                   this.fallbackHtml5Location(resolve, reject);
                 }
               },
-              (err: any) => {
+              (err: unknown) => {
                 console.error("Telegram LocationManager error", err);
                 this.fallbackHtml5Location(resolve, reject);
               }
@@ -175,7 +216,7 @@ export const telegram = {
     });
   },
 
-  fallbackHtml5Location(resolve: (pos: { lat: number; lng: number }) => void, reject: (err: any) => void) {
+  fallbackHtml5Location(resolve: (pos: { lat: number; lng: number }) => void, reject: (err: unknown) => void) {
     if (typeof navigator !== "undefined" && navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
         (position) => {
