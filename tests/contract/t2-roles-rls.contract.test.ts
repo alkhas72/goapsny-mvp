@@ -411,14 +411,29 @@ describe('Block C — RPC guard branches (required area #7)', () => {
     expect(body).toContain('caller must be public_user');
   });
 
-  it('enforces exactly one public submission per contributor, including races', () => {
+  // Историческая правда: T2 вводила лимит одной подачи. Файл миграции
+  // неизменяем, поэтому проверка остаётся — но лимит отменён более поздней
+  // миграцией, см. следующий блок.
+  it('T2 introduced a one-submission-per-contributor limit', () => {
     expect(norm(executableB)).toContain(
       'create unique index places_one_public_submission_per_creator_idx on public.places (created_by) where source = \'public\' and created_by is not null',
     );
-    expect(norm(body)).toContain(
-      "pl.created_by = v_uid and pl.source = 'public'",
-    );
     expect(body).toContain('public submission already used');
+  });
+
+  it('the submission limit is dropped by a later migration (Арбитр, 20.07)', () => {
+    const dropMigration = readMigration('20260720080000_drop_one_public_submission_limit.sql');
+    // Индекс снят.
+    expect(norm(dropMigration)).toContain(
+      'drop index if exists public.places_one_public_submission_per_creator_idx',
+    );
+    // И проверка внутри функции больше не отклоняет повторную подачу.
+    expect(dropMigration).not.toContain('public submission already used');
+    // Остальные защиты обязаны сохраниться: снимается ровно одно ограничение.
+    expect(dropMigration).toContain('caller must be public_user');
+    expect(dropMigration).toContain('owned facade object not found');
+    expect(dropMigration).toContain('place_id already used');
+    expect(dropMigration).toContain('inactive or unknown category');
   });
 
   it('rejects empty / whitespace-only name', () => {

@@ -224,14 +224,24 @@ async function main() {
     p_lng: 41.016,
     p_storage_path: secondPath,
   });
-  // Проверяем именно лимит одной подачи, а не любую ошибку: код 23505
-  // и текст ограничения. Иначе тест зазеленеет на посторонней поломке.
-  const limitCode = second.error?.code;
-  const limitMessage = second.error?.message ?? '';
+  // Лимит одной подачи снят решением Арбитра 20.07: человек добавляет
+  // соседнее кафе сразу, а не на следующий день. Вторая подача обязана
+  // пройти — и создать вторую метку.
   record(
-    'вторая подача отклонена именно лимитом (23505)',
-    limitCode === '23505' && /public submission already used/i.test(limitMessage),
-    second.error ? `${limitCode}: ${limitMessage}` : 'ошибки нет — лимит не сработал',
+    'вторая подача проходит (лимит снят)',
+    !second.error,
+    second.error ? `${second.error.code}: ${second.error.message}` : '',
+  );
+
+  const secondCreated = await supabase
+    .from('places')
+    .select('id, status')
+    .eq('id', secondPlaceId)
+    .maybeSingle();
+  record(
+    'вторая метка появилась и тоже серая',
+    !secondCreated.error && secondCreated.data?.status === 'gray',
+    secondCreated.error?.message ?? `статус: ${secondCreated.data?.status ?? 'нет строки'}`,
   );
 
   // 10. Итог глазами анонима: свежая метка видна без входа.
