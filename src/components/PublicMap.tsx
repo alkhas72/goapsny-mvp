@@ -17,7 +17,6 @@ import {
 } from '../services/places';
 import {
   getPublicSession,
-  maskEmailDomain,
   signOutPublicUser,
   subscribePublicSession,
 } from '../services/publicAuth';
@@ -222,11 +221,16 @@ export function PublicMap() {
   }, [authEmail]);
 
   const handleCabinet = useCallback(() => {
+    // Уже вошёл — сразу открываем форму: добавить место можно один раз,
+    // и человек, зашедший в кабинет, приходит именно за этим.
     if (authEmail) {
-      setCabinetNote(`Вход выполнен: ${maskEmailDomain(authEmail)}. Можно добавить одно место.`);
+      setAddSheetKey((key) => key + 1);
+      setAddOpen(true);
       return;
     }
-    setPendingAddAfterAuth(false);
+    // Вход ради самого входа никому не нужен: после подтверждения кода
+    // ведём к форме, а не оставляем на карте без пути дальше.
+    setPendingAddAfterAuth(true);
     setAuthSheetKey((key) => key + 1);
     setAuthOpen(true);
   }, [authEmail]);

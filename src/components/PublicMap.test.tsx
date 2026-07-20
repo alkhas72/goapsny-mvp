@@ -268,6 +268,19 @@ describe('PublicMap integration', () => {
     });
   });
 
+  // Вход через «Кабинет» — путь, которым человек идёт, не найдя кнопку
+  // добавления в меню. Раньше он упирался в тупик: код принят, а формы нет.
+  it('leads from cabinet login straight to the add form', async () => {
+    const user = userEvent.setup();
+    await renderLoadedMap();
+
+    await user.click(screen.getByRole('button', { name: /кабинет/i }));
+    // Сначала подтверждение почты.
+    await user.click(screen.getByRole('button', { name: 'Mock verify OTP' }));
+    // И сразу форма — вход ради самого входа никому не нужен.
+    expect(await screen.findByRole('button', { name: 'Mock publish gray pin' })).toBeTruthy();
+  });
+
   it('opens OTP auth when adding a location without a session', async () => {
     const user = userEvent.setup();
     await renderLoadedMap();
