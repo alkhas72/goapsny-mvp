@@ -2,13 +2,14 @@ import React, { useState, useEffect } from "react";
 import type { AddDraft, Place, AccessibilityStatus, Profile } from "../types";
 import { categoriesList, api } from "../services/api";
 import { telegram } from "../utils/telegram";
+import { prepareFacadePhoto, FacadePhotoError } from "../utils/photo";
 import { LeafletMap } from "./LeafletMap";
 import { Camera, MapPin, Sparkles, AlertCircle, ArrowLeft, ArrowRight, Check } from "lucide-react";
 
 interface AddWizardProps {
   profile: Profile;
   theme: "dark" | "light";
-  onSave: (place: Place) => void;
+  onSave: (place: Place, freshProfile?: Profile) => void;
   onCancel: () => void;
 }
 
@@ -60,47 +61,47 @@ export function AddWizard({ profile, theme, onSave, onCancel }: AddWizardProps) 
     }
   };
 
-  const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handlePhotoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) {
-      const url = URL.createObjectURL(file);
+    if (!file) return;
+    try {
+      // Бакет place-photos принимает только JPEG до 10 MiB — приводим снимок
+      // к контракту здесь, иначе Storage честно отклонит загрузку на сейве.
+      const prepared = await prepareFacadePhoto(file);
       setDraft(prev => ({
         ...prev,
-        photoFile: file,
-        photoUrl: url
+        photoFile: prepared,
+        photoUrl: URL.createObjectURL(prepared)
       }));
       // Re-trigger location capture for precision
       captureLocation();
+    } catch (cause) {
+      telegram.alert(
+        cause instanceof FacadePhotoError
+          ? cause.message
+          : "Не удалось обработать фотографию. Попробуйте другой снимок."
+      );
     }
   };
 
-  const triggerMockPhoto = () => {
-    // Generate mock photo
-    setDraft(prev => ({
-      ...prev,
-      photoUrl: "https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?auto=format&fit=crop&w=900&q=75"
-    }));
-    captureLocation();
-  };
-
   const handleAiFill = async () => {
-    if (!draft.photoUrl) return;
+    if (!draft.photoFile) return;
     setAiLoading(true);
     try {
-      const result = await api.getAiAutofill(draft.photoUrl);
+      const result = await api.getAiAutofill(draft.photoFile);
       setDraft(prev => ({
         ...prev,
-        name: result.name,
-        category: result.category,
-        stepsCount: result.stepsCount?.toString() || "",
+        name: result.name || prev.name,
+        category: result.category || prev.category,
+        stepsCount: result.stepsCount != null ? result.stepsCount.toString() : prev.stepsCount,
         rampType: result.rampType,
-        status: result.status
+        status: result.status || prev.status
       }));
       setAiFilled(true);
       telegram.hapticNotify("success");
     } catch (e) {
       console.error(e);
-      telegram.alert("Ошибка при вызове ИИ автозаполнения.");
+      telegram.alert(e instanceof Error ? e.message : "Ошибка при вызове ИИ автозаполнения.");
     } finally {
       setAiLoading(false);
     }
@@ -151,12 +152,25 @@ export function AddWizard({ profile, theme, onSave, onCancel }: AddWizardProps) 
       };
 
       const created = await api.createPlace(placeData, draft.photoFile || undefined);
+
+      // Карму начисляют серверные триггеры — показываем фактическую дельту,
+      // а не обещанное число. Перечитать профиль не вышло — просто без дельты.
+      let freshProfile: Profile | undefined;
+      let karmaText = "";
+      try {
+        freshProfile = await api.getProfile();
+        const delta = freshProfile.karma - profile.karma;
+        if (delta > 0) karmaText = ` +${delta} кармы.`;
+      } catch (e) {
+        console.error("Failed to refresh profile after save", e);
+      }
+
       telegram.hapticNotify("success");
-      telegram.alert(`Объект сохранён! +25 кармы начислено.`);
-      onSave(created);
+      telegram.alert(`Объект сохранён!${karmaText}`);
+      onSave(created, freshProfile);
     } catch (e) {
       console.error(e);
-      telegram.alert("Не удалось сохранить объект.");
+      telegram.alert(e instanceof Error ? e.message : "Не удалось сохранить объект.");
     } finally {
       setIsSaving(false);
     }
@@ -217,13 +231,6 @@ export function AddWizard({ profile, theme, onSave, onCancel }: AddWizardProps) 
               </div>
             )}
           </label>
-
-          {/* Simulate camera in desktop development mock mode */}
-          {!telegram.isTelegram() && !draft.photoUrl && (
-            <button type="button" className="secondary-btn" onClick={triggerMockPhoto}>
-              Имитировать фото (для разработки)
-            </button>
-          )}
 
           <div className="gps-status-card">
             <div className="gps-status-info">

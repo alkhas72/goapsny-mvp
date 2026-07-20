@@ -16,6 +16,16 @@ function env(name: string): string {
   return value;
 }
 
+// На production SUPABASE_JWT_SECRET задан в секретах функции (backend-contract
+// 2026-06-01). Локальный стек CLI не пробрасывает пользовательские секреты с
+// префиксом SUPABASE_, поэтому локально секрет приходит под именем
+// EDGE_JWT_SECRET (см. [edge_runtime.secrets] в supabase/config.toml).
+function jwtSecret(): string {
+  const secret = Deno.env.get("SUPABASE_JWT_SECRET") ?? Deno.env.get("EDGE_JWT_SECRET");
+  if (!secret) throw new Error("Missing env: SUPABASE_JWT_SECRET");
+  return secret;
+}
+
 function base64Url(bytes: Uint8Array): string {
   let binary = "";
   bytes.forEach((byte) => {
@@ -156,7 +166,7 @@ Deno.serve(async (req) => {
         username: user.username ?? null,
         display_name: displayName,
       },
-    }, env("SUPABASE_JWT_SECRET"));
+    }, jwtSecret());
 
     return jsonResponse({ access_token: accessToken, token_type: "bearer", expires_at: expiresAt, profile });
   } catch (error) {

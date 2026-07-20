@@ -466,6 +466,7 @@ body {
 .sheet-badge.green { background-color: var(--status-green); }
 .sheet-badge.yellow { background-color: var(--status-yellow); }
 .sheet-badge.red { background-color: var(--status-red); }
+.sheet-badge.gray { background-color: var(--status-gray, #A0A8B0); }
 
 .sheet-badge svg {
   width: 14px;
