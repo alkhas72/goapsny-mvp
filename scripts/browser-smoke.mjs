@@ -238,19 +238,36 @@ async function main() {
   const locateButton = page.getByRole('button', { name: /мо[её] местоположение/i });
   record('browser: locate button is keyboard reachable', await locateButton.isVisible());
 
-  // Геолокация — основной мобильный сценарий, одной видимости кнопки мало.
-  // Активируем с клавиатуры: так проверяется доступность и не мешает
-  // перекрытие контролами зума Leaflet, которые лежат поверх кнопки.
+  // Геолокация показывается САМА при открытии карты (решение Арбитра 20.07):
+  // свою точку человек ищет первым делом. Поэтому разрешение выдаём до
+  // загрузки страницы и перезагружаем — иначе автопоказ отработает раньше,
+  // чем появится доступ, и проверка окажется бессмысленной.
   await page.context().grantPermissions(['geolocation']);
   await page.context().setGeolocation({ latitude: 43.0, longitude: 41.0 });
-  await locateButton.focus();
-  await page.keyboard.press('Enter');
-  const locateAllowed = await page
+  await page.reload({ waitUntil: 'networkidle' });
+  await waitForPublicShell(page);
+  await dismissWelcome(page);
+
+  // Кнопка сразу в активном состоянии — значит метка встала без действий пользователя.
+  const autoLocated = await page
     .getByRole('button', { name: /скрыть моё местоположение/i })
+    .waitFor({ state: 'visible', timeout: 8000 })
+    .then(() => true)
+    .catch(() => false);
+  record('browser: user location shown automatically on map open', autoLocated);
+
+  // Переключение в обе стороны: скрыть и вернуть.
+  // С клавиатуры — так проверяется доступность и не мешает перекрытие
+  // контролами зума Leaflet, которые лежат поверх кнопки.
+  const hideButton = page.getByRole('button', { name: /скрыть моё местоположение/i });
+  await hideButton.focus();
+  await page.keyboard.press('Enter');
+  const toggledOff = await page
+    .getByRole('button', { name: /показать моё местоположение/i })
     .waitFor({ state: 'visible', timeout: 5000 })
     .then(() => true)
     .catch(() => false);
-  record('browser: geolocation allow switches button to active state', locateAllowed);
+  record('browser: location toggles off on demand', toggledOff);
 
   // Отказ в доступе не должен ронять страницу. Недостаточно снять разрешение
   // и посмотреть на меню — надо ЗАПРОСИТЬ геолокацию заново и убедиться,
