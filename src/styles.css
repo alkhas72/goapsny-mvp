@@ -366,6 +366,16 @@ body {
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent), 0 4px 16px rgba(0, 0, 0, 0.2);
 }
 
+/* Доступ закрыт. Кнопка остаётся на месте и подсвечивается: человек,
+   отказавший сгоряча, должен видеть путь назад, а не гадать, почему
+   карта не показывает его точку. */
+.gps-locate-btn.is-blocked {
+  border-color: color-mix(in srgb, var(--accent) 55%, transparent);
+  color: color-mix(in srgb, var(--text-color) 55%, transparent);
+  border-style: dashed;
+}
+
+
 @keyframes pulse {
   0% { transform: scale(1); opacity: 1; }
   50% { transform: scale(1.1); opacity: 0.7; }

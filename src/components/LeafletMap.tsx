@@ -1,8 +1,9 @@
 import L from "leaflet";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { Place } from "../types";
 import { telegram } from "../utils/telegram";
 import { getBrowserLocation } from "../utils/location";
+import { shouldAutoLocate } from "../utils/autoLocate";
 import { statusColor, statusLabel } from "../utils/status";
 import type { AccessibilityStatus } from "../shared/index";
 
@@ -271,6 +272,77 @@ export function LeafletMap({
 
   const [locating, setLocating] = useState(false);
   const [userLocationActive, setUserLocationActive] = useState(false);
+  /**
+   * Доступ к геолокации закрыт. Кнопка остаётся на месте и подсвечивается:
+   * человек, отказавший сгоряча, рано или поздно захочет вернуться — и должен
+   * сразу видеть, куда нажимать, а не искать «волшебную кнопку».
+   * Нажатие пробует снова: если доступ восстановили в настройках, сработает.
+   */
+  const [locationBlocked, setLocationBlocked] = useState(false);
+
+  /** Ставит метку пользователя и центрирует карту. Общее тело для ручного и авто-показа. */
+  const showUserLocation = useCallback(
+    async (options: { recenter: boolean }) => {
+      const map = mapRef.current;
+      if (!map) return;
+
+      setLocating(true);
+      try {
+        const pos = useBrowserGeolocation
+          ? await getBrowserLocation()
+          : await telegram.getUserLocation();
+
+        if (options.recenter) {
+          map.setView([pos.lat, pos.lng], 16, { animate: true });
+        }
+
+        if (userMarkerRef.current) {
+          map.removeLayer(userMarkerRef.current);
+        }
+        const icon = L.divIcon({
+          className: "user-location-marker",
+          html: '<div class="user-marker-pulse"></div>',
+          iconSize: [24, 24],
+          iconAnchor: [12, 12],
+        });
+        userMarkerRef.current = L.marker([pos.lat, pos.lng], { icon, interactive: false }).addTo(map);
+        setUserLocationActive(true);
+      } catch (err) {
+        // Отказ в доступе — особый случай. Повторный вызов диалога браузер
+        // уже не покажет, поэтому кнопку надо не просто оставить на месте,
+        // а объяснить человеку, где включить: иначе он будет жать впустую
+        // и решит, что кнопка сломана.
+        const denied =
+          typeof GeolocationPositionError !== 'undefined' &&
+          err instanceof GeolocationPositionError &&
+          err.code === err.PERMISSION_DENIED;
+        if (denied || (err as { code?: number })?.code === 1) {
+          setLocationBlocked(true);
+        }
+        console.warn("Could not retrieve geolocation", err);
+      } finally {
+        setLocating(false);
+      }
+    },
+    [useBrowserGeolocation],
+  );
+
+  // Показываем точку сразу при открытии карты: свою позицию человек ищет
+  // первым делом, независимо от того, смотрит он или собирается добавить
+  // объект. Того, кто уже отказал в доступе, повторно не спрашиваем —
+  // решение принимает shouldAutoLocate.
+  useEffect(() => {
+    if (dragMode) return;
+    let cancelled = false;
+    void shouldAutoLocate().then((allowed) => {
+      if (!cancelled && allowed) void showUserLocation({ recenter: true });
+    });
+    return () => {
+      cancelled = true;
+    };
+    // Один раз на монтирование карты: повторные автозапросы были бы навязчивы.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleLocate = async (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -284,30 +356,7 @@ export function LeafletMap({
       return;
     }
 
-    setLocating(true);
-    try {
-      const pos = useBrowserGeolocation
-        ? await getBrowserLocation()
-        : await telegram.getUserLocation();
-      map.setView([pos.lat, pos.lng], 16, { animate: true });
-
-      // Update/add user marker
-      if (userMarkerRef.current) {
-        map.removeLayer(userMarkerRef.current);
-      }
-      const icon = L.divIcon({
-        className: "user-location-marker",
-        html: '<div class="user-marker-pulse"></div>',
-        iconSize: [24, 24],
-        iconAnchor: [12, 12],
-      });
-      userMarkerRef.current = L.marker([pos.lat, pos.lng], { icon, interactive: false }).addTo(map);
-      setUserLocationActive(true);
-    } catch (err) {
-      console.warn("Could not retrieve geolocation on manual trigger", err);
-    } finally {
-      setLocating(false);
-    }
+    await showUserLocation({ recenter: true });
   };
 
   return (
@@ -315,11 +364,23 @@ export function LeafletMap({
       {!dragMode && (
         <button
           type="button"
-          className={`gps-locate-btn ${locating ? "locating" : ""} ${userLocationActive ? "is-active" : ""}`}
+          className={`gps-locate-btn ${locating ? "locating" : ""} ${userLocationActive ? "is-active" : ""} ${locationBlocked ? "is-blocked" : ""}`}
           onClick={handleLocate}
           style={{ pointerEvents: "auto" }}
-          title={userLocationActive ? "Скрыть моё местоположение" : "Показать моё местоположение"}
-          aria-label={userLocationActive ? "Скрыть моё местоположение" : "Показать моё местоположение"}
+          title={
+            locationBlocked
+              ? "Показать моё местоположение. Доступ закрыт — разрешите геолокацию в настройках браузера для этого сайта"
+              : userLocationActive
+                ? "Скрыть моё местоположение"
+                : "Показать моё местоположение"
+          }
+          aria-label={
+            locationBlocked
+              ? "Показать моё местоположение. Доступ закрыт — разрешите геолокацию в настройках браузера для этого сайта"
+              : userLocationActive
+                ? "Скрыть моё местоположение"
+                : "Показать моё местоположение"
+          }
           aria-pressed={userLocationActive}
         >
           <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2.5">

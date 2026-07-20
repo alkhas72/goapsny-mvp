@@ -70,7 +70,10 @@ describe('LeafletMap user location control', () => {
     vi.unstubAllGlobals();
   });
 
-  it('shows the user pin on first activation and removes it on the next click', async () => {
+  // Поведение изменено 20.07 по решению Арбитра: точка показывается сразу
+  // при открытии карты — её человек ищет первым делом. Поэтому первый клик
+  // теперь СКРЫВАЕТ метку, а не показывает.
+  it('shows the user pin automatically on mount, then toggles it off and on', async () => {
     const user = userEvent.setup();
     render(
       <LeafletMap
@@ -81,11 +84,7 @@ describe('LeafletMap user location control', () => {
       />,
     );
 
-    const showButton = screen.getByRole('button', { name: 'Показать моё местоположение' });
-    expect(showButton.getAttribute('aria-pressed')).toBe('false');
-
-    await user.click(showButton);
-
+    // Автопоказ: метка появилась без единого действия пользователя.
     const hideButton = await screen.findByRole('button', { name: 'Скрыть моё местоположение' });
     expect(hideButton.getAttribute('aria-pressed')).toBe('true');
     expect(getBrowserLocation).toHaveBeenCalledTimes(1);
@@ -94,12 +93,19 @@ describe('LeafletMap user location control', () => {
       expect.objectContaining({ interactive: false }),
     );
 
+    // Скрыть.
     await user.click(hideButton);
-
-    await waitFor(() => {
-      expect(screen.getByRole('button', { name: 'Показать моё местоположение' })).toBeTruthy();
+    const showButton = await screen.findByRole('button', {
+      name: 'Показать моё местоположение',
     });
-    expect(getBrowserLocation).toHaveBeenCalledTimes(1);
+    expect(showButton.getAttribute('aria-pressed')).toBe('false');
     expect(leafletMocks.map.removeLayer).toHaveBeenCalledWith(leafletMocks.userMarker);
+
+    // И вернуть обратно — кнопка остаётся рабочей в обе стороны.
+    await user.click(showButton);
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: 'Скрыть моё местоположение' })).toBeTruthy();
+    });
+    expect(getBrowserLocation).toHaveBeenCalledTimes(2);
   });
 });
