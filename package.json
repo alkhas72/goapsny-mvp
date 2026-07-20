@@ -13,7 +13,8 @@
     "smoke:gate-offline": "node scripts/test-db-gate-offline.mjs",
     "smoke:harness-offline": "node scripts/smoke-harness-offline.mjs",
     "browser-smoke": "node scripts/browser-smoke.mjs",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "e2e:public": "node scripts/e2e-public-submit.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.99.1",
