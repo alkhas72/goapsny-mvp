@@ -335,7 +335,10 @@ export function PublicMap() {
           onRetry={() => selectedPlaceId && void openPlaceSheet(selectedPlaceId)}
         />
         <EmailOtpSheet
-          key={authSheetKey}
+          // Префикс обязателен: оба счётчика стартуют с нуля, и без него
+          // соседние листы получают одинаковый key=0 — React ругается
+          // на дубль, а сброс состояния одного задевает другой.
+          key={`auth-${authSheetKey}`}
           open={authOpen}
           onClose={() => {
             setAuthOpen(false);
@@ -344,7 +347,7 @@ export function PublicMap() {
           onVerified={handleAuthVerified}
         />
         <PublicAddSheet
-          key={addSheetKey}
+          key={`add-${addSheetKey}`}
           open={addOpen}
           theme={theme}
           onClose={() => setAddOpen(false)}

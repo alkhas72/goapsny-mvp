@@ -21,6 +21,39 @@
 import { createClient } from '@supabase/supabase-js';
 
 const SUPABASE_URL = process.env.E2E_SUPABASE_URL ?? 'http://127.0.0.1:54321';
+
+// Тест создаёт пользователя, файл и метку — то есть пишет. Направить его
+// в production можно было одной переменной окружения, поэтому цель
+// проверяется до любого запроса и только по белому списку.
+// Разрешён loopback; удалённый проект — лишь при явном совпадении с
+// E2E_ALLOWED_PROJECT_REF, которую надо задать сознательно.
+function assertSafeTarget(url) {
+  let parsed;
+  try {
+    parsed = new URL(url);
+  } catch {
+    console.error(`[STOP] E2E_SUPABASE_URL не разбирается как адрес: ${url}`);
+    process.exit(2);
+  }
+
+  const isLoopback = ['127.0.0.1', 'localhost', '::1', '[::1]'].includes(parsed.hostname);
+  if (isLoopback) return;
+
+  const allowedRef = process.env.E2E_ALLOWED_PROJECT_REF;
+  const targetRef = parsed.hostname.split('.')[0];
+  if (allowedRef && targetRef === allowedRef) {
+    console.warn(`[ВНИМАНИЕ] прогон против удалённого проекта ${targetRef} — будут созданы записи`);
+    return;
+  }
+
+  console.error(
+    `[STOP] Отказ: ${parsed.hostname} не является локальным стеком.\n` +
+      'Этот тест ПИШЕТ в базу: создаёт пользователя, файл в Storage и метку.\n' +
+      'Для удалённого проекта задайте E2E_ALLOWED_PROJECT_REF с его ref явно.',
+  );
+  process.exit(2);
+}
+assertSafeTarget(SUPABASE_URL);
 const ANON_KEY =
   process.env.E2E_ANON_KEY ??
   'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0';
@@ -173,9 +206,16 @@ async function main() {
   // 9. Лимит одной подачи на пользователя.
   const secondPlaceId = crypto.randomUUID();
   const secondPath = `${secondPlaceId}/facade.jpg`;
-  await supabase.storage
+  const secondUpload = await supabase.storage
     .from('place-photos')
     .upload(secondPath, tinyJpeg(), { contentType: 'image/jpeg', upsert: false });
+  // Загрузка обязана пройти: иначе RPC откажет из-за отсутствия файла,
+  // и мы засчитаем за работу лимита совсем другую причину.
+  if (secondUpload.error) {
+    fail('вторая загрузка фасада проходит', secondUpload.error.message);
+  }
+  record('вторая загрузка фасада проходит', true);
+
   const second = await supabase.rpc('submit_public_place', {
     p_place_id: secondPlaceId,
     p_name: 'E2E вторая попытка',
@@ -184,7 +224,15 @@ async function main() {
     p_lng: 41.016,
     p_storage_path: secondPath,
   });
-  record('вторая подача тем же пользователем отклоняется', Boolean(second.error), second.error?.code ?? 'ошибки нет');
+  // Проверяем именно лимит одной подачи, а не любую ошибку: код 23505
+  // и текст ограничения. Иначе тест зазеленеет на посторонней поломке.
+  const limitCode = second.error?.code;
+  const limitMessage = second.error?.message ?? '';
+  record(
+    'вторая подача отклонена именно лимитом (23505)',
+    limitCode === '23505' && /public submission already used/i.test(limitMessage),
+    second.error ? `${limitCode}: ${limitMessage}` : 'ошибки нет — лимит не сработал',
+  );
 
   // 10. Итог глазами анонима: свежая метка видна без входа.
   const anonClient = createClient(SUPABASE_URL, ANON_KEY, {

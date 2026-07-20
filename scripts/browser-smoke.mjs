@@ -252,10 +252,23 @@ async function main() {
     .catch(() => false);
   record('browser: geolocation allow switches button to active state', locateAllowed);
 
-  // Отказ в доступе не должен ронять страницу: карта остаётся живой.
+  // Отказ в доступе не должен ронять страницу. Недостаточно снять разрешение
+  // и посмотреть на меню — надо ЗАПРОСИТЬ геолокацию заново и убедиться,
+  // что отказ обработан: страница жива и без ошибок в консоли.
   await page.context().clearPermissions();
+  const errorsBeforeDeny = errors.length;
+  const denyButton = page.getByRole('button', { name: /мо[её] местоположение/i });
+  await denyButton.focus();
+  await page.keyboard.press('Enter');
+  await page.waitForTimeout(1500);
+
   const mapAliveAfterDeny = await page.getByRole('button', { name: /меню/i }).isVisible();
-  record('browser: map stays usable after geolocation denial', mapAliveAfterDeny);
+  const noNewErrors = errors.length === errorsBeforeDeny;
+  record(
+    'browser: map survives a denied geolocation request',
+    mapAliveAfterDeny && noNewErrors,
+    noNewErrors ? '' : `новых ошибок: ${errors.length - errorsBeforeDeny}`,
+  );
 
   const swRegistered = await page.evaluate(async () => {
     const reg = await navigator.serviceWorker.getRegistration();
