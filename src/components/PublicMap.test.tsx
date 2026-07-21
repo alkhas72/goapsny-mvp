@@ -438,4 +438,19 @@ describe('PublicMap integration', () => {
       expect(screen.getByRole('button', { name: place.name })).toBeTruthy();
     }
   });
+
+  it('keeps the submitted marker when reload returns a stale list without the new pin yet', async () => {
+    const user = userEvent.setup();
+    await renderLoadedMap();
+
+    // Сервер ещё не отдал новую метку, но подача уже подтверждена локально.
+    vi.mocked(fetchPublishedPlaces).mockResolvedValueOnce(mockPlaces);
+
+    await user.click(screen.getByRole('button', { name: /меню/i }));
+    await user.click(screen.getByRole('button', { name: /добавить локацию/i }));
+    await user.click(screen.getByRole('button', { name: 'Mock verify OTP' }));
+    await user.click(screen.getByRole('button', { name: 'Mock publish gray pin' }));
+
+    await screen.findByRole('button', { name: 'Новая серая метка' });
+  });
 });
