@@ -360,7 +360,7 @@ export function TelegramApp() {
                     <div className="detail-card-info">
                       <span className="detail-card-label">Вход</span>
                       <span className="detail-card-value">
-                        {selectedPlace.stepsCount === 0 || selectedPlace.stepsCount === null ? "Без ступеней" : `${selectedPlace.stepsCount} ступ.`}
+                        {selectedPlace.stepsCount === null ? "Нет данных" : selectedPlace.stepsCount === 0 ? "Без ступеней" : `${selectedPlace.stepsCount} ступ.`}
                       </span>
                     </div>
                   </div>
@@ -408,7 +408,8 @@ export function TelegramApp() {
                       <span className="detail-card-value">
                         {selectedPlace.toiletExists === "no" ? "Нет туалета" : 
                          selectedPlace.toiletAccessible === "yes" ? "Доступен" : 
-                         selectedPlace.toiletAccessible === "partial" ? "Частично" : "Недоступен / ?"}
+                         selectedPlace.toiletAccessible === "partial" ? "Частично" :
+                         selectedPlace.toiletAccessible === "no" ? "Недоступен" : "Нет данных"}
                       </span>
                     </div>
                   </div>
