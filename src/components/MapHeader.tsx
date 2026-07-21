@@ -36,7 +36,7 @@ export function MapHeader({
     <header className="public-map-header">
       <div className="public-top-rail">
         <div className="logo-container" aria-label="GoApsny">
-          <div style={{ width: 24, height: 24, color: 'var(--accent)' }}>
+          <div className="header-logo-frame">
             <AccessibleIconLogo />
           </div>
           <span className="app-title">GoApsny</span>

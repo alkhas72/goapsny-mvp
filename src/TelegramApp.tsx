@@ -12,7 +12,7 @@ import { Map, Plus, User, ShieldAlert, Compass, Moon, Sun, AlertCircle } from "l
 // Official Accessible Icon Project SVG Component
 function AccessibleIconLogo() {
   return (
-    <svg viewBox="0 0 451 451" className="logo-svg" style={{ stroke: "none", fill: "currentColor" }}>
+    <svg viewBox="0 0 451 451" className="logo-svg" aria-hidden="true" style={{ stroke: "none", fill: "currentColor" }}>
       <path
         fillRule="evenodd"
         clipRule="evenodd"
@@ -177,7 +177,7 @@ export function TelegramApp() {
     return (
       <div className="app-shell">
         <div className="splash-container">
-          <div style={{ width: 72, height: 72, color: "var(--accent)" }}>
+          <div className="splash-logo-frame">
             <AccessibleIconLogo />
           </div>
           <div>
@@ -217,7 +217,7 @@ export function TelegramApp() {
       {/* Header */}
       <header className="app-header">
         <div className="logo-container">
-          <div style={{ width: 24, height: 24, color: "var(--accent)" }}>
+          <div className="header-logo-frame">
             <AccessibleIconLogo />
           </div>
           <span className="app-title">GoApsny</span>
