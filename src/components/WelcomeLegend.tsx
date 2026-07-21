@@ -1,5 +1,6 @@
 import { STATUS_META } from '../shared/index';
 import { RAMP_COLOR } from '../utils/status';
+import { AccessibleIconLogo } from './MapHeader';
 
 const LEGEND_ITEMS = [
   { key: 'green', color: STATUS_META.green.color, label: STATUS_META.green.ru },
@@ -21,6 +22,9 @@ interface WelcomeLegendProps {
 export function WelcomeLegend({ onContinue }: WelcomeLegendProps) {
   return (
     <div className="welcome-screen" role="dialog" aria-modal="true" aria-labelledby="welcome-title">
+      <div className="welcome-logo">
+        <AccessibleIconLogo />
+      </div>
       <p id="welcome-title" className="welcome-kicker">
         Добро пожаловать в GoApsny
       </p>

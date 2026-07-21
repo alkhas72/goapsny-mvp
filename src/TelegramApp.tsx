@@ -146,7 +146,7 @@ export function TelegramApp() {
     return (
       <div style={{ minHeight: "100vh", display: "grid", placeItems: "center", backgroundColor: "var(--bg-color)" }}>
         <div style={{ textAlign: "center", color: "var(--text-secondary)" }}>
-          <div style={{ width: 44, height: 44, color: "var(--accent)", margin: "0 auto 16px" }}>
+          <div style={{ width: 72, height: 72, color: "var(--accent)", margin: "0 auto 16px" }}>
             <AccessibleIconLogo />
           </div>
           <div>Загрузка GoApsny...</div>
@@ -177,7 +177,7 @@ export function TelegramApp() {
     return (
       <div className="app-shell">
         <div className="splash-container">
-          <div style={{ width: 72, height: 72, color: "var(--accent)" }}>
+          <div className="splash-logo">
             <AccessibleIconLogo />
           </div>
           <div>

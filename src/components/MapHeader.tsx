@@ -1,7 +1,7 @@
 import { Menu, Search } from 'lucide-react';
 import type { RefObject } from 'react';
 
-function AccessibleIconLogo() {
+export function AccessibleIconLogo() {
   return (
     <svg viewBox="0 0 451 451" className="logo-svg" aria-hidden="true" style={{ stroke: 'none', fill: 'currentColor' }}>
       <path
