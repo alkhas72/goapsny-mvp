@@ -1,0 +1,41 @@
+=== /public.html on production ===
+HTTP/2 404 
+cache-control: public, max-age=0, must-revalidate
+content-type: text/plain; charset=utf-8
+date: Tue, 21 Jul 2026 02:26:55 GMT
+server: Vercel
+strict-transport-security: max-age=63072000; includeSubDomains; preload
+x-vercel-error: NOT_FOUND
+x-vercel-id: arn1::gfd6m-1784600815973-8557f67b39eb
+content-length: 79
+
+
+=== /random-unknown-path on production ===
+HTTP/2 404 
+cache-control: public, max-age=0, must-revalidate
+content-type: text/plain; charset=utf-8
+date: Tue, 21 Jul 2026 02:26:56 GMT
+server: Vercel
+strict-transport-security: max-age=63072000; includeSubDomains; preload
+x-vercel-error: NOT_FOUND
+x-vercel-id: arn1::ktxcq-1784600816192-c945e7aa4bfc
+content-length: 79
+
+
+=== / (root) for comparison ===
+HTTP/2 200 
+accept-ranges: bytes
+access-control-allow-origin: *
+age: 8704
+cache-control: public, max-age=0, must-revalidate
+content-disposition: inline
+content-type: text/html; charset=utf-8
+date: Tue, 21 Jul 2026 02:26:56 GMT
+etag: "b9fbfe51c2d520264f026b98b66f7e29"
+last-modified: Tue, 21 Jul 2026 00:01:51 GMT
+server: Vercel
+strict-transport-security: max-age=63072000; includeSubDomains; preload
+x-vercel-cache: HIT
+x-vercel-id: arn1::pjxfh-1784600816405-78720506f05d
+content-length: 1279
+
