@@ -16,14 +16,26 @@
   --text-color: #E8EEF3;
   --text-secondary: #8FA3B5;
   --border-color: #24384A;
-  /* Фирменная подложка: шеврон бренд-голубым поверх --bg-color.
-     Последний градиент закрывается цветом фона (переплетение шеврона),
-     поэтому берём var(--bg-color), а не хардкод. */
-  --chevron-pattern: linear-gradient(135deg, rgba(75, 164, 221, 0.08) 25%, transparent 25%),
-                     linear-gradient(225deg, rgba(75, 164, 221, 0.08) 25%, transparent 25%),
-                     linear-gradient(45deg, rgba(75, 164, 221, 0.08) 25%, transparent 25%),
-                     linear-gradient(315deg, rgba(75, 164, 221, 0.08) 25%, var(--bg-color) 25%);
-  --chevron-size: 24px 24px;
+  /* Фирменная подложка GoApsny — авторская трёхслойная композиция:
+     1) мягкое бренд-свечение сверху (свет входа);
+     2) редкий крупный шеврон вторым цветом канона со сдвигом фазы;
+     3) мелкий шеврон доминантным акцентом темы.
+     Все стопы прозрачные — слои не выбивают друг друга, а смешиваются. */
+  --chevron-pattern: radial-gradient(ellipse 140% 55% at 50% -8%, rgba(75, 164, 221, 0.14), transparent 62%),
+                     linear-gradient(135deg, rgba(226, 116, 28, 0.05) 25%, transparent 25%),
+                     linear-gradient(225deg, rgba(226, 116, 28, 0.05) 25%, transparent 25%),
+                     linear-gradient(45deg, rgba(226, 116, 28, 0.05) 25%, transparent 25%),
+                     linear-gradient(315deg, rgba(226, 116, 28, 0.05) 25%, transparent 25%),
+                     linear-gradient(135deg, rgba(75, 164, 221, 0.07) 25%, transparent 25%),
+                     linear-gradient(225deg, rgba(75, 164, 221, 0.07) 25%, transparent 25%),
+                     linear-gradient(45deg, rgba(75, 164, 221, 0.07) 25%, transparent 25%),
+                     linear-gradient(315deg, rgba(75, 164, 221, 0.07) 25%, transparent 25%);
+  --chevron-size: 100% 100%,
+                  108px 108px, 108px 108px, 108px 108px, 108px 108px,
+                  22px 22px, 22px 22px, 22px 22px, 22px 22px;
+  --chevron-position: 0 0,
+                      13px 13px, 13px 13px, 13px 13px, 13px 13px,
+                      0 0, 0 0, 0 0, 0 0;
 }
 
 :root.light {
@@ -34,13 +46,23 @@
   --text-color: #2A2017;
   --text-secondary: #A1897A;
   --border-color: #EFE3D9;
-  /* Фирменная подложка в светлой теме: тот же шеврон бренд-оранжевым,
-     чтобы паттерн читался и на белом фоне, но не спорил с текстом. */
-  --chevron-pattern: linear-gradient(135deg, rgba(226, 116, 28, 0.09) 25%, transparent 25%),
-                     linear-gradient(225deg, rgba(226, 116, 28, 0.09) 25%, transparent 25%),
-                     linear-gradient(45deg, rgba(226, 116, 28, 0.09) 25%, transparent 25%),
-                     linear-gradient(315deg, rgba(226, 116, 28, 0.09) 25%, var(--bg-color) 25%);
-  --chevron-size: 24px 24px;
+  /* Та же композиция в светлой теме, роли цветов зеркальны:
+     свечение и мелкий шеврон — оранжевые, крупный редкий — голубой. */
+  --chevron-pattern: radial-gradient(ellipse 140% 55% at 50% -8%, rgba(226, 116, 28, 0.12), transparent 62%),
+                     linear-gradient(135deg, rgba(75, 164, 221, 0.06) 25%, transparent 25%),
+                     linear-gradient(225deg, rgba(75, 164, 221, 0.06) 25%, transparent 25%),
+                     linear-gradient(45deg, rgba(75, 164, 221, 0.06) 25%, transparent 25%),
+                     linear-gradient(315deg, rgba(75, 164, 221, 0.06) 25%, transparent 25%),
+                     linear-gradient(135deg, rgba(226, 116, 28, 0.08) 25%, transparent 25%),
+                     linear-gradient(225deg, rgba(226, 116, 28, 0.08) 25%, transparent 25%),
+                     linear-gradient(45deg, rgba(226, 116, 28, 0.08) 25%, transparent 25%),
+                     linear-gradient(315deg, rgba(226, 116, 28, 0.08) 25%, transparent 25%);
+  --chevron-size: 100% 100%,
+                  108px 108px, 108px 108px, 108px 108px, 108px 108px,
+                  22px 22px, 22px 22px, 22px 22px, 22px 22px;
+  --chevron-position: 0 0,
+                      13px 13px, 13px 13px, 13px 13px, 13px 13px,
+                      0 0, 0 0, 0 0, 0 0;
 }
 
 * {
@@ -81,6 +103,8 @@ body {
   background-color: var(--bg-color);
   background-image: var(--chevron-pattern);
   background-size: var(--chevron-size);
+  background-position: var(--chevron-position);
+  background-repeat: repeat;
   border-left: 1px solid var(--border-color);
   border-right: 1px solid var(--border-color);
 }
@@ -1047,11 +1071,13 @@ body {
   color: var(--accent);
 }
 
-/* Крупный логотип в момент входа: сплэш Telegram и публичное приветствие */
+/* Крупный логотип в момент входа: сплэш Telegram и публичное приветствие.
+   Мягкий ореол акцентом темы связывает логотип со свечением подложки. */
 .splash-logo {
   width: 96px;
   height: 96px;
   color: var(--accent);
+  filter: drop-shadow(0 0 22px color-mix(in srgb, var(--accent) 45%, transparent));
 }
 
 .welcome-logo {
@@ -1059,6 +1085,7 @@ body {
   height: 96px;
   color: var(--accent);
   align-self: center;
+  filter: drop-shadow(0 0 22px color-mix(in srgb, var(--accent) 45%, transparent));
 }
 
 .splash-logo-glyph {
