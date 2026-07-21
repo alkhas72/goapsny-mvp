@@ -144,12 +144,12 @@ export function TelegramApp() {
 
   if (loading) {
     return (
-      <div style={{ minHeight: "100vh", display: "grid", placeItems: "center", backgroundColor: "var(--bg-color)" }}>
-        <div style={{ textAlign: "center", color: "var(--text-secondary)" }}>
-          <div style={{ width: 44, height: 44, color: "var(--accent)", margin: "0 auto 16px" }}>
+      <div className="app-shell">
+        <div className="splash-container">
+          <div className="splash-logo-wrap logo-size--loading">
             <AccessibleIconLogo />
           </div>
-          <div>Загрузка GoApsny...</div>
+          <div className="splash-desc">Загрузка GoApsny...</div>
         </div>
       </div>
     );
@@ -177,7 +177,7 @@ export function TelegramApp() {
     return (
       <div className="app-shell">
         <div className="splash-container">
-          <div style={{ width: 72, height: 72, color: "var(--accent)" }}>
+          <div className="splash-logo-wrap logo-size--splash">
             <AccessibleIconLogo />
           </div>
           <div>
@@ -217,7 +217,7 @@ export function TelegramApp() {
       {/* Header */}
       <header className="app-header">
         <div className="logo-container">
-          <div style={{ width: 24, height: 24, color: "var(--accent)" }}>
+          <div className="logo-size--header" style={{ color: "var(--accent)" }}>
             <AccessibleIconLogo />
           </div>
           <span className="app-title">GoApsny</span>

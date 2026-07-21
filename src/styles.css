@@ -16,11 +16,16 @@
   --text-color: #E8EEF3;
   --text-secondary: #8FA3B5;
   --border-color: #24384A;
-  --chevron-pattern: linear-gradient(135deg, rgba(75, 164, 221, 0.03) 25%, transparent 25%), 
-                     linear-gradient(225deg, rgba(75, 164, 221, 0.03) 25%, transparent 25%), 
-                     linear-gradient(45deg, rgba(75, 164, 221, 0.03) 25%, transparent 25%), 
-                     linear-gradient(315deg, rgba(75, 164, 221, 0.03) 25%, #0F1A24 25%);
-  --chevron-size: 20px 20px;
+  /* Фирменная подложка GoApsny: узнаваемый шеврон, голубой на тёмном.
+     Плотность/контраст подобраны так, чтобы читаться как бренд, но
+     не спорить с контентом. Усилено с opacity 0.03 → 0.07, размер 20→22. */
+  --chevron-pattern:
+    linear-gradient(135deg, rgba(75, 164, 221, 0.07) 25%, transparent 25%),
+    linear-gradient(225deg, rgba(75, 164, 221, 0.07) 25%, transparent 25%),
+    linear-gradient(45deg,  rgba(75, 164, 221, 0.07) 25%, transparent 25%),
+    linear-gradient(315deg, rgba(75, 164, 221, 0.07) 25%, transparent 25%);
+  --chevron-size: 22px 22px;
+  --chevron-bg-base: #0F1A24;
 }
 
 :root.light {
@@ -31,8 +36,15 @@
   --text-color: #2A2017;
   --text-secondary: #A1897A;
   --border-color: #EFE3D9;
-  --chevron-pattern: none;
-  --chevron-size: auto;
+  /* Подложка включена и в светлой теме — оранжевый шеврон на тёплом белом.
+     Прозрачность чуть ниже, чем в тёмной: на белом фоне цвет читается сильнее. */
+  --chevron-pattern:
+    linear-gradient(135deg, rgba(226, 116, 28, 0.05) 25%, transparent 25%),
+    linear-gradient(225deg, rgba(226, 116, 28, 0.05) 25%, transparent 25%),
+    linear-gradient(45deg,  rgba(226, 116, 28, 0.05) 25%, transparent 25%),
+    linear-gradient(315deg, rgba(226, 116, 28, 0.05) 25%, transparent 25%);
+  --chevron-size: 22px 22px;
+  --chevron-bg-base: #FFFFFF;
 }
 
 * {
@@ -98,13 +110,32 @@ body {
 }
 
 .logo-svg {
-  width: 24px;
-  height: 24px;
+  display: block;
+  width: 100%;
+  height: 100%;
   fill: none;
   stroke: var(--accent);
   stroke-width: 2.5;
   stroke-linecap: round;
   stroke-linejoin: round;
+}
+
+/* Контейнер логотипа теперь задаёт физический размер, а .logo-svg
+   заполняет его целиком — так один SVG-компонент рисуется чётко и в
+   шапке (компактно), и на сплэше/приветствии (крупно), без обрезки. */
+.logo-size--header {
+  width: 28px;
+  height: 28px;
+}
+
+.logo-size--splash {
+  width: 96px;
+  height: 96px;
+}
+
+.logo-size--loading {
+  width: 56px;
+  height: 56px;
 }
 
 .app-title {
@@ -1040,6 +1071,16 @@ body {
   fill: none;
   stroke: var(--accent);
   stroke-width: 2.2;
+}
+
+/* Accessible Icon на сплэше рисуем заливкой (как в компоненте), не обводкой.
+   Контейнер .logo-size--splash задаёт размер; здесь — только выравнивание. */
+.splash-logo-wrap {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--accent);
+  filter: drop-shadow(0 4px 12px color-mix(in srgb, var(--accent) 35%, transparent));
 }
 
 .splash-title {
