@@ -1,11 +1,12 @@
 import type { Place, Profile, AccessibilityStatus } from "../types";
+import type { PublicPlace } from "./places";
 import { CATEGORIES, KARMA_LEVELS, karmaLevelFor, karmaNext } from "../shared/index";
 
 // Dynamic configuration via env variables
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || "";
 const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY || "";
-// Keep mock as the working mode for now, even if env keys are present
-const isLiveMode = false;
+// DG-3: production path is always live; mock is allowed only as a dev-only flag.
+const isLiveMode = !import.meta.env.DEV;
 
 console.log(`[GoApsny API] Mode: ${isLiveMode ? "LIVE (Supabase)" : "MOCK (Local Storage)"}`);
 
@@ -30,6 +31,40 @@ export const categoriesList = CATEGORIES.map(c => ({
   name: c.ru,
   icon: categoryEmojis[c.slug] || "📍"
 }));
+
+const PLACE_SOURCES = ['operator', 'public', 'import', 'ai_seed'] as const;
+
+function isPlaceSource(value: string): value is Place['source'] {
+  return (PLACE_SOURCES as readonly string[]).includes(value);
+}
+
+/** Adapts a live `PublicPlace` to the legacy `Place` shape. `source` is validated, not cast, since rows arrive untyped from Supabase. */
+export function publicPlaceToPlace(p: PublicPlace): Place {
+  return {
+    id: p.id,
+    name: p.name,
+    category: p.category,
+    lat: p.lat,
+    lng: p.lng,
+    status: p.status,
+    stepsCount: p.stepsCount,
+    stepHeightCm: p.stepHeightCm,
+    rampType: p.rampType,
+    doorWidthCm: p.doorWidthCm,
+    entranceNotes: p.entranceNotes,
+    toiletExists: p.toiletExists,
+    toiletAccessible: p.toiletAccessible,
+    parking: p.parking,
+    comment: p.comment,
+    osmTags: p.osmTags,
+    moderationStatus: p.moderationStatus,
+    source: isPlaceSource(p.source) ? p.source : 'public',
+    createdBy: p.createdBy,
+    createdAt: p.createdAt,
+    updatedAt: p.updatedAt,
+    mainPhoto: p.facadePhotoUrl ?? undefined,
+  };
+}
 
 // Initial mock places
 const defaultMockPlaces: Place[] = [
@@ -216,51 +251,8 @@ export const api = {
     }
   },
 
-  // 2. getPlaces
-  async getPlaces(): Promise<Place[]> {
-    if (!isLiveMode) {
-      await new Promise(resolve => setTimeout(resolve, 300));
-      return getStoragePlaces();
-    }
-
-    try {
-      const response = await fetch(`${SUPABASE_URL}/rest/v1/places?select=*&moderation_status=eq.published`, {
-        headers: {
-          apikey: SUPABASE_ANON_KEY,
-          Authorization: `Bearer ${SUPABASE_ANON_KEY}`
-        }
-      });
-      if (!response.ok) throw new Error("Fetch failed");
-      const list = await response.json();
-      return list.map((item: any) => ({
-        id: item.id,
-        name: item.name,
-        category: item.category,
-        lat: item.lat,
-        lng: item.lng,
-        status: item.status,
-        stepsCount: item.steps_count,
-        stepHeightCm: item.step_height_cm,
-        rampType: item.ramp_type,
-        doorWidthCm: item.door_width_cm,
-        entranceNotes: item.entrance_notes,
-        toiletExists: item.toilet_exists,
-        toiletAccessible: item.toilet_accessible,
-        parking: item.parking,
-        comment: item.comment,
-        osmTags: item.osm_tags || {},
-        moderationStatus: item.moderation_status,
-        source: item.source,
-        createdBy: item.created_by,
-        createdAt: item.created_at,
-        updatedAt: item.updated_at,
-        mainPhoto: item.main_photo
-      }));
-    } catch (e) {
-      console.error("getPlaces failed, falling back to local places", e);
-      return getStoragePlaces();
-    }
-  },
+  // 2. getPlaces — removed per П-16 / DG-3: Telegram contour now reads via
+  //     `services/places.ts::fetchPublishedPlaces` + `publicPlaceToPlace`.
 
   // 3. createPlace
   async createPlace(placeData: Partial<Place>, photoFile?: File): Promise<Place> {

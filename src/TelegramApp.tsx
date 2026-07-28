@@ -1,7 +1,8 @@
 import { useState, useEffect } from "react";
 import type { Place, Profile, Tab, AccessibilityStatus } from "./types";
 import { telegram } from "./utils/telegram";
-import { api, categoriesList } from "./services/api";
+import { api, categoriesList, publicPlaceToPlace } from "./services/api";
+import { fetchPublishedPlaces } from "./services/places";
 import { LeafletMap } from "./components/LeafletMap";
 import { AddWizard } from "./components/AddWizard";
 import { Profile as ProfileView } from "./components/Profile";
@@ -58,9 +59,9 @@ export function TelegramApp() {
         const authData = await api.loginTelegram(initData);
         setProfile(authData.profile);
 
-        // Fetch POIs
-        const fetchedPlaces = await api.getPlaces();
-        setPlaces(fetchedPlaces);
+        // П-16 / DG-3: same live published Supabase source as the public contour.
+        const publishedPlaces = await fetchPublishedPlaces();
+        setPlaces(publishedPlaces.map(publicPlaceToPlace));
 
         telegram.ready();
         telegram.expand();
