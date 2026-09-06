@@ -19,10 +19,16 @@ log() { printf '%s keepalive: %s\n' "$(date '+%Y-%m-%d %H:%M:%S')" "$*" >&2; }
 [ -n "${SUPABASE_SERVICE_ROLE_KEY:-}" ] || { log "ERROR: не задан SUPABASE_SERVICE_ROLE_KEY"; exit 1; }
 command -v curl >/dev/null 2>&1 || { log "ERROR: curl не найден"; exit 1; }
 
-# лёгкий запрос: одна строка, только count в заголовке, тело не читаем
-http_code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 30 \
-  -H "apikey: ${SUPABASE_SERVICE_ROLE_KEY}" \
-  -H "Authorization: Bearer ${SUPABASE_SERVICE_ROLE_KEY}" \
+# ключ — в конфиге curl 0600, а не в argv (argv виден в ps)
+CURL_CFG="$(mktemp "${TMPDIR:-/tmp}/goapsny-keepalive.XXXXXX")"
+printf 'header = "apikey: %s"\n' "$SUPABASE_SERVICE_ROLE_KEY" > "$CURL_CFG"
+printf 'header = "Authorization: Bearer %s"\n' "$SUPABASE_SERVICE_ROLE_KEY" >> "$CURL_CFG"
+chmod 600 "$CURL_CFG"
+trap 'rm -f "$CURL_CFG"' EXIT
+
+# лёгкий запрос: одна строка, тело не читаем
+http_code=$(curl -sS -o /dev/null -w '%{http_code}' --max-time 30 \
+  --config "$CURL_CFG" \
   -H "Range-Unit: items" -H "Range: 0-0" \
   "$SUPABASE_URL/rest/v1/$TABLE?select=id")
 

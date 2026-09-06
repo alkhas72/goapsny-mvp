@@ -35,7 +35,7 @@ case "$url" in
     ;;
   */storage/v1/object/list/*)
     case "$body" in
-      *'"prefix":""'*)
+      *'"prefix":""'*|*'"prefix": ""'*)
         respond '[{"name":"093caee2-5912-4040-811f-f41366d06c10","id":null},{"name":"README.txt","id":"obj-1"}]'
         ;;
       *)
