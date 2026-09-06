@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Копия Supabase карты GoApsny с мака — вариант до переезда карты на netcup.
+     Установка:
+       1. env-файл с секретами: ~/.config/ais/goapsny-backup.env (chmod 600):
+            SUPABASE_DB_URL=postgres://...
+            SUPABASE_URL=https://rujxthjaquvwbdnrftua.supabase.co
+            SUPABASE_SERVICE_ROLE_KEY=...
+       2. cp deploy/launchd/org.abhazia.goapsny-backup.plist ~/Library/LaunchAgents/
+       3. launchctl load ~/Library/LaunchAgents/org.abhazia.goapsny-backup.plist
+     BACKUP_DIR по умолчанию из скрипта (/srv/...) на маке недоступен —
+     задать в env-файле, например BACKUP_DIR=$HOME/AI-Agents/_backups/goapsny -->
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key><string>org.abhazia.goapsny-backup</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/bin/bash</string>
+    <string>-c</string>
+    <string>set -a; . "$HOME/.config/ais/goapsny-backup.env"; set +a; exec "$HOME/repo/goapsny-mvp/scripts/supabase_backup.sh"</string>
+  </array>
+  <key>StartCalendarInterval</key>
+  <dict><key>Hour</key><integer>3</integer><key>Minute</key><integer>17</integer></dict>
+  <key>StandardOutPath</key><string>/tmp/goapsny-backup.out.log</string>
+  <key>StandardErrorPath</key><string>/tmp/goapsny-backup.err.log</string>
+</dict>
+</plist>

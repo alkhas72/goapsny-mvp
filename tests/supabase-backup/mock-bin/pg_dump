@@ -1,0 +1,18 @@
+#!/usr/bin/env bash
+# Mock pg_dump: версия 17, выдаёт фиктивный дамп; MOCK_PG_DUMP_FAIL=1 — сбой.
+if [ "$1" = "--version" ]; then
+  echo "pg_dump (PostgreSQL) ${MOCK_PG_DUMP_VERSION:-17.6}"
+  exit 0
+fi
+if [ "${MOCK_PG_DUMP_FAIL:-0}" = "1" ]; then
+  echo "pg_dump: error: connection failed (mock)" >&2
+  exit 1
+fi
+# убедимся, что пароль не пришёл через argv
+for a in "$@"; do
+  case "$a" in *passw*|*secret*|*s3cr*) echo "pg_dump mock: секрет в argv!" >&2; exit 3;; esac
+done
+cat <<'SQL'
+-- mock dump
+CREATE TABLE public.places (id uuid);
+SQL

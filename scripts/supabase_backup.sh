@@ -1,0 +1,180 @@
+#!/usr/bin/env bash
+# supabase_backup.sh — копия базы Supabase карты GoApsny (PG 17) + storage.
+#
+# Вход (только через окружение, секреты никогда не попадают в argv/логи/код):
+#   SUPABASE_DB_URL            postgres://user:pass@host:5432/postgres (обязат.)
+#   SUPABASE_URL               https://<ref>.supabase.co               (обязат., если не SKIP_STORAGE)
+#   SUPABASE_SERVICE_ROLE_KEY  service_role ключ для Storage API       (обязат., если не SKIP_STORAGE)
+# Настройки (необязательные):
+#   BACKUP_DIR    куда складывать копии      (по умолчанию /srv/ais/backups/goapsny)
+#   RETENTION_DAYS сколько дней хранить      (по умолчанию 14)
+#   SKIP_STORAGE  1 — только дамп БД, без выгрузки storage
+#   DUMP_TIMEOUT  таймаут pg_dump, сек       (по умолчанию 1800; нужен timeout/gtimeout, иначе без ограничения)
+#
+# Результат в $BACKUP_DIR: db_<дата>.sql.gz, storage_<дата>.zip, *.sha256, backup_<дата>.log
+# Код выхода != 0 при любом сбое. Журнал не содержит секретов.
+
+set -euo pipefail
+
+BACKUP_DIR="${BACKUP_DIR:-/srv/ais/backups/goapsny}"
+RETENTION_DAYS="${RETENTION_DAYS:-14}"
+SKIP_STORAGE="${SKIP_STORAGE:-0}"
+DUMP_TIMEOUT="${DUMP_TIMEOUT:-1800}"
+TS="$(date +%Y%m%d-%H%M%S)"
+DB_OUT="db_${TS}.sql.gz"
+STORAGE_OUT="storage_${TS}.zip"
+LOG_FILE="backup_${TS}.log"
+
+WORK="$(mktemp -d "${TMPDIR:-/tmp}/goapsny-backup.XXXXXX")"
+cleanup() { rm -rf "$WORK"; }
+trap cleanup EXIT
+
+mkdir -p "$BACKUP_DIR"
+cd "$WORK"
+
+log() {
+  # журнал: на stderr и в файл; сюда никогда не передаём значения секретов
+  printf '%s %s\n' "$(date +%H:%M:%S)" "$*" | tee -a "$BACKUP_DIR/$LOG_FILE" >&2
+}
+
+fail() { log "ERROR: $*"; exit 1; }
+
+# --- утилиты -------------------------------------------------------------
+
+percent_decode() {  # раскодировать %XX в пароле из URL
+  local s="${1//+/ }"
+  printf '%b' "${s//%/\\x}"
+}
+
+sha256_file() {
+  if command -v sha256sum >/dev/null 2>&1; then sha256sum "$1";
+  elif command -v shasum >/dev/null 2>&1; then shasum -a 256 "$1";
+  else fail "нет ни sha256sum, ни shasum"; fi
+}
+
+# --- разбор SUPABASE_DB_URL ----------------------------------------------
+
+[ -n "${SUPABASE_DB_URL:-}" ] || fail "не задан SUPABASE_DB_URL"
+
+url="$SUPABASE_DB_URL"
+case "$url" in postgres://*|postgresql://*) ;; *) fail "SUPABASE_DB_URL должен начинаться с postgres:// ";; esac
+url="${url#*://}"
+userinfo="${url%%@*}"; hostpath="${url#*@}"
+[ "$userinfo" != "$url" ] || fail "в SUPABASE_DB_URL нет userinfo (@)"
+db_user="${userinfo%%:*}"; db_pass_raw="${userinfo#*:}"
+[ "$db_pass_raw" != "$userinfo" ] || fail "в SUPABASE_DB_URL нет пароля"
+db_pass="$(percent_decode "$db_pass_raw")"
+hostport="${hostpath%%/*}"; db_name="${hostpath#*/}"; db_name="${db_name%%\?*}"
+db_host="${hostport%%:*}"
+db_port="5432"; case "$hostport" in *:*) db_port="${hostport##*:}";; esac
+[ -n "$db_host" ] && [ -n "$db_name" ] || fail "не удалось разобрать SUPABASE_DB_URL"
+
+# временный .pgpass 0600 вместо пароля в argv
+PGPASSFILE="$WORK/.pgpass"
+printf '%s:%s:%s:%s:%s\n' "$db_host" "$db_port" "$db_name" "$db_user" "$db_pass" > "$PGPASSFILE"
+chmod 600 "$PGPASSFILE"
+export PGPASSFILE
+unset db_pass db_pass_raw userinfo url hostpath
+
+# --- дамп БД ---------------------------------------------------------------
+
+command -v pg_dump >/dev/null 2>&1 || fail "pg_dump не найден (нужна мажорная версия 17)"
+PG_DUMP_MAJOR="$(pg_dump --version | sed -E 's/[^0-9]*([0-9]+).*/\1/')"
+[ "$PG_DUMP_MAJOR" = "17" ] || fail "pg_dump мажорной версии $PG_DUMP_MAJOR, нужна 17"
+
+log "старт: дамп БД (схемы public, auth, storage), pg_dump $(pg_dump --version | awk '{print $3}')"
+
+DUMP_CMD=(pg_dump --format=plain --no-owner --no-privileges --schema=public --schema=auth --schema=storage)
+if command -v timeout >/dev/null 2>&1; then DUMP_CMD=(timeout "$DUMP_TIMEOUT" "${DUMP_CMD[@]}")
+elif command -v gtimeout >/dev/null 2>&1; then DUMP_CMD=(gtimeout "$DUMP_TIMEOUT" "${DUMP_CMD[@]}"); fi
+
+if ! "${DUMP_CMD[@]}" 2>>"$BACKUP_DIR/$LOG_FILE" | gzip -1 > "$BACKUP_DIR/$DB_OUT"; then
+  rm -f "$BACKUP_DIR/$DB_OUT"
+  fail "pg_dump завершился с ошибкой"
+fi
+[ -s "$BACKUP_DIR/$DB_OUT" ] || fail "дамп пустой"
+log "дамп БД готов: $DB_OUT ($(du -h "$BACKUP_DIR/$DB_OUT" | cut -f1))"
+
+# --- выгрузка storage --------------------------------------------------------
+
+if [ "$SKIP_STORAGE" != "1" ]; then
+  [ -n "${SUPABASE_URL:-}" ] || fail "не задан SUPABASE_URL (или поставь SKIP_STORAGE=1)"
+  [ -n "${SUPABASE_SERVICE_ROLE_KEY:-}" ] || fail "не задан SUPABASE_SERVICE_ROLE_KEY (или поставь SKIP_STORAGE=1)"
+  command -v curl >/dev/null 2>&1 || fail "curl не найден"
+  command -v python3 >/dev/null 2>&1 || fail "python3 не найден (нужен для разбора ответов Storage API)"
+  command -v zip >/dev/null 2>&1 || fail "zip не найден"
+
+  AUTH=(-H "apikey: ${SUPABASE_SERVICE_ROLE_KEY}" -H "Authorization: Bearer ${SUPABASE_SERVICE_ROLE_KEY}")
+  mkdir -p "$WORK/storage"
+
+  log "storage: запрашиваю список bucket'ов"
+  curl -sf --max-time 60 "${AUTH[@]}" "$SUPABASE_URL/storage/v1/bucket" > "$WORK/buckets.json" \
+    || fail "Storage API: список bucket'ов недоступен"
+
+  BUCKETS=()
+  while IFS= read -r b; do BUCKETS+=("$b"); done < <(
+    python3 -c 'import json,sys; print("\n".join(b["id"] for b in json.load(sys.stdin)))' < "$WORK/buckets.json")
+  [ "${#BUCKETS[@]}" -gt 0 ] || log "storage: bucket'ов нет, архив будет пустым"
+
+  OBJECT_COUNT=0
+  for bucket in "${BUCKETS[@]}"; do
+    log "storage: bucket $bucket"
+    # рекурсивный обход префиксов, страницы по 1000
+    walk_prefix() {
+      local prefix="$1" offset=0
+      while :; do
+        local body resp
+        body=$(printf '{"prefix":"%s","limit":1000,"offset":%d}' "$prefix" "$offset")
+        resp="$WORK/list_$$.json"
+        curl -sf --max-time 60 "${AUTH[@]}" -H "Content-Type: application/json" \
+          -X POST "$SUPABASE_URL/storage/v1/object/list/$bucket" -d "$body" > "$resp" \
+          || fail "Storage API: не удалось получить список $bucket/$prefix"
+        local entries
+        entries=$(python3 - "$resp" <<'PYEOF'
+import json, sys
+for o in json.load(open(sys.argv[1])):
+    kind = "dir" if o.get("id") is None else "file"
+    print(f"{kind}\t{o['name']}")
+PYEOF
+)
+        rm -f "$resp"
+        [ -n "$entries" ] || break
+        local n=0
+        while IFS=$'\t' read -r kind name; do
+          n=$((n+1))
+          if [ "$kind" = "dir" ]; then
+            walk_prefix "${prefix}${name}/"
+          else
+            local rel="${prefix}${name}"
+            local dest="$WORK/storage/$bucket/$rel"
+            mkdir -p "$(dirname "$dest")"
+            curl -sf --max-time 120 "${AUTH[@]}" \
+              "$SUPABASE_URL/storage/v1/object/$bucket/$rel" -o "$dest" \
+              || fail "Storage API: не удалось скачать $bucket/$rel"
+            OBJECT_COUNT=$((OBJECT_COUNT+1))
+          fi
+        done <<< "$entries"
+        [ "$n" -lt 1000 ] && break
+        offset=$((offset+1000))
+      done
+    }
+    walk_prefix ""
+  done
+
+  log "storage: скачано объектов: $OBJECT_COUNT, собираю архив"
+  (cd "$WORK/storage" && zip -qr "$BACKUP_DIR/$STORAGE_OUT" .) || fail "не удалось собрать zip storage"
+  log "архив storage готов: $STORAGE_OUT ($(du -h "$BACKUP_DIR/$STORAGE_OUT" | cut -f1))"
+else
+  log "storage: пропуск (SKIP_STORAGE=1)"
+fi
+
+# --- контрольные суммы и ротация -------------------------------------------
+
+(cd "$BACKUP_DIR" && sha256_file "$DB_OUT" > "$DB_OUT.sha256")
+[ "$SKIP_STORAGE" = "1" ] || (cd "$BACKUP_DIR" && sha256_file "$STORAGE_OUT" > "$STORAGE_OUT.sha256")
+
+find "$BACKUP_DIR" -maxdepth 1 \( -name 'db_*.sql.gz*' -o -name 'storage_*.zip*' -o -name 'backup_*.log' \) \
+  -mtime "+$RETENTION_DAYS" -delete
+log "ротация: удалены копии старше $RETENTION_DAYS дней"
+
+log "готово: копия $TS завершена успешно"
