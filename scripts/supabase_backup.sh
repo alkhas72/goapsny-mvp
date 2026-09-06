@@ -136,10 +136,15 @@ if [ "$SKIP_STORAGE" != "1" ]; then
   [ "${#BUCKETS[@]}" -gt 0 ] || log "storage: bucket'ов нет, архив будет пустым"
 
   # URL-кодирование имён — через python3 (пробелы, unicode, спецсимволы)
-  url_encode()  { python3 -c 'import sys,urllib.parse; print(urllib.parse.quote(sys.argv[1]))' "$1"; }
+  url_encode()      { python3 -c 'import sys,urllib.parse; print(urllib.parse.quote(sys.argv[1], safe=""))' "$1"; }
+  url_encode_path() { python3 -c 'import sys,urllib.parse; print(urllib.parse.quote(sys.argv[1], safe="/"))' "$1"; }
 
   OBJECT_COUNT=0
   for bucket in "${BUCKETS[@]}"; do
+    # имя bucket'а приходит из API — валидируем перед использованием в путях
+    case "$bucket" in
+      *..*|/*|*/*) fail "Storage API: подозрительное имя bucket'а (прервано)";;
+    esac
     log "storage: bucket $bucket"
     # рекурсивный обход префиксов, страницы по 1000
     walk_prefix() {
@@ -174,7 +179,7 @@ PYEOF
             local dest="$WORK/storage/$bucket/$rel"
             mkdir -p "$(dirname "$dest")"
             curl -sfS --max-time 120 --config "$CURL_CFG" \
-              "$SUPABASE_URL/storage/v1/object/$(url_encode "$bucket")/$(url_encode "$rel")" -o "$dest" \
+              "$SUPABASE_URL/storage/v1/object/$(url_encode "$bucket")/$(url_encode_path "$rel")" -o "$dest" \
               || fail "Storage API: не удалось скачать $bucket/$rel"
             OBJECT_COUNT=$((OBJECT_COUNT+1))
           fi
