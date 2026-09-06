@@ -1,0 +1,9 @@
+[Unit]
+Description=Ежедневный keepalive Supabase карты GoApsny
+
+[Timer]
+OnCalendar=*-*-* 09:43:00
+Persistent=true
+
+[Install]
+WantedBy=timers.target

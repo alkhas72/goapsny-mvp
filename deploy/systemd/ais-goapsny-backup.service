@@ -1,0 +1,21 @@
+# Копия базы Supabase карты GoApsny (pg_dump 17 + storage) на netcup.
+# Установка (делает Claude при развёртывании):
+#   1. env-файл с секретами: /etc/ais/goapsny-backup.env (root:ais 0640):
+#        SUPABASE_DB_URL=postgres://...
+#        SUPABASE_URL=https://rujxthjaquvwbdnrftua.supabase.co
+#        SUPABASE_SERVICE_ROLE_KEY=...
+#   2. cp deploy/systemd/ais-goapsny-backup.{service,timer} /etc/systemd/system/
+#   3. systemctl daemon-reload && systemctl enable --now ais-goapsny-backup.timer
+# Скрипт лежит в клоне репо на сервере: /srv/ais/goapsny-mvp/scripts/supabase_backup.sh
+[Unit]
+Description=GoApsny Supabase backup (PG dump + storage)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+EnvironmentFile=/etc/ais/goapsny-backup.env
+Environment=BACKUP_DIR=/srv/ais/backups/goapsny
+ExecStart=/srv/ais/goapsny-mvp/scripts/supabase_backup.sh
+TimeoutStartSec=2400
+# секреты не в логах systemd: скрипт пишет журнал без значений env

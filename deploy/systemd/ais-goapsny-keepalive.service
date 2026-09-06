@@ -1,0 +1,13 @@
+# Keepalive проекта Supabase карты GoApsny — лёгкий REST-запрос раз в сутки,
+# чтобы проект не замораживался после 7 дней простоя (случай 05.09.2026).
+# Установка та же, что у ais-goapsny-backup.service (общий env-файл).
+[Unit]
+Description=GoApsny Supabase keepalive
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+EnvironmentFile=/etc/ais/goapsny-backup.env
+ExecStart=/srv/ais/goapsny-mvp/scripts/supabase_keepalive.sh
+TimeoutStartSec=120

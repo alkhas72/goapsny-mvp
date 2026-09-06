@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Keepalive Supabase карты GoApsny с мака — до переезда карты на netcup.
+     Установка как у org.abhazia.goapsny-backup.plist (общий env-файл). -->
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key><string>org.abhazia.goapsny-keepalive</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/bin/bash</string>
+    <string>-c</string>
+    <string>set -a; . "$HOME/.config/ais/goapsny-backup.env"; set +a; exec "$HOME/repo/goapsny-mvp/scripts/supabase_keepalive.sh"</string>
+  </array>
+  <key>StartCalendarInterval</key>
+  <dict><key>Hour</key><integer>9</integer><key>Minute</key><integer>43</integer></dict>
+  <key>StandardOutPath</key><string>/tmp/goapsny-keepalive.out.log</string>
+  <key>StandardErrorPath</key><string>/tmp/goapsny-keepalive.err.log</string>
+</dict>
+</plist>
