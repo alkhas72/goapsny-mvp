@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Отправка копии карты GoApsny на внешний приёмник — вариант с мака.
+     Скрипт живёт в клоне ais-scripts: ~/repo/ais-scripts/infra/netcup/goapsny_offsite_push.sh
+     ВНИМАНИЕ: на macOS нужен flock (brew install flock), иначе скрипт откажет.
+     Установка:
+       1. дополнить ~/.config/ais/goapsny-backup.env offsite-блоком:
+            AGE_RECIPIENT=age1...
+            BACKUP_USER_HOST=backup@<tcp-proxy-host>
+            BACKUP_SSH_PORT=<tcp-proxy-port>
+            PUSH_IDENTITY=<путь к ключу приёма копий>
+            KNOWN_HOSTS=<путь к pinned host key приёмника>
+       2. cp deploy/launchd/org.abhazia.goapsny-offsite.plist ~/Library/LaunchAgents/
+       3. launchctl load ~/Library/LaunchAgents/org.abhazia.goapsny-offsite.plist -->
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key><string>org.abhazia.goapsny-offsite</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/bin/bash</string>
+    <string>-c</string>
+    <string>set -a; . "$HOME/.config/ais/goapsny-backup.env"; set +a; exec "$HOME/repo/ais-scripts/infra/netcup/goapsny_offsite_push.sh"</string>
+  </array>
+  <key>StartCalendarInterval</key>
+  <dict><key>Hour</key><integer>3</integer><key>Minute</key><integer>47</integer></dict>
+  <key>StandardOutPath</key><string>/tmp/goapsny-offsite.out.log</string>
+  <key>StandardErrorPath</key><string>/tmp/goapsny-offsite.err.log</string>
+</dict>
+</plist>

@@ -1,0 +1,25 @@
+# Отправка копии Supabase карты GoApsny на внешний приёмник (Railway, Амстердам)
+# тем же путём, что ночной комплект netcup. Скрипт — в ais-scripts:
+#   /opt/ais-scripts/infra/netcup/goapsny_offsite_push.sh (PR alkhas72/ais-scripts#55).
+# Установка (делает Claude при развёртывании, после слияния обоих PR):
+#   1. дополнить /etc/ais/goapsny-backup.env (root:ais 0640) offsite-блоком:
+#        AGE_RECIPIENT=age1...           (тот же получатель, что у ночного комплекта)
+#        BACKUP_USER_HOST=backup@<tcp-proxy-host>
+#        BACKUP_SSH_PORT=<tcp-proxy-port>
+#      PUSH_IDENTITY и KNOWN_HOSTS по умолчанию уже верные
+#      (/etc/ais/netcup_backup_push, /etc/ais/backup_known_hosts).
+#   2. cp deploy/systemd/ais-goapsny-offsite.{service,timer} /etc/systemd/system/
+#   3. systemctl daemon-reload && systemctl enable --now ais-goapsny-offsite.timer
+# Локальная копия в /srv/ais/backups/goapsny остаётся; сюда уезжает шифротекст.
+[Unit]
+Description=GoApsny Supabase backup offsite push (Railway receiver)
+After=network-online.target ais-goapsny-backup.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+EnvironmentFile=/etc/ais/goapsny-backup.env
+Environment=GOAPSNY_BACKUP_DIR=/srv/ais/backups/goapsny
+ExecStart=/opt/ais-scripts/infra/netcup/goapsny_offsite_push.sh
+TimeoutStartSec=1200
+# секреты не в логах systemd: скрипт пишет журнал без значений env
