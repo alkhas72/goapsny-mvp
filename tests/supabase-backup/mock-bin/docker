@@ -1,0 +1,20 @@
+#!/usr/bin/env bash
+# Mock docker: разбирает «docker run … postgres:17 pg_dump [args]» и exec'ает
+# mock pg_dump с теми же аргументами. Секретов в argv быть не должно — дублируем
+# стражу pg_dump-заглушки на всякий случай.
+while [ $# -gt 0 ]; do
+  case "$1" in
+    run) shift;;
+    --rm|-i) shift;;
+    --user|--network) shift 2;;
+    -v|-e) shift 2;;
+    postgres:17) shift; break;;
+    *) echo "mock docker: неожиданный аргумент: $1" >&2; exit 1;;
+  esac
+done
+[ "${1:-}" = "pg_dump" ] || { echo "mock docker: ожидал команду pg_dump" >&2; exit 1; }
+shift
+for a in "$@"; do
+  case "$a" in *passw*|*secret*|*s3cr*) echo "mock docker: секрет в argv!" >&2; exit 3;; esac
+done
+exec "$(dirname "$0")/pg_dump" "$@"

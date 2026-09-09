@@ -10,6 +10,9 @@
 #   RETENTION_DAYS сколько дней хранить      (по умолчанию 14)
 #   SKIP_STORAGE  1 — только дамп БД, без выгрузки storage
 #   DUMP_TIMEOUT  таймаут pg_dump, сек       (по умолчанию 1800; нужен timeout/gtimeout, иначе без ограничения)
+#   PGDUMP_IMAGE  образ с pg_dump 17          (по умолчанию postgres:17; иначе отказ — мажорная строго 17)
+# Требование: docker — pg_dump 17 идёт из одноразового контейнера (пароль через
+# смонтированный .pgpass, секреты не в argv/env docker).
 #
 # Результат в $BACKUP_DIR: db_<дата>.sql.gz, storage_<дата>.zip, *.sha256, backup_<дата>.log
 # Код выхода != 0 при любом сбое. Журнал не содержит секретов.
@@ -90,14 +93,24 @@ rotate  # до начала работы: старое уходит даже е�
 
 # --- дамп БД ---------------------------------------------------------------
 
-command -v pg_dump >/dev/null 2>&1 || fail "pg_dump не найден (нужна мажорная версия 17)"
-PG_DUMP_MAJOR="$(pg_dump --version | sed -E 's/[^0-9]*([0-9]+).*/\1/')"
-[ "$PG_DUMP_MAJOR" = "17" ] || fail "pg_dump мажорной версии $PG_DUMP_MAJOR, нужна 17"
+# pg_dump мажорной 17 — из одноразового контейнера postgres:17: хост остаётся
+# без клиента СУБД и без PGDG-репозитория, версия заколочена тегом образа.
+# Пароль — через смонтированный .pgpass (0600); контейнер идёт под uid
+# вызвавшего, чтобы libpq принял файл (значение никогда не в argv/env docker).
+PGDUMP_IMAGE="${PGDUMP_IMAGE:-postgres:17}"
+case "$PGDUMP_IMAGE" in
+  postgres:17|postgres:17.*) ;;
+  *) fail "PGDUMP_IMAGE=$PGDUMP_IMAGE, нужен образ мажорной версии 17" ;;
+esac
+command -v docker >/dev/null 2>&1 || fail "docker не найден (pg_dump 17 идёт из контейнера $PGDUMP_IMAGE)"
 
-log "старт: дамп БД (схемы public, auth, storage), pg_dump $(pg_dump --version | awk '{print $3}')"
+log "старт: дамп БД (схемы public, auth, storage), $PGDUMP_IMAGE"
 
 # хост/порт/пользователь/база — не секреты; пароль приходит только из PGPASSFILE
-DUMP_CMD=(pg_dump --host="$db_host" --port="$db_port" --username="$db_user" --dbname="$db_name" \
+DUMP_CMD=(docker run --rm -i --user "$(id -u):$(id -g)" --network host \
+  -v "$PGPASSFILE:/tmp/.pgpass:ro" -e PGPASSFILE=/tmp/.pgpass \
+  "$PGDUMP_IMAGE" pg_dump \
+  --host="$db_host" --port="$db_port" --username="$db_user" --dbname="$db_name" \
   --format=plain --no-owner --no-privileges --schema=public --schema=auth --schema=storage)
 if command -v timeout >/dev/null 2>&1; then DUMP_CMD=(timeout "$DUMP_TIMEOUT" "${DUMP_CMD[@]}")
 elif command -v gtimeout >/dev/null 2>&1; then DUMP_CMD=(gtimeout "$DUMP_TIMEOUT" "${DUMP_CMD[@]}"); fi
