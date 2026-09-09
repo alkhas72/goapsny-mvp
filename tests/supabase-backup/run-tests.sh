@@ -73,10 +73,10 @@ T6="$(mktemp -d)"
 ( unset SUPABASE_DB_URL; run_backup "$T6" ) >/dev/null 2>&1; rc=$?
 [ "$rc" -ne 0 ] && ok "код выхода $rc" || bad "старт без connection string"
 
-echo "== 7. pg_dump не 17-й версии => отказ =="
+echo "== 7. образ не postgres:17 => отказ =="
 T7="$(mktemp -d)"
-MOCK_PG_DUMP_VERSION=16.4 run_backup "$T7"; rc=$?
-[ "$rc" -ne 0 ] && ok "код выхода $rc" || bad "принял pg_dump 16"
+PGDUMP_IMAGE=postgres:16.4 run_backup "$T7"; rc=$?
+[ "$rc" -ne 0 ] && ok "код выхода $rc" || bad "принял образ postgres:16.4"
 
 echo "== 8. SKIP_STORAGE=1 — только БД =="
 T8="$(mktemp -d)"
