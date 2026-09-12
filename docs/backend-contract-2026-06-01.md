@@ -59,7 +59,7 @@ Edge Functions are still local files until deployed. Deploying them requires a S
 
 `ai-autofill` requires `Authorization: Bearer <access_token>` and accepts `{ "place_id": "optional-uuid", "photo_path": "place-uuid/facade.jpg" }`. It returns `{ status, draft }` or `{ status: "blocked_budget", draft: null }`.
 
-`export-drive` is a day-4 stub. It returns a JSON export of core tables and requires `x-export-secret` if `EXPORT_JOB_SECRET` is set.
+`export-drive` is a day-4 stub. It returns a JSON export of core tables and always requires `x-export-secret` to match `EXPORT_JOB_SECRET`. The function is deployed with `verify_jwt: false`, so that secret is its only guard: when the variable is unset or empty the endpoint refuses with 503 instead of serving the export (fail-closed since 2026-09-12, after the Mantis finding of 2026-09-10).
 
 ## Client Flow
 

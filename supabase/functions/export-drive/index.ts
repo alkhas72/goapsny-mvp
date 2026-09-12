@@ -11,8 +11,18 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   if (req.method !== "POST") return jsonResponse({ error: "method_not_allowed" }, 405);
 
+  // Выгрузка отдаёт пять таблиц целиком и вызывается без авторизации
+  // (verify_jwt: false), поэтому единственная её защита — этот секрет.
+  // Проверка закрыта «по умолчанию»: пустой или незаданный секрет означает
+  // отказ, а не свободный доступ. Прежний вариант (`if (exportSecret && …)`)
+  // открывал выгрузку любому, кто знает адрес, стоило переменной потеряться —
+  // найдено аудитом Mantis 10.09.2026.
   const exportSecret = Deno.env.get("EXPORT_JOB_SECRET");
-  if (exportSecret && req.headers.get("x-export-secret") !== exportSecret) {
+  if (!exportSecret) {
+    console.error("export-drive: EXPORT_JOB_SECRET не настроен — выгрузка отклонена");
+    return jsonResponse({ error: "export_secret_not_configured" }, 503);
+  }
+  if (req.headers.get("x-export-secret") !== exportSecret) {
     return jsonResponse({ error: "forbidden" }, 403);
   }
 
