@@ -84,6 +84,19 @@ Deno.serve(async (req) => {
     if (typeof photoPath !== "string" || photoPath.length === 0) {
       return jsonResponse({ error: "photo_path_required" }, 400);
     }
+    if (placeId != null) {
+      if (typeof placeId !== "string" || placeId.length === 0) {
+        return jsonResponse({ error: "place_id_invalid" }, 400);
+      }
+      const { data: accessiblePlace, error: placeError } = await userClient
+        .from("places")
+        .select("id")
+        .eq("id", placeId)
+        .maybeSingle();
+      if (placeError || !accessiblePlace) {
+        return jsonResponse({ error: "place_not_accessible" }, 403);
+      }
+    }
 
     const { data: monthlyRows, error: budgetError } = await admin
       .from("ai_jobs")
@@ -153,7 +166,7 @@ Deno.serve(async (req) => {
     }
 
     const draft = normalizeDraft(JSON.parse(content));
-    await admin.from("ai_jobs").insert({
+    const { error: usageError } = await admin.from("ai_jobs").insert({
       place_id: placeId,
       user_id: userData.user.id,
       photo_path: photoPath,
@@ -163,6 +176,9 @@ Deno.serve(async (req) => {
       request: { prompt },
       response: { raw, draft },
     });
+    if (usageError) {
+      return jsonResponse({ status: "error", error: "usage_record_failed" }, 500);
+    }
     return jsonResponse({ status: "ok", draft });
   } catch (error) {
     console.error(error);

@@ -124,6 +124,9 @@ export function TelegramApp() {
   // Админ-действия идут на сервер; RLS сам решит, хватает ли прав.
   // Ошибка пробрасывается в AdminPanel и показывается пользователю.
   const handleDeletePlace = async (id: string) => {
+    const name = places.find(p => p.id === id)?.name ?? "этот объект";
+    const confirmed = await telegram.confirm(`Вы уверены, что хотите удалить объект "${name}"?`);
+    if (!confirmed) return;
     await api.deletePlace(id);
     setPlaces(prev => prev.filter(p => p.id !== id));
     if (selectedPlaceId === id) {

@@ -1,10 +1,12 @@
 import maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { useEffect, useRef, useState } from 'react';
+import type { AccessibilityStatus } from '../../shared/index';
 import type { Place } from '../../types';
 import { getBrowserLocation } from '../../utils/location';
+import { statusColor, statusLabel } from '../../utils/status';
 import { telegram } from '../../utils/telegram';
-import { buildPinHtml } from './pinMarkup';
+import type { PinMarkupInput } from './pinMarkup';
 import type { MapViewProps } from './types';
 import {
   ABKHAZIA_BOUNDS,
@@ -21,10 +23,67 @@ interface MarkerHandle {
   release: () => void;
 }
 
-function createMarkerRoot(html: string): HTMLDivElement {
+function pinStatusMeta(status: string): { color: string; label: string } {
+  if (status === 'green' || status === 'yellow' || status === 'red' || status === 'gray') {
+    return {
+      color: statusColor(status as AccessibilityStatus),
+      label: statusLabel(status as AccessibilityStatus),
+    };
+  }
+  return { color: '#A0A8B0', label: status };
+}
+
+function createMarkerRoot({
+  placeName,
+  status,
+  rampType,
+  isSelected,
+  placeId,
+}: PinMarkupInput): HTMLDivElement {
+  const { color: statusColorValue, label: statusText } = pinStatusMeta(status);
+  const hasPortableRamp = rampType === 'portable_available' || rampType === 'portable_on_request';
+  const isPurpleCenter = hasPortableRamp && (status === 'green' || status === 'yellow');
+
   const root = document.createElement('div');
   root.className = 'goapsny-maplibre-marker';
-  root.innerHTML = html.trim();
+
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.className = `map-pin-button${isSelected ? ' is-selected' : ''}`;
+  button.dataset.placeId = placeId;
+  button.setAttribute('aria-label', `${placeName}, ${statusText}`);
+
+  const wrapper = document.createElement('span');
+  wrapper.className = `map-pin-wrapper${isSelected ? ' is-selected' : ''}`;
+  wrapper.setAttribute('aria-hidden', 'true');
+
+  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  svg.setAttribute('width', '28');
+  svg.setAttribute('height', '36');
+  svg.setAttribute('viewBox', '0 0 28 36');
+  svg.setAttribute('fill', 'none');
+
+  const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+  path.setAttribute('d', 'M14 36C14 36 27 24 27 14C27 6.8 21.2 1 14 1C6.8 1 1 6.8 1 14C1 24 14 36 14 36Z');
+  path.setAttribute('fill', statusColorValue);
+  path.setAttribute('stroke', '#FFFFFF');
+  path.setAttribute('stroke-width', '1.8');
+  path.setAttribute('stroke-linejoin', 'round');
+
+  const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+  circle.setAttribute('cx', '14');
+  circle.setAttribute('cy', '14');
+  circle.setAttribute('r', '5.5');
+  circle.setAttribute('fill', isPurpleCenter ? '#7A5AF8' : '#FFFFFF');
+  if (isPurpleCenter) {
+    circle.setAttribute('stroke', '#FFFFFF');
+    circle.setAttribute('stroke-width', '2.5');
+  }
+
+  svg.append(path, circle);
+  wrapper.append(svg);
+  button.append(wrapper);
+  root.append(button);
   return root;
 }
 
@@ -169,15 +228,13 @@ export function MapLibreMap({
 
     places.forEach((place) => {
       const isSelected = place.id === selectedPlaceId;
-      const root = createMarkerRoot(
-        buildPinHtml({
-          placeName: place.name,
-          status: place.status,
-          rampType: place.rampType || 'none',
-          isSelected,
-          placeId: place.id,
-        }),
-      );
+      const root = createMarkerRoot({
+        placeName: place.name,
+        status: place.status,
+        rampType: place.rampType || 'none',
+        isSelected,
+        placeId: place.id,
+      });
       const marker = new maplibregl.Marker({ element: root, anchor: 'bottom' })
         .setLngLat([place.lng, place.lat])
         .addTo(map);
@@ -219,15 +276,13 @@ export function MapLibreMap({
       if (draggableMarkerRef.current) {
         draggableMarkerRef.current.setLngLat([dragMode.lng, dragMode.lat]);
       } else {
-        const root = createMarkerRoot(
-          buildPinHtml({
-            placeName: 'Новое место',
-            status: 'yellow',
-            rampType: 'none',
-            isSelected: true,
-            placeId: 'draft',
-          }),
-        );
+        const root = createMarkerRoot({
+          placeName: 'Новое место',
+          status: 'yellow',
+          rampType: 'none',
+          isSelected: true,
+          placeId: 'draft',
+        });
         const marker = new maplibregl.Marker({
           element: root,
           anchor: 'bottom',

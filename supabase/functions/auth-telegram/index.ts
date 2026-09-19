@@ -137,9 +137,9 @@ Deno.serve(async (req) => {
         telegram_id: user.id,
         username: user.username ?? null,
         display_name: displayName,
-        role: existingProfile?.role ?? "tester",
+        role: existingProfile?.role ?? "public_user",
         trust_level: existingProfile?.trust_level ?? 1,
-        ai_enabled: existingProfile?.ai_enabled ?? true,
+        ai_enabled: existingProfile?.ai_enabled ?? false,
         karma: existingProfile?.karma ?? 0,
         karma_status: existingProfile?.karma_status ?? "pedestrian",
       }, { onConflict: "id" })

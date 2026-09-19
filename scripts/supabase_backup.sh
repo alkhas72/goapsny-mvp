@@ -18,6 +18,7 @@
 # Код выхода != 0 при любом сбое. Журнал не содержит секретов.
 
 set -euo pipefail
+umask 077
 
 BACKUP_DIR="${BACKUP_DIR:-/srv/ais/backups/goapsny}"
 RETENTION_DAYS="${RETENTION_DAYS:-14}"
@@ -56,8 +57,8 @@ sha256_file() {
   else fail "нет ни sha256sum, ни shasum"; fi
 }
 
-# ротация: удалить копии старше RETENTION_DAYS; вызывается в начале,
-# чтобы гарантированно срабатывать даже при сбое свежего запуска
+# ротация: удалить копии старше RETENTION_DAYS; только после успешного дампа,
+# иначе сбой свежего запуска не должен стирать последние годные копии
 rotate() {
   find "$BACKUP_DIR" -maxdepth 1 -type f \
     \( -name 'db_*.sql.gz' -o -name 'db_*.sql.gz.sha256' -o -name 'storage_*.zip' -o -name 'storage_*.zip.sha256' -o -name 'backup_*.log' \) \
@@ -88,8 +89,6 @@ printf '%s:%s:%s:%s:%s\n' "$db_host" "$db_port" "$db_name" "$db_user" "$db_pass"
 chmod 600 "$PGPASSFILE"
 export PGPASSFILE
 unset db_pass db_pass_raw userinfo url hostpath
-
-rotate  # до начала работы: старое уходит даже если свежий запуск упадёт
 
 # --- дамп БД ---------------------------------------------------------------
 
@@ -217,3 +216,4 @@ fi
 [ "$SKIP_STORAGE" = "1" ] || (cd "$BACKUP_DIR" && sha256_file "$STORAGE_OUT" > "$STORAGE_OUT.sha256")
 
 log "готово: копия $TS завершена успешно"
+rotate
