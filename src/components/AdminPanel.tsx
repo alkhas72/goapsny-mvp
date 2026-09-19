@@ -31,16 +31,16 @@ export function AdminPanel({ places, onDeletePlace, onUpdateStatus }: AdminPanel
   };
 
   const handleDelete = (id: string, name: string) => {
-    telegram.alert(`Вы уверены, что хотите удалить объект "${name}"?`, () => {
-      void (async () => {
-        try {
-          await onDeletePlace(id);
-          telegram.hapticNotify("warning");
-        } catch (e) {
-          telegram.alert(e instanceof Error ? e.message : "Не удалось удалить объект.");
-        }
-      })();
-    });
+    void (async () => {
+      const confirmed = await telegram.confirm(`Вы уверены, что хотите удалить объект "${name}"?`);
+      if (!confirmed) return;
+      try {
+        await onDeletePlace(id);
+        telegram.hapticNotify("warning");
+      } catch (e) {
+        telegram.alert(e instanceof Error ? e.message : "Не удалось удалить объект.");
+      }
+    })();
   };
 
   const handleEditStatus = (id: string) => {

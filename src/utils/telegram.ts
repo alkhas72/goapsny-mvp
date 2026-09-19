@@ -208,5 +208,15 @@ export const telegram = {
       window.alert(message);
       if (callback) callback();
     }
-  }
+  },
+
+  confirm(message: string): Promise<boolean> {
+    return new Promise((resolve) => {
+      if (isTelegram()) {
+        getWebApp().showConfirm(message, (ok: boolean) => resolve(Boolean(ok)));
+        return;
+      }
+      resolve(window.confirm(message));
+    });
+  },
 };
