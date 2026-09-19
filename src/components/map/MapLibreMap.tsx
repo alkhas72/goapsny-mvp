@@ -1,4 +1,5 @@
-import maplibregl from 'maplibre-gl';
+import * as maplibregl from 'maplibre-gl';
+import maplibreWorkerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { useEffect, useRef, useState } from 'react';
 import type { AccessibilityStatus } from '../../shared/index';
@@ -17,6 +18,9 @@ import {
   SELECTED_ZOOM,
   SUKHUM_CENTER,
 } from './vectorStyle';
+
+// maplibre-gl 6 is ESM-only; Vite cannot resolve the worker unless we set it.
+maplibregl.setWorkerUrl(maplibreWorkerUrl);
 
 interface MarkerHandle {
   marker: maplibregl.Marker;

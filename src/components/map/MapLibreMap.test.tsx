@@ -65,6 +65,10 @@ const {
 
 let markerInstances: MockMarkerInstance[] = [];
 
+vi.mock('maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url', () => ({
+  default: '/maplibre-worker-mock.js',
+}));
+
 vi.mock('maplibre-gl', () => {
   function MockMarker(
     this: MockMarkerInstance,
@@ -104,13 +108,12 @@ vi.mock('maplibre-gl', () => {
   }
 
   return {
-    default: {
-      Map: mockMapCtor,
-      Marker: MockMarker,
-      NavigationControl: mockNavigationCtor,
-      AttributionControl: mockAttributionCtor,
-      LngLatBounds: LngLatBoundsLikeStub,
-    },
+    Map: mockMapCtor,
+    Marker: MockMarker,
+    NavigationControl: mockNavigationCtor,
+    AttributionControl: mockAttributionCtor,
+    LngLatBounds: LngLatBoundsLikeStub,
+    setWorkerUrl: vi.fn(),
   };
 });
 
