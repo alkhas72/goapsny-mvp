@@ -5,7 +5,7 @@ const LEGEND_ITEMS = [
   { key: 'green', color: STATUS_META.green.color, label: STATUS_META.green.ru },
   { key: 'yellow', color: STATUS_META.yellow.color, label: 'Частично доступно' },
   { key: 'red', color: STATUS_META.red.color, label: STATUS_META.red.ru },
-  { key: 'gray', color: STATUS_META.gray.color, label: 'На проверке' },
+  { key: 'gray', color: STATUS_META.gray.color, label: STATUS_META.gray.ru },
   {
     key: 'ramp',
     color: RAMP_COLOR,

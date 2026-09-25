@@ -37,7 +37,7 @@ export const ABKHAZIA_BOUNDS: readonly [readonly [number, number], readonly [num
 ];
 
 const DEFAULT_VECTOR_STYLES = {
-  light: 'https://tiles.openfreemap.org/styles/liberty',
+  light: 'https://tiles.openfreemap.org/styles/positron',
   dark: 'https://tiles.openfreemap.org/styles/dark',
 } as const;
 

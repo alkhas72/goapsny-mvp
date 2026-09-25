@@ -320,11 +320,11 @@ export function TelegramApp() {
                     width: 10, 
                     height: 10, 
                     borderRadius: "50%", 
-                    backgroundColor: "#7A5AF8", 
+                    backgroundColor: "#EF705D", 
                     border: "1.5px solid #FFFFFF", 
                     display: "inline-block" 
                   }}></span>
-                  <span>пурпурный центр = приставной пандус</span>
+                  <span>коралловый центр = приставной пандус</span>
                 </span>
               </div>
             </div>

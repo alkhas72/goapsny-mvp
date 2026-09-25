@@ -5,7 +5,7 @@ import { useEffect, useRef, useState } from 'react';
 import type { AccessibilityStatus } from '../../shared/index';
 import type { Place } from '../../types';
 import { getBrowserLocation } from '../../utils/location';
-import { statusColor, statusLabel } from '../../utils/status';
+import { RAMP_COLOR, statusColor, statusLabel } from '../../utils/status';
 import { telegram } from '../../utils/telegram';
 import type { PinMarkupInput } from './pinMarkup';
 import type { MapViewProps } from './types';
@@ -62,7 +62,7 @@ function createMarkerRoot({
 }: PinMarkupInput): HTMLDivElement {
   const { color: statusColorValue, label: statusText } = pinStatusMeta(status);
   const hasPortableRamp = rampType === 'portable_available' || rampType === 'portable_on_request';
-  const isPurpleCenter = hasPortableRamp && (status === 'green' || status === 'yellow');
+  const isCoralCenter = hasPortableRamp && (status === 'green' || status === 'yellow');
 
   const root = document.createElement('div');
   root.className = 'goapsny-maplibre-marker';
@@ -94,22 +94,10 @@ function createMarkerRoot({
   circle.setAttribute('cx', '14');
   circle.setAttribute('cy', '14');
   circle.setAttribute('r', '5.5');
-  circle.setAttribute('fill', isPurpleCenter ? '#7A5AF8' : '#FFFFFF');
-  if (isPurpleCenter) {
+  circle.setAttribute('fill', isCoralCenter ? RAMP_COLOR : '#FFFFFF');
+  if (isCoralCenter) {
     circle.setAttribute('stroke', '#FFFFFF');
     circle.setAttribute('stroke-width', '2.5');
-  }
-
-  if (hasPortableRamp) {
-    button.classList.add('has-ais-ramp');
-    const halo = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
-    halo.setAttribute('cx', '14');
-    halo.setAttribute('cy', '14');
-    halo.setAttribute('r', '13.5');
-    halo.setAttribute('fill', 'none');
-    halo.setAttribute('stroke', '#7A5AF8');
-    halo.setAttribute('stroke-width', '2');
-    svg.append(halo);
   }
 
   svg.append(path, circle);
