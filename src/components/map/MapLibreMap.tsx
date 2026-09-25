@@ -22,6 +22,22 @@ import {
 // maplibre-gl 6 is ESM-only; Vite cannot resolve the worker unless we set it.
 maplibregl.setWorkerUrl(maplibreWorkerUrl);
 
+// Register PMTiles protocol for offline-first vector tile archives.
+import * as pmtiles from 'pmtiles';
+
+let pmtilesProtocolRegistered = false;
+function ensurePmtilesProtocol(): void {
+  if (pmtilesProtocolRegistered) return;
+  try {
+    const protocol = new pmtiles.Protocol();
+    maplibregl.addProtocol('pmtiles', protocol.tile);
+    pmtilesProtocolRegistered = true;
+  } catch (err) {
+    console.warn('Could not register pmtiles protocol', err);
+  }
+}
+ensurePmtilesProtocol();
+
 interface MarkerHandle {
   marker: maplibregl.Marker;
   release: () => void;
@@ -82,6 +98,18 @@ function createMarkerRoot({
   if (isPurpleCenter) {
     circle.setAttribute('stroke', '#FFFFFF');
     circle.setAttribute('stroke-width', '2.5');
+  }
+
+  if (hasPortableRamp) {
+    button.classList.add('has-ais-ramp');
+    const halo = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+    halo.setAttribute('cx', '14');
+    halo.setAttribute('cy', '14');
+    halo.setAttribute('r', '13.5');
+    halo.setAttribute('fill', 'none');
+    halo.setAttribute('stroke', '#7A5AF8');
+    halo.setAttribute('stroke-width', '2');
+    svg.append(halo);
   }
 
   svg.append(path, circle);

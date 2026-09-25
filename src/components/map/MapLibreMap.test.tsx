@@ -114,6 +114,7 @@ vi.mock('maplibre-gl', () => {
     AttributionControl: mockAttributionCtor,
     LngLatBounds: LngLatBoundsLikeStub,
     setWorkerUrl: vi.fn(),
+    addProtocol: vi.fn(),
   };
 });
 
@@ -259,7 +260,7 @@ describe('MapLibreMap', () => {
     );
     expect(mockAttributionCtor).toHaveBeenCalledWith(
       expect.objectContaining({
-        customAttribution: expect.stringContaining('https://carto.com/attributions'),
+        customAttribution: expect.stringContaining('MapLibre'),
       }),
     );
 

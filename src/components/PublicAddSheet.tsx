@@ -10,7 +10,7 @@ import {
 import { getBrowserLocation } from '../utils/location';
 import { trapFocus } from '../utils/focusTrap';
 import { FacadePhotoError, prepareFacadePhoto } from '../utils/photo';
-import { LeafletMap } from './LeafletMap';
+import { MapLibreMap } from './map/MapLibreMap';
 
 /**
  * Deterministic Russian copy for each hardened {@link SubmitPlaceErrorKind}.
@@ -254,7 +254,7 @@ export function PublicAddSheet({ open, theme, onClose, onSubmitted }: PublicAddS
             <p className="wizard-sub">Перетащите маркер к входу в здание.</p>
             <div className="drag-map-container">
               {lat != null && lng != null && (
-                <LeafletMap
+                <MapLibreMap
                   places={[]}
                   selectedPlaceId={null}
                   theme={theme}

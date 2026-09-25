@@ -21,10 +21,11 @@ export const SELECTED_ZOOM = 16;
 /** Default zoom target in draft-pin (add-place) mode. */
 export const DRAFT_ZOOM = 17;
 
-/** HTML attribution; OSM/CARTO licenses require clickable links, not plain text. */
+/** HTML attribution; OSM/MapLibre/AIS canon requires clickable links. */
 export const MAP_ATTRIBUTION =
-  '<a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">© OpenStreetMap</a> ' +
-  '<a href="https://carto.com/attributions" target="_blank" rel="noopener noreferrer">© CARTO</a>';
+  '<a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">© OpenStreetMap contributors</a> · ' +
+  '<a href="https://maplibre.org" target="_blank" rel="noopener noreferrer">MapLibre</a> · ' +
+  'АИС «Инва-Содействие»';
 
 /**
  * Abkhazia bounding box (WGS84). Order: [[west, south], [east, north]]
@@ -35,11 +36,16 @@ export const ABKHAZIA_BOUNDS: readonly [readonly [number, number], readonly [num
   [41.2, 43.62],
 ];
 
-const VECTOR_STYLE_URLS = {
-  light: 'https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json',
-  dark: 'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json',
+const DEFAULT_VECTOR_STYLES = {
+  light: 'https://tiles.openfreemap.org/styles/liberty',
+  dark: 'https://tiles.openfreemap.org/styles/dark',
 } as const;
 
 export function getVectorStyleUrl(theme: 'light' | 'dark'): string {
-  return VECTOR_STYLE_URLS[theme];
+  const envOverride =
+    theme === 'dark'
+      ? (import.meta.env.VITE_MAP_STYLE_DARK as string | undefined)
+      : (import.meta.env.VITE_MAP_STYLE_LIGHT as string | undefined);
+
+  return envOverride || DEFAULT_VECTOR_STYLES[theme];
 }

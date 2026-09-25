@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { LeafletMap } from './LeafletMap';
+import { MapLibreMap } from './map/MapLibreMap';
 import { MapHeader } from './MapHeader';
 import { MapFooter } from './MapFooter';
 import { MapFilters } from './MapFilters';
@@ -323,7 +323,7 @@ export function PublicMap() {
       />
 
       <main className="public-map-main">
-        <LeafletMap
+        <MapLibreMap
           places={visiblePlaces}
           selectedPlaceId={selectedPlaceId}
           theme={theme}
