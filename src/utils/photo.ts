@@ -53,21 +53,15 @@ export function validateFacadePhoto(file: File): PhotoPrepareError | null {
   return null;
 }
 
-/** Уже готовый JPEG нужного размера пересжимать незачем. */
-function needsConversion(file: File): boolean {
-  return file.type !== FACADE_TARGET_MIME || file.size > FACADE_MAX_BYTES;
-}
-
 /**
- * Приводит снимок к контракту бакета: JPEG, вписанный в MAX_DIMENSION.
+ * Приводит любой снимок к контракту бакета: новый JPEG без исходного EXIF/GPS,
+ * вписанный в MAX_DIMENSION. Даже небольшой JPEG всегда перекодируется.
  * Декодирование выполняет браузер, поэтому HEIC с iPhone проходит там,
  * где Safari умеет его читать — то есть на самом iPhone.
  */
 export async function prepareFacadePhoto(file: File): Promise<File> {
   const invalid = validateFacadePhoto(file);
   if (invalid) throw new FacadePhotoError(invalid);
-
-  if (!needsConversion(file)) return file;
 
   const bitmap = await decode(file);
   const { width, height } = fit(bitmap.width, bitmap.height);

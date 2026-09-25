@@ -1,4 +1,4 @@
-export type Role = "owner" | "admin" | "operator" | "tester" | "public_user" | "banned";
+export type Role = "owner" | "admin" | "operator" | "tester" | "cartographer" | "public_user" | "banned";
 export type Tab = "map" | "add" | "profile" | "admin";
 export type AccessibilityStatus = "green" | "yellow" | "red" | "gray";
 export type ModerationStatus = "published" | "pending" | "hidden";

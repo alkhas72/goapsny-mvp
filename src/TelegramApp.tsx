@@ -141,6 +141,11 @@ export function TelegramApp() {
     );
   };
 
+  const handleReviewPublicPlace = async (id: string, decision: "published" | "hidden") => {
+    await api.reviewPublicPlace(id, decision);
+    setPlaces(await api.getPlaces());
+  };
+
   // Helper to find selected POI details
   const selectedPlace = selectedPlaceId ? places.find(p => p.id === selectedPlaceId) || null : null;
   const visiblePlaces = places.filter(p => filter === "all" || p.status === filter);
@@ -452,6 +457,8 @@ export function TelegramApp() {
             places={places}
             onDeletePlace={handleDeletePlace}
             onUpdateStatus={handleUpdateStatus}
+            canModerate={profile?.role === "owner" || profile?.role === "admin"}
+            onReviewPublicPlace={handleReviewPublicPlace}
           />
         )}
       </main>
@@ -494,7 +501,7 @@ export function TelegramApp() {
           <span>Профиль</span>
         </button>
 
-        {profile && ["owner", "admin", "operator", "tester"].includes(profile.role) && (
+        {profile && ["owner", "admin", "operator", "tester", "cartographer"].includes(profile.role) && (
           <button
             type="button"
             className={`nav-tab ${activeTab === "admin" ? "active" : ""}`}

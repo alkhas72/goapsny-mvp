@@ -133,6 +133,16 @@ function serverMessage(prefix: string, raw: unknown): Error {
   return new Error(detail ? `${prefix}: ${detail}` : prefix);
 }
 
+export interface PendingPlace {
+  id: string;
+  name: string;
+  category: string;
+  lat: number;
+  lng: number;
+  createdAt: string;
+  photoUrl: string | null;
+}
+
 export const api = {
   // 1. loginTelegram — вход через Edge Function auth-telegram.
   // Отказ (плохая подпись, истёкший initData, сбой сети) — исключение,
@@ -188,6 +198,50 @@ export const api = {
   async getPlaces(): Promise<Place[]> {
     const published = await fetchPublishedPlaces();
     return published.map(toPlace);
+  },
+
+  // Очередь видна только owner/admin по RLS. Ссылки на фото краткосрочные.
+  async getPendingPublicPlaces(): Promise<PendingPlace[]> {
+    const client = getSessionClient();
+    const { data: rows, error } = await client.from("places")
+      .select("id,name,category,lat,lng,created_at")
+      .eq("source", "public")
+      .eq("moderation_status", "pending")
+      .order("created_at", { ascending: true });
+    if (error) throw serverMessage("Не удалось загрузить заявки", error);
+    const ids = (rows ?? []).map(row => row.id);
+    if (ids.length === 0) return [];
+    const { data: photos, error: photoError } = await client.from("photos")
+      .select("place_id,storage_path")
+      .in("place_id", ids)
+      .eq("kind", "facade");
+    if (photoError) throw serverMessage("Не удалось загрузить фото заявок", photoError);
+    const pathById = new Map((photos ?? []).map(photo => [photo.place_id, photo.storage_path]));
+    return Promise.all((rows ?? []).map(async row => {
+      const path = pathById.get(row.id);
+      const signed = path ? await client.storage.from("place-photos").createSignedUrl(path, 300) : null;
+      return {
+        id: row.id,
+        name: row.name,
+        category: row.category,
+        lat: row.lat,
+        lng: row.lng,
+        createdAt: row.created_at,
+        photoUrl: signed?.data?.signedUrl ?? null
+      };
+    }));
+  },
+
+  async reviewPublicPlace(placeId: string, decision: "published" | "hidden"): Promise<void> {
+    const client = getSessionClient();
+    const { data, error } = await client.from("places")
+      .update({ moderation_status: decision })
+      .eq("id", placeId)
+      .eq("source", "public")
+      .eq("moderation_status", "pending")
+      .select("id")
+      .single();
+    if (error || !data) throw serverMessage("Не удалось обработать заявку", error);
   },
 
   // 3. createPlace — путь картографа: фото в Storage, строка в places,

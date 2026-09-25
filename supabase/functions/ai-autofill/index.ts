@@ -70,6 +70,10 @@ Deno.serve(async (req) => {
       .eq("id", userData.user.id)
       .single();
     if (profileError || !profile) return jsonResponse({ error: "profile_not_found" }, 403);
+    if (Deno.env.get("AI_AUTOFILL_ENABLED") !== "true") {
+      return jsonResponse({ status: "error", error: "ai_not_enabled" }, 403);
+    }
+
     if (!profile.ai_enabled || !["owner", "admin", "operator", "tester"].includes(profile.role)) {
       await admin.from("ai_jobs").insert({
         user_id: userData.user.id,

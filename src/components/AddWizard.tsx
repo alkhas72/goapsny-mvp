@@ -263,7 +263,7 @@ export function AddWizard({ profile, theme, onSave, onCancel }: AddWizardProps) 
           <h2 className="wizard-title">Шаг 2: Информация о месте</h2>
           <p className="wizard-sub">Заполните поля. Используйте ИИ-автозаполнение по фото, если доступно.</p>
 
-          {profile.aiEnabled && draft.photoUrl && (
+          {import.meta.env.VITE_AI_AUTOFILL_ENABLED === "true" && profile.aiEnabled && draft.photoUrl && (
             <div className={`ai-status-banner ${theme}`}>
               <Sparkles size={16} />
               <span>ИИ готов к распознаванию по фото</span>

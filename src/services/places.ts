@@ -174,7 +174,7 @@ export function publicPlaceFromSubmission(snapshot: SubmittedPlaceSnapshot): Pub
     comment: null,
     osm_tags: {},
     details: { schema_version: 1 },
-    moderation_status: 'published',
+    moderation_status: 'pending',
     source: 'public',
     created_by: null,
     created_at: now,

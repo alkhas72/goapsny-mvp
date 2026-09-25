@@ -11,8 +11,6 @@ import {
   applyPlaceFilters,
   fetchPlaceById,
   fetchPublishedPlaces,
-  publicPlaceFromSubmission,
-  upsertPublicPlace,
   type PlaceFilters,
   type PublicPlace,
   type StatusFilter,
@@ -103,13 +101,6 @@ export function PublicMap() {
       cancelled = true;
       unsubscribe();
     };
-  }, []);
-
-  const reloadPlaces = useCallback(async () => {
-    const data = await fetchPublishedPlaces();
-    setPlaces(data);
-    setLoadState('ready');
-    setLoadError(null);
   }, []);
 
   useEffect(() => {
@@ -248,41 +239,11 @@ export function PublicMap() {
   }, [pendingAddAfterAuth]);
 
   const handlePlaceSubmitted = useCallback(
-    async (result: SubmitPublicPlaceResult) => {
+    (_result: SubmitPublicPlaceResult) => {
       setAddOpen(false);
-      const immediatePlace = result.place ?? publicPlaceFromSubmission(result.snapshot);
-
-      // Карта должна обновиться сразу: ждать полной перезагрузки списка нельзя.
-      // Берём подтверждённые данные подачи (RPC-строка или снимок формы), не заглушки.
-      setPlaces((current) => upsertPublicPlace(current, immediatePlace));
-
-      try {
-        await reloadPlaces();
-      } catch {
-        // DG-3: координаты и название — те, что человек только что отправил, не выдумка.
-        setCabinetNote(
-          'Место отправлено. Синхронизировать список сейчас не удалось — метка на карте по вашим данным.',
-        );
-      }
-
-      setSelectedPlaceId(result.placeId);
-      setSheetPlace(immediatePlace);
-      setSheetState('loading');
-      setSheetError(undefined);
-      try {
-        const fresh = await fetchPlaceById(result.placeId);
-        if (!fresh) {
-          setSheetState('partial');
-          return;
-        }
-        setSheetPlace(fresh);
-        setPlaces((current) => upsertPublicPlace(current, fresh));
-        setSheetState(fresh.facadePhotoError ? 'partial' : 'idle');
-      } catch {
-        setSheetState('partial');
-      }
+      setCabinetNote('Заявка отправлена на проверку. Место появится на карте после одобрения.');
     },
-    [reloadPlaces],
+    [],
   );
 
   if (loadState === 'loading') {

@@ -317,125 +317,17 @@ describe('PublicMap integration', () => {
     expect(screen.getByRole('button', { name: 'Mock publish gray pin' })).toBeTruthy();
   });
 
-  it('reloads places after a successful submit and renders the new gray marker', async () => {
-    const newGrayPlace: PublicPlace = {
-      id: 'new-gray-place',
-      name: 'Новая серая метка',
-      category: 'food',
-      lat: 43.05,
-      lng: 41.05,
-      status: 'gray',
-      stepsCount: null,
-      stepHeightCm: null,
-      rampType: 'none',
-      doorWidthCm: null,
-      entranceNotes: null,
-      toiletExists: 'unknown',
-      toiletAccessible: 'unknown',
-      parking: 'unknown',
-      comment: null,
-      osmTags: {},
-      details: { schema_version: 1 },
-      moderationStatus: 'published',
-      source: 'public',
-      createdBy: null,
-      createdAt: '2026-07-16T00:00:00Z',
-      updatedAt: '2026-07-16T00:00:00Z',
-      facadePhotoUrl: null,
-    };
-
+  it('confirms a pending submission without exposing a public marker', async () => {
     const user = userEvent.setup();
     await renderLoadedMap();
-
-    // The reload after submit returns the existing places plus the new gray pin.
-    vi.mocked(fetchPublishedPlaces).mockResolvedValueOnce([...mockPlaces, newGrayPlace]);
-
-    await user.click(screen.getByRole('button', { name: /меню/i }));
-    await user.click(screen.getByRole('button', { name: /добавить локацию/i }));
-    await user.click(screen.getByRole('button', { name: 'Mock verify OTP' }));
-
-    const callsBefore = vi.mocked(fetchPublishedPlaces).mock.calls.length;
-    await user.click(screen.getByRole('button', { name: 'Mock publish gray pin' }));
-
-    // 1) The map reloaded (fetchPublishedPlaces called again after submit)...
-    await waitFor(() => {
-      expect(vi.mocked(fetchPublishedPlaces).mock.calls.length).toBeGreaterThan(callsBefore);
-    });
-    // 2) ...and the new gray place is now in the visible marker list.
-    await screen.findByRole('button', { name: 'Новая серая метка' });
-    expect(screen.getByRole('button', { name: 'Новая серая метка' })).toBeTruthy();
-  });
-
-  it('shows the submitted gray marker immediately before the list reload finishes', async () => {
-    const user = userEvent.setup();
-    await renderLoadedMap();
-
-    let resolveReload: ((value: PublicPlace[]) => void) | undefined;
-    const reloadPromise = new Promise<PublicPlace[]>((resolve) => {
-      resolveReload = resolve;
-    });
-    vi.mocked(fetchPublishedPlaces).mockReturnValueOnce(reloadPromise);
 
     await user.click(screen.getByRole('button', { name: /меню/i }));
     await user.click(screen.getByRole('button', { name: /добавить локацию/i }));
     await user.click(screen.getByRole('button', { name: 'Mock verify OTP' }));
     await user.click(screen.getByRole('button', { name: 'Mock publish gray pin' }));
 
-    await screen.findByRole('button', { name: 'Новая серая метка' });
-    resolveReload?.([...mockPlaces, {
-      id: 'new-gray-place',
-      name: 'Новая серая метка',
-      category: 'food',
-      lat: 43.05,
-      lng: 41.05,
-      status: 'gray',
-      stepsCount: null,
-      stepHeightCm: null,
-      rampType: 'none',
-      doorWidthCm: null,
-      entranceNotes: null,
-      toiletExists: 'unknown',
-      toiletAccessible: 'unknown',
-      parking: 'unknown',
-      comment: null,
-      osmTags: {},
-      details: { schema_version: 1 },
-      moderationStatus: 'published',
-      source: 'public',
-      createdBy: null,
-      createdAt: '2026-07-16T00:00:00Z',
-      updatedAt: '2026-07-16T00:00:00Z',
-      facadePhotoUrl: null,
-    }]);
-    await waitFor(() => {
-      expect(vi.mocked(fetchPublishedPlaces).mock.calls.length).toBeGreaterThan(1);
-    });
-  });
-
-  // DG-3: при сбое сервера показываем правду, а не выдуманные данные.
-  it('keeps the submitted marker with real form data when reload after submit fails', async () => {
-    const user = userEvent.setup();
-    await renderLoadedMap();
-
-    // Запись прошла, но перезагрузка списка не удалась.
-    vi.mocked(fetchPublishedPlaces).mockRejectedValueOnce(new Error('network down'));
-
-    await user.click(screen.getByRole('button', { name: /меню/i }));
-    await user.click(screen.getByRole('button', { name: /добавить локацию/i }));
-    await user.click(screen.getByRole('button', { name: 'Mock verify OTP' }));
-
-    const callsBefore = vi.mocked(fetchPublishedPlaces).mock.calls.length;
-    await user.click(screen.getByRole('button', { name: 'Mock publish gray pin' }));
-
-    await waitFor(() => {
-      expect(vi.mocked(fetchPublishedPlaces).mock.calls.length).toBeGreaterThan(callsBefore);
-    });
-
-    // Метка с реальными данными формы остаётся видимой; выдуманных координат нет.
-    expect(screen.getByRole('button', { name: 'Новая серая метка' })).toBeTruthy();
-    expect(screen.queryByRole('button', { name: 'Новое место' })).toBeNull();
-    for (const place of mockPlaces) {
-      expect(screen.getByRole('button', { name: place.name })).toBeTruthy();
-    }
+    expect((await screen.findByRole('status')).textContent).toContain('Заявка отправлена на проверку');
+    expect(screen.queryByRole('button', { name: 'Новая серая метка' })).toBeNull();
+    expect(fetchPublishedPlaces).toHaveBeenCalledTimes(1);
   });
 });

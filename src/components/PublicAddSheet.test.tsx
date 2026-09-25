@@ -18,6 +18,11 @@ vi.mock('./LeafletMap', () => ({
   ),
 }));
 
+vi.mock('../utils/photo', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../utils/photo')>();
+  return { ...actual, prepareFacadePhoto: vi.fn(async (file: File) => file) };
+});
+
 vi.mock('../utils/location', () => ({
   getBrowserLocation: vi.fn().mockResolvedValue({ lat: 43.0033, lng: 41.0237 }),
 }));
@@ -77,7 +82,7 @@ describe('PublicAddSheet', () => {
     await user.click(screen.getByRole('button', { name: /установить пин/i }));
     await user.click(screen.getByRole('button', { name: /далее/i }));
 
-    await user.click(screen.getByRole('button', { name: /опубликовать серую метку/i }));
+    await user.click(screen.getByRole('button', { name: /отправить на проверку/i }));
     await waitFor(() => {
       expect(submitPublicPlace).toHaveBeenCalled();
     });
@@ -98,7 +103,7 @@ describe('PublicAddSheet', () => {
     await user.click(screen.getByRole('button', { name: /установить пин/i }));
     await user.click(screen.getByRole('button', { name: /далее/i }));
 
-    await user.click(screen.getByRole('button', { name: /опубликовать серую метку/i }));
+    await user.click(screen.getByRole('button', { name: /отправить на проверку/i }));
     await waitFor(() => {
       expect(onSubmitted).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -130,7 +135,7 @@ describe('PublicAddSheet', () => {
     await user.click(screen.getByRole('button', { name: /далее/i }));
     await user.click(screen.getByRole('button', { name: /установить пин/i }));
     await user.click(screen.getByRole('button', { name: /далее/i }));
-    await user.click(screen.getByRole('button', { name: /опубликовать серую метку/i }));
+    await user.click(screen.getByRole('button', { name: /отправить на проверку/i }));
 
     await waitFor(() => {
       expect(screen.getByRole('alert')).toBeTruthy();
@@ -153,7 +158,7 @@ describe('PublicAddSheet', () => {
     await user.click(screen.getByRole('button', { name: /далее/i }));
     await user.click(screen.getByRole('button', { name: /установить пин/i }));
     await user.click(screen.getByRole('button', { name: /далее/i }));
-    await user.click(screen.getByRole('button', { name: /опубликовать серую метку/i }));
+    await user.click(screen.getByRole('button', { name: /отправить на проверку/i }));
 
     await waitFor(() => {
       expect(screen.getByRole('alert')).toBeTruthy();

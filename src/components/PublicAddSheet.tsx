@@ -30,7 +30,7 @@ const SUBMIT_ERROR_MESSAGES: Record<SubmitPlaceErrorKind, string> = {
   facade_reused: 'Это фото уже используется.',
   coordinates_invalid: 'Укажите корректные координаты.',
   storage_path_invalid: 'Ошибка пути фото. Попробуйте ещё раз.',
-  unknown: 'Не удалось опубликовать место. Попробуйте позже.',
+  unknown: 'Не удалось отправить заявку. Попробуйте позже.',
 };
 
 interface PublicAddSheetProps {
@@ -144,13 +144,13 @@ export function PublicAddSheet({ open, theme, onClose, onSubmitted }: PublicAddS
         lng,
         photo: photoFile,
       });
-      setSuccessMessage('Серая метка уже на карте. Её проверят аудиторы сообщества.');
+      setSuccessMessage('Заявка отправлена на проверку. Место появится на карте после одобрения.');
       onSubmitted(result);
     } catch (submitError) {
       setError(
         submitError instanceof SubmitPlaceError
           ? SUBMIT_ERROR_MESSAGES[submitError.kind]
-          : 'Не удалось опубликовать место',
+          : 'Не удалось отправить заявку',
       );
     } finally {
       setSubmitting(false);
@@ -191,7 +191,7 @@ export function PublicAddSheet({ open, theme, onClose, onSubmitted }: PublicAddS
         {step === 1 && (
           <>
             <h2 className="wizard-title">Шаг 1: Фото входа</h2>
-            <p className="wizard-sub">Без фото объект не публикуется.</p>
+            <p className="wizard-sub">Добавьте фото входа для проверки заявки.</p>
             <label className={`photo-uploader ${photoUrl ? 'has-photo' : ''}`}>
               <input
                 type="file"
@@ -303,7 +303,7 @@ export function PublicAddSheet({ open, theme, onClose, onSubmitted }: PublicAddS
                 disabled={submitting}
                 onClick={() => void handleSubmit()}
               >
-                {submitting ? 'Публикация…' : 'Опубликовать серую метку'}
+                {submitting ? 'Публикация…' : 'Отправить на проверку'}
               </button>
             )}
           </>

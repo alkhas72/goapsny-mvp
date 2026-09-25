@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   FACADE_MAX_BYTES,
   FACADE_TARGET_MIME,
@@ -43,9 +43,24 @@ describe('validateFacadePhoto', () => {
 });
 
 describe('prepareFacadePhoto', () => {
-  it('отдаёт готовый JPEG в пределах лимита без обработки', async () => {
-    const original = fakeFile('ok.jpg', FACADE_TARGET_MIME, 2_000_000);
-    await expect(prepareFacadePhoto(original)).resolves.toBe(original);
+  afterEach(() => vi.restoreAllMocks());
+
+  it('перекодирует даже небольшой JPEG и не копирует EXIF исходника', async () => {
+    const original = new File(['EXIF GPS coordinates'], 'ok.jpg', { type: FACADE_TARGET_MIME });
+    const drawImage = vi.fn();
+    vi.stubGlobal('createImageBitmap', vi.fn().mockResolvedValue({ width: 800, height: 600 }));
+    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(
+      { drawImage } as unknown as CanvasRenderingContext2D,
+    );
+    vi.spyOn(HTMLCanvasElement.prototype, 'toBlob').mockImplementation((callback) => {
+      callback(new Blob(['encoded pixels'], { type: FACADE_TARGET_MIME }));
+    });
+
+    const result = await prepareFacadePhoto(original);
+    expect(result).not.toBe(original);
+    expect(result.type).toBe(FACADE_TARGET_MIME);
+    expect(await result.text()).toBe('encoded pixels');
+    expect(drawImage).toHaveBeenCalled();
   });
 
   it('бросает понятную ошибку на не-изображении', async () => {

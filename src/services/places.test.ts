@@ -62,7 +62,7 @@ describe('mapPlaceRow', () => {
 });
 
 describe('publicPlaceFromSubmission', () => {
-  it('builds a gray published pin from the confirmed form snapshot', () => {
+  it('builds a gray pending record from the confirmed form snapshot', () => {
     const place = publicPlaceFromSubmission({
       placeId: '11111111-1111-4111-8111-111111111111',
       name: '  Кафе  ',
@@ -78,7 +78,7 @@ describe('publicPlaceFromSubmission', () => {
       lat: 43.01,
       lng: 41.02,
       status: 'gray',
-      moderationStatus: 'published',
+      moderationStatus: 'pending',
     });
   });
 });
