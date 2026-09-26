@@ -1,17 +1,9 @@
 import { STATUS_META } from '../shared/index';
-import { RAMP_COLOR } from '../utils/status';
 
 const LEGEND_ITEMS = [
   { key: 'green', color: STATUS_META.green.color, label: STATUS_META.green.ru },
   { key: 'yellow', color: STATUS_META.yellow.color, label: 'Частично доступно' },
   { key: 'red', color: STATUS_META.red.color, label: STATUS_META.red.ru },
-  { key: 'gray', color: STATUS_META.gray.color, label: STATUS_META.gray.ru },
-  {
-    key: 'ramp',
-    color: RAMP_COLOR,
-    label: 'Есть приставной пандус',
-    nested: true,
-  },
 ] as const;
 
 interface WelcomeLegendProps {
@@ -28,7 +20,7 @@ export function WelcomeLegend({ onContinue }: WelcomeLegendProps) {
         {LEGEND_ITEMS.map((item) => (
           <li key={item.key} className="welcome-legend-item">
             <span
-              className={`welcome-legend-dot${'nested' in item && item.nested ? ' welcome-legend-dot--ramp' : ''}`}
+              className="welcome-legend-dot"
               style={{ backgroundColor: item.color }}
               aria-hidden="true"
             />
