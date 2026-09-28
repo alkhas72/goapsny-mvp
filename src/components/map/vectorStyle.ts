@@ -8,7 +8,7 @@
  */
 
 import type { StyleSpecification } from 'maplibre-gl';
-import { buildGoApsnyStyle, type BasemapTheme } from './goapsnyBasemap';
+import { buildGoApsnyStyle, type BasemapOptions, type BasemapTheme } from './goapsnyBasemap';
 
 export const SUKHUM_CENTER = { lat: 43.0033, lng: 41.0237 } as const;
 
@@ -45,11 +45,14 @@ export const ABKHAZIA_BOUNDS: readonly [readonly [number, number], readonly [num
  * Abkhazia PMTiles extract; an env style URL overrides it (e.g. to compare
  * with a hosted style).
  */
-export function getVectorStyle(theme: BasemapTheme): string | StyleSpecification {
+export function getVectorStyle(
+  theme: BasemapTheme,
+  options: BasemapOptions = {},
+): string | StyleSpecification {
   const envOverride =
     theme === 'dark'
       ? (import.meta.env.VITE_MAP_STYLE_DARK as string | undefined)
       : (import.meta.env.VITE_MAP_STYLE_LIGHT as string | undefined);
 
-  return envOverride || buildGoApsnyStyle(theme);
+  return envOverride || buildGoApsnyStyle(theme, options);
 }

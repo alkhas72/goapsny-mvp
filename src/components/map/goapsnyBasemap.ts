@@ -236,8 +236,205 @@ const TOPO: Flavor = {
   pois: neutralPois('#6A635A'),
 };
 
+/*
+ * Monochrome with light presets — after Mapbox Standard "Monochrome" the
+ * Arbitrator showed on 28.09: one grey map, four lights (dawn, day, dusk,
+ * night) and a 2D/3D view. MapLibre does this in core: `light`, `sky`,
+ * fill-extrusion and camera pitch; no plugin needed.
+ */
+export type LightPreset = 'dawn' | 'day' | 'dusk' | 'night';
+
+export const LIGHT_PRESETS: readonly LightPreset[] = ['dawn', 'day', 'dusk', 'night'];
+
+interface MonoTokens {
+  background: string;
+  land: string;
+  area: string;
+  water: string;
+  road: string;
+  roadMajor: string;
+  building: string;
+  building3d: string;
+  label: string;
+  labelStrong: string;
+  halo: string;
+  line: string;
+}
+
+function monoFlavor(t: MonoTokens): Flavor {
+  const areas = {
+    park_a: t.area, park_b: t.area, wood_a: t.area, wood_b: t.area,
+    scrub_a: t.area, scrub_b: t.area, hospital: t.area, industrial: t.area,
+    school: t.area, pedestrian: t.land, glacier: t.land, sand: t.area,
+    beach: t.area, aerodrome: t.area, zoo: t.area, military: t.area,
+  };
+  return {
+    ...namedFlavor('light'),
+    ...areas,
+    background: t.background,
+    earth: t.land,
+    runway: t.road,
+    water: t.water,
+    pier: t.area,
+    buildings: t.building,
+    other: t.road, minor_service: t.road, minor_a: t.road, minor_b: t.road,
+    link: t.roadMajor, major: t.roadMajor, highway: t.roadMajor,
+    minor_service_casing: t.land, minor_casing: t.land, link_casing: t.land,
+    major_casing_early: t.land, major_casing_late: t.land,
+    highway_casing_early: t.land, highway_casing_late: t.land,
+    tunnel_other_casing: t.land, tunnel_minor_casing: t.land, tunnel_link_casing: t.land,
+    tunnel_major_casing: t.land, tunnel_highway_casing: t.land,
+    tunnel_other: t.road, tunnel_minor: t.road, tunnel_link: t.roadMajor,
+    tunnel_major: t.roadMajor, tunnel_highway: t.roadMajor,
+    bridges_other_casing: t.land, bridges_minor_casing: t.land, bridges_link_casing: t.land,
+    bridges_major_casing: t.land, bridges_highway_casing: t.land,
+    bridges_other: t.road, bridges_minor: t.road, bridges_link: t.roadMajor,
+    bridges_major: t.roadMajor, bridges_highway: t.roadMajor,
+    railway: t.line, boundaries: t.line,
+    roads_label_minor: t.label, roads_label_minor_halo: t.halo,
+    roads_label_major: t.label, roads_label_major_halo: t.halo,
+    ocean_label: t.label,
+    subplace_label: t.label, subplace_label_halo: t.halo,
+    city_label: t.labelStrong, city_label_halo: t.halo,
+    state_label: t.label, state_label_halo: t.halo,
+    country_label: t.label,
+    address_label: t.label, address_label_halo: t.halo,
+    pois: neutralPois(t.label),
+  };
+}
+
+interface PresetSpec {
+  tokens: MonoTokens;
+  sprite: 'light' | 'dark';
+  light: NonNullable<StyleSpecification['light']>;
+  sky: NonNullable<StyleSpecification['sky']>;
+}
+
+const PRESETS: Record<LightPreset, PresetSpec> = {
+  dawn: {
+    sprite: 'light',
+    tokens: {
+      background: '#DEDDE0', land: '#E7E6E9', area: '#E0DFE3', water: '#C4C5CA',
+      road: '#F4F3F5', roadMajor: '#FAF9FB', building: '#D6D5DA', building3d: '#E4E1E6',
+      label: '#86848C', labelStrong: '#4E4C54', halo: '#EFEEF1', line: '#BDBBC2',
+    },
+    light: { anchor: 'map', color: '#FFF1EA', intensity: 0.35, position: [1.5, 80, 70] },
+    sky: {
+      'sky-color': '#C9CCE0', 'horizon-color': '#F6D8CC', 'fog-color': '#E7E6E9',
+      'sky-horizon-blend': 0.6, 'horizon-fog-blend': 0.5, 'fog-ground-blend': 0.6, 'atmosphere-blend': 0.6,
+    },
+  },
+  day: {
+    sprite: 'light',
+    tokens: {
+      background: '#ECECEC', land: '#F4F4F4', area: '#ECECEC', water: '#D2D2D2',
+      road: '#FFFFFF', roadMajor: '#FFFFFF', building: '#E2E2E2', building3d: '#F0F0F0',
+      label: '#8C8C8C', labelStrong: '#4A4A4A', halo: '#FFFFFF', line: '#C4C4C4',
+    },
+    light: { anchor: 'map', color: '#FFFFFF', intensity: 0.35, position: [1.5, 210, 35] },
+    sky: {
+      'sky-color': '#DCE3EA', 'horizon-color': '#F4F4F4', 'fog-color': '#F4F4F4',
+      'sky-horizon-blend': 0.5, 'horizon-fog-blend': 0.6, 'fog-ground-blend': 0.7, 'atmosphere-blend': 0.5,
+    },
+  },
+  dusk: {
+    sprite: 'dark',
+    tokens: {
+      background: '#4E4E50', land: '#5A5A5C', area: '#545456', water: '#38383A',
+      road: '#6E6E70', roadMajor: '#7A7A7C', building: '#4A4A4C', building3d: '#6A6664',
+      label: '#D2D2D4', labelStrong: '#EDEDEE', halo: '#454547', line: '#707072',
+    },
+    light: { anchor: 'map', color: '#FFE2CF', intensity: 0.35, position: [1.5, 280, 70] },
+    sky: {
+      'sky-color': '#3F4458', 'horizon-color': '#C98C6E', 'fog-color': '#5A5A5C',
+      'sky-horizon-blend': 0.7, 'horizon-fog-blend': 0.5, 'fog-ground-blend': 0.6, 'atmosphere-blend': 0.7,
+    },
+  },
+  night: {
+    sprite: 'dark',
+    tokens: {
+      background: '#202022', land: '#2A2A2C', area: '#262628', water: '#121213',
+      road: '#3A3A3D', roadMajor: '#454548', building: '#1E1E20', building3d: '#34363C',
+      label: '#BDBDC0', labelStrong: '#E4E4E6', halo: '#18181A', line: '#46464A',
+    },
+    light: { anchor: 'map', color: '#9FB2D0', intensity: 0.3, position: [1.5, 210, 40] },
+    sky: {
+      'sky-color': '#0E1118', 'horizon-color': '#2A2F3C', 'fog-color': '#2A2A2C',
+      'sky-horizon-blend': 0.6, 'horizon-fog-blend': 0.5, 'fog-ground-blend': 0.6, 'atmosphere-blend': 0.5,
+    },
+  },
+};
+
+/*
+ * Base palettes the user picks from; each then takes the four lights.
+ * Gray is tuned per light by hand; blue and violet (after the Arbitrator's
+ * own Mapbox styles) are derived from their day colours.
+ */
+export type BasemapPalette = 'gray' | 'blue' | 'violet';
+
+export const BASEMAP_PALETTES: readonly BasemapPalette[] = ['gray', 'blue', 'violet'];
+
+/** Swatch shown in the palette picker. */
+export const PALETTE_SWATCH: Record<BasemapPalette, string> = {
+  gray: '#D9D9D9',
+  blue: '#7F99B8',
+  violet: '#8C96E6',
+};
+
+const PALETTE_DAY: Record<Exclude<BasemapPalette, 'gray'>, MonoTokens> = {
+  blue: {
+    background: '#B9C8DA', land: '#C6D3E2', area: '#BCCADC', water: '#6F87A3',
+    road: '#E6EDF5', roadMajor: '#F2F6FA', building: '#B3C2D4', building3d: '#D3DEEA',
+    label: '#4F6682', labelStrong: '#2C3E55', halo: '#DCE5EF', line: '#98ABC2',
+  },
+  violet: {
+    background: '#AEB6EE', land: '#B9C0F2', area: '#A3A9E4', water: '#64C0EC',
+    road: '#F1F4FF', roadMajor: '#FFFFFF', building: '#A2A8E6', building3d: '#CDD2FA',
+    label: '#4A4F9E', labelStrong: '#2E3278', halo: '#D5DAFB', line: '#8E95DA',
+  },
+};
+
+function hexToRgb(hex: string): [number, number, number] {
+  const n = parseInt(hex.slice(1), 16);
+  return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+}
+
+function mix(a: string, b: string, t: number): string {
+  const [ar, ag, ab] = hexToRgb(a);
+  const [br, bg, bb] = hexToRgb(b);
+  const c = (x: number, y: number) => Math.round(x + (y - x) * t).toString(16).padStart(2, '0');
+  return `#${c(ar, br)}${c(ag, bg)}${c(ab, bb)}`;
+}
+
+function mapTokens(t: MonoTokens, fn: (hex: string) => string): MonoTokens {
+  return Object.fromEntries(Object.entries(t).map(([k, v]) => [k, fn(v)])) as unknown as MonoTokens;
+}
+
+/** Palette colours under a light: dawn slightly rosy, dusk and night dimmed. */
+function paletteTokens(palette: BasemapPalette, preset: LightPreset): MonoTokens {
+  if (palette === 'gray') return PRESETS[preset].tokens;
+  const day = PALETTE_DAY[palette];
+  if (preset === 'day') return day;
+  if (preset === 'dawn') return mapTokens(day, (c) => mix(mix(c, '#F2D2C8', 0.14), '#707078', 0.06));
+  const shade = preset === 'dusk' ? { tone: '#2E2E38', t: 0.55 } : { tone: '#0E0E14', t: 0.78 };
+  const dim = mapTokens(day, (c) => mix(c, shade.tone, shade.t));
+  const warm = preset === 'dusk' ? (c: string) => mix(c, '#6A4A3A', 0.08) : (c: string) => c;
+  return {
+    ...mapTokens(dim, warm),
+    // Labels flip to light on dark ground.
+    label: mix(day.halo, '#FFFFFF', 0.2),
+    labelStrong: '#FFFFFF',
+    halo: dim.background,
+    building3d: mix(day.building3d, shade.tone, shade.t - 0.12),
+  };
+}
+
+export function defaultLightPreset(theme: BasemapTheme): LightPreset {
+  return theme === 'dark' ? 'night' : 'day';
+}
+
 /** Named basemap variants; the theme picks the default until one is chosen. */
-export type BasemapVariant = 'paper' | 'navy' | 'backdrop' | 'winter' | 'topo';
+export type BasemapVariant = 'mono' | 'paper' | 'navy' | 'backdrop' | 'winter' | 'topo';
 
 interface VariantSpec {
   flavor: Flavor;
@@ -246,7 +443,7 @@ interface VariantSpec {
   solidBuildings: boolean;
 }
 
-const VARIANTS: Record<BasemapVariant, VariantSpec> = {
+const VARIANTS: Record<Exclude<BasemapVariant, 'mono'>, VariantSpec> = {
   paper: { flavor: LIGHT, sprite: 'light', solidBuildings: false },
   navy: { flavor: DARK, sprite: 'dark', solidBuildings: false },
   backdrop: { flavor: BACKDROP, sprite: 'light', solidBuildings: true },
@@ -254,20 +451,19 @@ const VARIANTS: Record<BasemapVariant, VariantSpec> = {
   topo: { flavor: TOPO, sprite: 'light', solidBuildings: true },
 };
 
-const THEME_DEFAULT: Record<BasemapTheme, BasemapVariant> = { light: 'paper', dark: 'navy' };
 
 function isVariant(value: string | null | undefined): value is BasemapVariant {
-  return !!value && value in VARIANTS;
+  return value === 'mono' || (!!value && value in VARIANTS);
 }
 
-/** `?basemap=` (for review on the phone) → env → theme default. */
-export function resolveVariant(theme: BasemapTheme): BasemapVariant {
+/** `?basemap=` (for review on the phone) → env → monochrome. */
+export function resolveVariant(): BasemapVariant {
   const fromQuery =
     typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('basemap') : null;
   if (isVariant(fromQuery)) return fromQuery;
   const fromEnv = import.meta.env.VITE_MAP_BASEMAP as string | undefined;
   if (isVariant(fromEnv)) return fromEnv;
-  return THEME_DEFAULT[theme];
+  return 'mono';
 }
 
 type Layer = StyleSpecification['layers'][number];
@@ -287,6 +483,31 @@ function quietPois(layer: Layer): Layer {
   return { ...layer, layout };
 }
 
+/** Extruded buildings; OSM height where mapped, else a low Sukhum default. */
+function buildings3d(color: string, visible: boolean): Layer {
+  return {
+    id: 'buildings-3d',
+    type: 'fill-extrusion',
+    source: SOURCE_ID,
+    'source-layer': 'buildings',
+    minzoom: 14,
+    layout: { visibility: visible ? 'visible' : 'none' },
+    paint: {
+      'fill-extrusion-color': color,
+      'fill-extrusion-height': ['coalesce', ['get', 'height'], 9],
+      'fill-extrusion-base': ['coalesce', ['get', 'min_height'], 0],
+      'fill-extrusion-opacity': 0.92,
+      'fill-extrusion-vertical-gradient': true,
+    },
+  };
+}
+
+function withLayerAfter(list: Layer[], afterId: string, layer: Layer): Layer[] {
+  const i = list.findIndex((l) => l.id === afterId);
+  if (i < 0) return [...list, layer];
+  return [...list.slice(0, i + 1), layer, ...list.slice(i + 1)];
+}
+
 function solidBuildings(layer: Layer): Layer {
   if (layer.id !== 'buildings' || layer.type !== 'fill') return layer;
   return { ...layer, paint: { ...layer.paint, 'fill-opacity': 1 } };
@@ -300,17 +521,51 @@ export function getPmtilesUrl(): string {
   return new URL(url, window.location.origin).href;
 }
 
-export function buildGoApsnyStyle(theme: BasemapTheme): StyleSpecification {
-  const variant = resolveVariant(theme);
-  const spec = VARIANTS[variant];
-  const sprite = spec.sprite;
-  let styleLayers = (layers(SOURCE_ID, spec.flavor, { lang: LABEL_LANG }) as Layer[]).map(quietPois);
-  if (spec.solidBuildings) styleLayers = styleLayers.map(solidBuildings);
+export interface BasemapOptions {
+  /** Base palette the user picked; defaults to gray (Monochrome). */
+  palette?: BasemapPalette;
+  /** Light preset; defaults from the app theme. */
+  preset?: LightPreset;
+  /** 3D view: extruded buildings (camera pitch is set by the map). */
+  threeD?: boolean;
+}
+
+export function buildGoApsnyStyle(theme: BasemapTheme, options: BasemapOptions = {}): StyleSpecification {
+  const variant = resolveVariant();
+  const threeD = options.threeD ?? false;
+  const presetId = options.preset ?? defaultLightPreset(theme);
+  const preset = PRESETS[presetId];
+  const palette = options.palette ?? 'gray';
+
+  let flavor: Flavor;
+  let sprite: 'light' | 'dark';
+  let solid = false;
+  let extrusionColor: string;
+  if (variant === 'mono') {
+    const tokens = paletteTokens(palette, presetId);
+    flavor = monoFlavor(tokens);
+    sprite = preset.sprite;
+    extrusionColor = tokens.building3d;
+  } else {
+    const spec = VARIANTS[variant];
+    flavor = spec.flavor;
+    sprite = spec.sprite;
+    solid = spec.solidBuildings;
+    extrusionColor = spec.flavor.buildings;
+  }
+
+  let styleLayers = (layers(SOURCE_ID, flavor, { lang: LABEL_LANG }) as Layer[]).map(quietPois);
+  if (solid) styleLayers = styleLayers.map(solidBuildings);
+  styleLayers = withLayerAfter(styleLayers, 'buildings', buildings3d(extrusionColor, threeD));
+
+  const presetName = variant === 'mono' ? ` · ${palette} · ${presetId}` : '';
   return {
     version: 8,
-    name: `GoApsny · ${theme} · ${variant}`,
+    name: `GoApsny · ${theme} · ${variant}${presetName}`,
     glyphs: `${ASSETS}/fonts/{fontstack}/{range}.pbf`,
     sprite: `${ASSETS}/sprites/v4/${sprite}`,
+    light: preset.light,
+    sky: preset.sky,
     sources: {
       [SOURCE_ID]: {
         type: 'vector',

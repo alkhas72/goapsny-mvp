@@ -9,6 +9,14 @@ import { RAMP_COLOR, statusColor, statusLabel } from '../../utils/status';
 import { telegram } from '../../utils/telegram';
 import type { PinMarkupInput } from './pinMarkup';
 import type { MapViewProps } from './types';
+import { MapViewControls } from './MapViewControls';
+import {
+  BASEMAP_PALETTES,
+  defaultLightPreset,
+  LIGHT_PRESETS,
+  type BasemapPalette,
+  type LightPreset,
+} from './goapsnyBasemap';
 import {
   ABKHAZIA_BOUNDS,
   DEFAULT_MAP_ZOOM,
@@ -37,6 +45,41 @@ function ensurePmtilesProtocol(): void {
   }
 }
 ensurePmtilesProtocol();
+
+// The viewer's map look is a per-device convenience; storage may be absent.
+const LOOK_KEY = 'goapsny.mapLook';
+
+interface MapLook {
+  palette: BasemapPalette;
+  preset: LightPreset | null;
+  threeD: boolean;
+}
+
+function readLook(): MapLook {
+  const fallback: MapLook = { palette: 'gray', preset: null, threeD: false };
+  try {
+    const raw = window.localStorage.getItem(LOOK_KEY);
+    if (!raw) return fallback;
+    const v = JSON.parse(raw) as Partial<MapLook>;
+    return {
+      palette: BASEMAP_PALETTES.includes(v.palette as BasemapPalette) ? (v.palette as BasemapPalette) : 'gray',
+      preset: LIGHT_PRESETS.includes(v.preset as LightPreset) ? (v.preset as LightPreset) : null,
+      threeD: v.threeD === true,
+    };
+  } catch {
+    return fallback;
+  }
+}
+
+function writeLook(look: MapLook): void {
+  try {
+    window.localStorage.setItem(LOOK_KEY, JSON.stringify(look));
+  } catch {
+    // Private mode or blocked storage: the choice just is not remembered.
+  }
+}
+
+const PITCH_3D = 60;
 
 interface MarkerHandle {
   marker: maplibregl.Marker;
@@ -170,6 +213,19 @@ export function MapLibreMap({
 
   const [locating, setLocating] = useState(false);
   const [userLocationActive, setUserLocationActive] = useState(false);
+  const [look, setLook] = useState<MapLook>(readLook);
+  const styleOptions = {
+    palette: look.palette,
+    preset: look.preset ?? undefined,
+    threeD: look.threeD,
+  };
+  const updateLook = (patch: Partial<MapLook>) => {
+    setLook((prev) => {
+      const next = { ...prev, ...patch };
+      writeLook(next);
+      return next;
+    });
+  };
 
   // 1. Initialize map + Abkhazia default bounds. No geolocation here.
   useEffect(() => {
@@ -177,7 +233,9 @@ export function MapLibreMap({
 
     const map = new maplibregl.Map({
       container: containerRef.current,
-      style: getVectorStyle(theme),
+      style: getVectorStyle(theme, styleOptions),
+      pitch: look.threeD ? PITCH_3D : 0,
+      maxPitch: 70,
       center: [SUKHUM_CENTER.lng, SUKHUM_CENTER.lat],
       zoom: DEFAULT_MAP_ZOOM,
       attributionControl: false,
@@ -230,12 +288,26 @@ export function MapLibreMap({
     // eslint-disable-next-line react-hooks/exhaustive-deps -- theme/onClear applied via dedicated effects; never recreate the map on prop change
   }, []);
 
-  // 2. Dynamic theme — restyle in place, do not recreate the map.
+  // 2. Dynamic theme and map look — restyle in place, do not recreate the map.
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
-    map.setStyle(getVectorStyle(theme));
-  }, [theme]);
+    map.setStyle(getVectorStyle(theme, styleOptions));
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- styleOptions is derived from look
+  }, [theme, look.palette, look.preset, look.threeD]);
+
+  // 3D view tilts the camera; 2D returns it flat. The initial pitch is set
+  // at construction, so only react to the user's toggle.
+  const pitchReadyRef = useRef(false);
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+    if (!pitchReadyRef.current) {
+      pitchReadyRef.current = true;
+      return;
+    }
+    map.easeTo({ pitch: look.threeD ? PITCH_3D : 0, duration: 600 });
+  }, [look.threeD]);
 
   // 3. Render POI markers (skipped while a draft pin is being placed).
   useEffect(() => {
@@ -366,6 +438,16 @@ export function MapLibreMap({
 
   return (
     <div className="map-wrapper map-wrapper--maplibre" ref={containerRef}>
+      {!dragMode && (
+        <MapViewControls
+          palette={look.palette}
+          preset={look.preset ?? defaultLightPreset(theme)}
+          threeD={look.threeD}
+          onPalette={(palette) => updateLook({ palette })}
+          onPreset={(preset) => updateLook({ preset })}
+          onThreeD={(threeD) => updateLook({ threeD })}
+        />
+      )}
       {!dragMode && (
         <button
           type="button"
