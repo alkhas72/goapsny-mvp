@@ -7,6 +7,9 @@ import { MenuOverlay } from './MenuOverlay';
 import { PlaceSheet, type PlaceSheetState } from './PlaceSheet';
 import { EmailOtpSheet } from './EmailOtpSheet';
 import { PublicAddSheet } from './PublicAddSheet';
+import { MapperDay } from './mapper/MapperDay';
+import { MapperFlow } from './mapper/MapperFlow';
+import { readDay, type DayEntry } from './mapper/dayLog';
 import {
   applyPlaceFilters,
   fetchPlaceById,
@@ -75,6 +78,12 @@ export function PublicMap() {
   const [cabinetNote, setCabinetNote] = useState<string | null>(null);
   const [authOpen, setAuthOpen] = useState(false);
   const [addOpen, setAddOpen] = useState(false);
+  // Mapper prototype (AISP-328): guided add flow with Нуца, behind ?mapper=1.
+  const mapperEnabled = typeof window !== 'undefined' && new URLSearchParams(window.location.search).has('mapper');
+  const [mapperOpen, setMapperOpen] = useState(false);
+  const [dayOpen, setDayOpen] = useState(false);
+  const [dayEntries, setDayEntries] = useState<DayEntry[]>(() => (mapperEnabled ? readDay() : []));
+  const getCenterRef = useRef<(() => { lat: number; lng: number } | null) | null>(null);
   const [authEmail, setAuthEmail] = useState<string | null>(null);
   const [pendingAddAfterAuth, setPendingAddAfterAuth] = useState(false);
   const [authSheetKey, setAuthSheetKey] = useState(0);
@@ -331,7 +340,32 @@ export function PublicMap() {
           onClearSelection={closeSheet}
           useBrowserGeolocation
           onMarkerButton={handleMarkerButton}
+          onCenterApi={(fn) => {
+            getCenterRef.current = fn;
+          }}
         />
+        {mapperEnabled && !mapperOpen && !dayOpen && (
+          <div className="mapper-fab-row">
+            <button type="button" className="mapper-day-btn" onClick={() => setDayOpen(true)}>
+              Мой день · {dayEntries.length}
+            </button>
+            <button type="button" className="mapper-fab" onClick={() => setMapperOpen(true)}>
+              + Добавить объект
+            </button>
+          </div>
+        )}
+        {mapperEnabled && mapperOpen && (
+          <MapperFlow
+            getCenter={() => getCenterRef.current?.() ?? null}
+            onClose={() => setMapperOpen(false)}
+            onSaved={setDayEntries}
+            onOpenDay={() => {
+              setMapperOpen(false);
+              setDayOpen(true);
+            }}
+          />
+        )}
+        {mapperEnabled && dayOpen && <MapperDay entries={dayEntries} onClose={() => setDayOpen(false)} />}
         <MenuOverlay
           open={menuOpen}
           onClose={() => setMenuOpen(false)}

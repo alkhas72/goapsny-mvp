@@ -204,6 +204,7 @@ export function MapLibreMap({
   dragMode,
   useBrowserGeolocation = false,
   onMarkerButton,
+  onCenterApi,
 }: MapViewProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
@@ -252,6 +253,10 @@ export function MapLibreMap({
     }
 
     mapRef.current = map;
+    onCenterApi?.(() => {
+      const c = mapRef.current?.getCenter();
+      return c ? { lat: c.lat, lng: c.lng } : null;
+    });
     // Dev-only handle for visual checks from the browser console.
     if (import.meta.env.DEV) (window as unknown as { __goapsnyMap?: maplibregl.Map }).__goapsnyMap = map;
 

@@ -20,4 +20,6 @@ export interface MapViewProps {
   };
   useBrowserGeolocation?: boolean;
   onMarkerButton?: (placeId: string, button: HTMLButtonElement | null) => void;
+  /** Optional, MapLibre only: map centre for the mapper crosshair. */
+  onCenterApi?: (getCenter: () => { lat: number; lng: number } | null) => void;
 }
