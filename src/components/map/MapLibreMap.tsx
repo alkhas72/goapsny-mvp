@@ -13,7 +13,7 @@ import {
   ABKHAZIA_BOUNDS,
   DEFAULT_MAP_ZOOM,
   DRAFT_ZOOM,
-  getVectorStyleUrl,
+  getVectorStyle,
   MAP_ATTRIBUTION,
   SELECTED_ZOOM,
   SUKHUM_CENTER,
@@ -177,7 +177,7 @@ export function MapLibreMap({
 
     const map = new maplibregl.Map({
       container: containerRef.current,
-      style: getVectorStyleUrl(theme),
+      style: getVectorStyle(theme),
       center: [SUKHUM_CENTER.lng, SUKHUM_CENTER.lat],
       zoom: DEFAULT_MAP_ZOOM,
       attributionControl: false,
@@ -194,6 +194,8 @@ export function MapLibreMap({
     }
 
     mapRef.current = map;
+    // Dev-only handle for visual checks from the browser console.
+    if (import.meta.env.DEV) (window as unknown as { __goapsnyMap?: maplibregl.Map }).__goapsnyMap = map;
 
     // Fit the default Abkhazia frame once the style is ready. Precise live
     // geolocation is never requested here — see the locate control below.
@@ -232,7 +234,7 @@ export function MapLibreMap({
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
-    map.setStyle(getVectorStyleUrl(theme));
+    map.setStyle(getVectorStyle(theme));
   }, [theme]);
 
   // 3. Render POI markers (skipped while a draft pin is being placed).

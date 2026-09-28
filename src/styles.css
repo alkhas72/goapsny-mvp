@@ -252,6 +252,12 @@ body {
   background-color: var(--surface-color);
 }
 
+/* maplibre-gl.css loads later and sets .maplibregl-map { position: relative },
+   which collapses the wrapper to zero height. Keep it filling the main area. */
+.map-wrapper.maplibregl-map {
+  position: absolute;
+}
+
 .dark-labels-layer {
   filter: brightness(1.7);
 }

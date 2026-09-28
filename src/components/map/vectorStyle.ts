@@ -7,6 +7,9 @@
  * these default bounds via `flyTo` (see MapLibreMap.tsx).
  */
 
+import type { StyleSpecification } from 'maplibre-gl';
+import { buildGoApsnyStyle, type BasemapTheme } from './goapsnyBasemap';
+
 export const SUKHUM_CENTER = { lat: 43.0033, lng: 41.0237 } as const;
 
 /**
@@ -25,6 +28,7 @@ export const DRAFT_ZOOM = 17;
 export const MAP_ATTRIBUTION =
   '<a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">© OpenStreetMap contributors</a> · ' +
   '<a href="https://maplibre.org" target="_blank" rel="noopener noreferrer">MapLibre</a> · ' +
+  '<a href="https://protomaps.com" target="_blank" rel="noopener noreferrer">Protomaps</a> · ' +
   'АИС «Инва-Содействие»';
 
 /**
@@ -36,16 +40,16 @@ export const ABKHAZIA_BOUNDS: readonly [readonly [number, number], readonly [num
   [41.2, 43.62],
 ];
 
-const DEFAULT_VECTOR_STYLES = {
-  light: 'https://tiles.openfreemap.org/styles/positron',
-  dark: 'https://tiles.openfreemap.org/styles/dark',
-} as const;
-
-export function getVectorStyleUrl(theme: 'light' | 'dark'): string {
+/**
+ * Map style for a theme. Default is the own GoApsny basemap over the
+ * Abkhazia PMTiles extract; an env style URL overrides it (e.g. to compare
+ * with a hosted style).
+ */
+export function getVectorStyle(theme: BasemapTheme): string | StyleSpecification {
   const envOverride =
     theme === 'dark'
       ? (import.meta.env.VITE_MAP_STYLE_DARK as string | undefined)
       : (import.meta.env.VITE_MAP_STYLE_LIGHT as string | undefined);
 
-  return envOverride || DEFAULT_VECTOR_STYLES[theme];
+  return envOverride || buildGoApsnyStyle(theme);
 }

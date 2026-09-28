@@ -337,7 +337,7 @@ describe('MapLibreMap', () => {
     rerender(<MapLibreMap places={[]} selectedPlaceId={null} theme="dark" />);
     expect(mockMapInstance.setStyle).toHaveBeenCalledTimes(1);
     expect(mockMapInstance.setStyle).toHaveBeenCalledWith(
-      expect.stringContaining('dark'),
+      expect.objectContaining({ name: expect.stringContaining('dark') }),
     );
     // The map is constructed once; theme toggles only restyle it.
     expect(mockMapInstance.remove).not.toHaveBeenCalled();
