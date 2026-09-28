@@ -263,6 +263,11 @@ export function MapLibreMap({
     // Fit the default Abkhazia frame once the style is ready. Precise live
     // geolocation is never requested here — see the locate control below.
     map.once('load', () => {
+      // A draft pin opens close to the entrance, not on the whole country.
+      if (dragMode) {
+        map.jumpTo({ center: [dragMode.lng, dragMode.lat], zoom: DRAFT_ZOOM });
+        return;
+      }
       map.fitBounds(ABKHAZIA_BOUNDS as maplibregl.LngLatBoundsLike, { animate: false });
     });
 

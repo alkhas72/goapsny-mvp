@@ -13,6 +13,7 @@ export interface DayEntry {
   subtype: string | null;
   status: Exclude<AccessibilityStatus, 'gray'>;
   reason: string;
+  photos: number;
   karma: number;
 }
 
@@ -36,7 +37,8 @@ export function readDay(): DayEntry[] {
 }
 
 export function appendDay(entry: Omit<DayEntry, 'id' | 'at' | 'karma'>, fullCard: boolean): DayEntry[] {
-  const karma = KARMA_AWARDS.place_created + KARMA_AWARDS.photo_added + (fullCard ? KARMA_AWARDS.full_card_bonus : 0);
+  const karma =
+    KARMA_AWARDS.place_created + KARMA_AWARDS.photo_added * entry.photos + (fullCard ? KARMA_AWARDS.full_card_bonus : 0);
   const next: DayEntry = { ...entry, id: crypto.randomUUID(), at: new Date().toISOString(), karma };
   const entries = [...readDay(), next];
   try {

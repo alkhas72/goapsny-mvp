@@ -1,403 +1,458 @@
-import { Accessibility, Camera, Check, Minus, Pencil, Plus, X } from 'lucide-react';
+import {
+  ArrowLeft,
+  Camera,
+  Check,
+  ChevronDown,
+  Image as ImageIcon,
+  Minus,
+  Plus,
+  Sparkles,
+  X,
+} from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import type { RampType } from '../../shared/index';
-import { CATEGORIES, STATUS_META } from '../../shared/index';
+import { CATEGORIES } from '../../shared/index';
+import { getBrowserLocation } from '../../utils/location';
+import { MapLibreMap } from '../map/MapLibreMap';
 import {
   EMPTY_FACTS,
   factsFromDraft,
-  nextStep,
   SUBTYPES,
   suggestStatus,
-  type EntranceDraft,
   type EntranceFacts,
-  type FlowStep,
   type YesNoUnknown,
 } from './assistant';
 import { appendDay, type DayEntry } from './dayLog';
 import { demoEyes, type AssistantEyes } from './eyes';
 
 interface MapperFlowProps {
-  /** Map centre under the crosshair — the entrance point. */
+  theme: 'light' | 'dark';
+  /** Fallback point when the phone gives no location: the map centre. */
   getCenter: () => { lat: number; lng: number } | null;
   eyes?: AssistantEyes;
   onClose: () => void;
   onSaved: (entries: DayEntry[]) => void;
   onOpenDay: () => void;
+  onAnother: () => void;
 }
 
-const RAMP_OPTIONS: { value: RampType; label: string }[] = [
-  { value: 'none', label: 'Нет пандуса' },
-  { value: 'permanent', label: 'Постоянный' },
-  { value: 'portable_available', label: 'Приставной, на месте' },
-  { value: 'portable_on_request', label: 'Приставной, по просьбе' },
-];
+type Step = 1 | 2 | 3 | 4 | 'done';
 
-const RAMP_SAID: Record<RampType, string> = {
-  none: 'пандуса не вижу',
-  permanent: 'вижу постоянный пандус',
-  portable_available: 'вижу приставной пандус',
-  portable_on_request: 'пандус, похоже, по просьбе',
+const STEP_NAME: Record<1 | 2 | 3 | 4, string> = {
+  1: 'Фото входа',
+  2: 'Данные',
+  3: 'Доступность',
+  4: 'Точка на карте',
 };
 
-function NutsaSays({ children }: { children: React.ReactNode }) {
-  return (
-    <div className="nutsa-says" role="status" aria-live="polite">
-      <span className="nutsa-avatar" aria-hidden="true">
-        <Accessibility size={22} strokeWidth={2.2} />
-      </span>
-      <p>
-        <b>Нуца</b>
-        {children}
-      </p>
-    </div>
-  );
+const MAX_PHOTOS = 5;
+
+const RAMP_LABEL: Record<RampType, string> = {
+  none: 'Нет',
+  permanent: 'Постоянный',
+  portable_available: 'Приставной, на месте',
+  portable_on_request: 'Приставной, по просьбе',
+};
+
+const STATUS_CARD = {
+  green: { title: 'Доступно', text: 'вход без барьеров' },
+  yellow: { title: 'Частично', text: 'въезд есть, но с ограничениями' },
+  red: { title: 'Недоступно', text: 'входная группа недоступна' },
+} as const;
+
+type Light = keyof typeof STATUS_CARD;
+
+function AiMark({ on }: { on: boolean }) {
+  if (!on) return null;
+  return <Sparkles className="ai-mark" size={14} aria-label="заполнено по фото" />;
 }
 
-function YesNo({
-  onAnswer,
-  yes = 'Да',
-  no = 'Нет',
+function Seg({
+  value,
+  onChange,
+  label,
 }: {
-  onAnswer: (v: YesNoUnknown) => void;
-  yes?: string;
-  no?: string;
+  value: YesNoUnknown;
+  onChange: (v: YesNoUnknown) => void;
+  label: string;
 }) {
+  const opts: [YesNoUnknown, string][] = [
+    ['yes', 'Да'],
+    ['no', 'Нет'],
+    ['unknown', 'Не знаю'],
+  ];
   return (
-    <div className="mapper-choice-row">
-      <button type="button" className="mapper-choice" onClick={() => onAnswer('yes')}>
-        {yes}
-      </button>
-      <button type="button" className="mapper-choice" onClick={() => onAnswer('no')}>
-        {no}
-      </button>
-      <button type="button" className="mapper-choice is-quiet" onClick={() => onAnswer('unknown')}>
-        Не знаю
-      </button>
+    <div className="nf-seg" role="group" aria-label={label}>
+      {opts.map(([v, t]) => (
+        <button key={v} type="button" aria-pressed={value === v} onClick={() => onChange(v)}>
+          {t}
+        </button>
+      ))}
     </div>
   );
 }
 
 /**
- * Guided add flow for the mapper: point → photo → Нуца looks → category and
- * type → name → entrance questions → traffic light → saved. One screen, one
- * action; Нуца pre-fills what the photo shows and asks only the rest.
+ * «Новый объект» — full screen, four steps after the approved GoApsny canon
+ * (02.07): photo → data (the assistant fills from the photo, the mapper
+ * checks and measures) → traffic light → point. The point is taken when the
+ * photo is taken; step 4 only refines it by dragging.
  */
-export function MapperFlow({ getCenter, eyes = demoEyes, onClose, onSaved, onOpenDay }: MapperFlowProps) {
-  const [step, setStep] = useState<FlowStep>('point');
+export function MapperFlow({
+  theme,
+  getCenter,
+  eyes = demoEyes,
+  onClose,
+  onSaved,
+  onOpenDay,
+  onAnother,
+}: MapperFlowProps) {
+  const [step, setStep] = useState<Step>(1);
+  const [photos, setPhotos] = useState<{ file: File; url: string }[]>([]);
   const [point, setPoint] = useState<{ lat: number; lng: number } | null>(null);
-  const [photoUrl, setPhotoUrl] = useState<string | null>(null);
-  const [draft, setDraft] = useState<EntranceDraft | null>(null);
+  const [looking, setLooking] = useState(false);
+  const [aiFields, setAiFields] = useState<Set<keyof EntranceFacts>>(new Set());
   const [facts, setFacts] = useState<EntranceFacts>(EMPTY_FACTS);
-  const [editingName, setEditingName] = useState(false);
-  const [savedEntries, setSavedEntries] = useState<DayEntry[] | null>(null);
-  const fileRef = useRef<HTMLInputElement | null>(null);
+  const [pickCategory, setPickCategory] = useState(false);
+  const [light, setLight] = useState<Light | null>(null);
+  const [saved, setSaved] = useState<DayEntry[] | null>(null);
+  const cameraRef = useRef<HTMLInputElement | null>(null);
+  const galleryRef = useRef<HTMLInputElement | null>(null);
 
   const suggestion = useMemo(() => suggestStatus(facts), [facts]);
+  const category = CATEGORIES.find((c) => c.slug === facts.category) ?? null;
 
-  useEffect(() => () => {
-    if (photoUrl) URL.revokeObjectURL(photoUrl);
-  }, [photoUrl]);
+  useEffect(
+    () => () => photos.forEach((p) => URL.revokeObjectURL(p.url)),
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- revoke once on unmount
+    [],
+  );
 
-  const go = (patch: Partial<EntranceFacts> = {}) => {
-    const next = { ...facts, ...patch };
-    setFacts(next);
-    setStep(nextStep(step, next));
+  const set = (patch: Partial<EntranceFacts>) => {
+    setFacts((f) => ({ ...f, ...patch }));
+    setAiFields((prev) => {
+      const next = new Set(prev);
+      (Object.keys(patch) as (keyof EntranceFacts)[]).forEach((k) => next.delete(k));
+      return next;
+    });
   };
 
-  const onPhoto = async (file: File | undefined) => {
-    if (!file) return;
-    setPhotoUrl(URL.createObjectURL(file));
-    setStep('looking');
-    try {
-      const seen = await eyes.look(file);
-      setDraft(seen);
-      setFacts(factsFromDraft(seen));
-    } catch {
-      setDraft(null);
-    }
-    setStep('category');
+  const addPhotos = (files: FileList | null) => {
+    if (!files || files.length === 0) return;
+    const first = photos.length === 0;
+    const added = Array.from(files)
+      .slice(0, MAX_PHOTOS - photos.length)
+      .map((file) => ({ file, url: URL.createObjectURL(file) }));
+    setPhotos((p) => [...p, ...added]);
+    if (!first) return;
+    // The point is fixed when the entrance is photographed.
+    getBrowserLocation()
+      .then(setPoint)
+      .catch(() => setPoint(getCenter()));
+    setLooking(true);
+    eyes
+      .look(added[0].file)
+      .then((draft) => {
+        setFacts(factsFromDraft(draft));
+        const seen = new Set<keyof EntranceFacts>();
+        if (draft.name) seen.add('name');
+        if (draft.category) seen.add('category');
+        if (draft.subtype) seen.add('subtype');
+        if (draft.stepsVisible != null) seen.add('steps');
+        if (draft.ramp) seen.add('ramp');
+        setAiFields(seen);
+      })
+      .catch(() => undefined)
+      .finally(() => setLooking(false));
   };
 
-  const save = (status: 'green' | 'yellow' | 'red') => {
+  const goTo = (next: Step) => {
+    if (next === 3 && light == null) setLight(suggestion.status);
+    setStep(next);
+  };
+
+  const canNext =
+    step === 1 ? photos.length > 0 : step === 2 ? facts.name.trim().length > 0 && !!facts.category : step === 3 ? !!light : !!point;
+
+  const save = () => {
+    if (!light) return;
     const fullCard = facts.steps != null && facts.doorWide !== 'unknown' && facts.ramp != null;
     const entries = appendDay(
       {
-        name: facts.name || facts.subtype || 'Без названия',
+        name: facts.name.trim() || facts.subtype || 'Без названия',
         subtype: facts.subtype,
-        status,
-        reason: status === suggestion.status ? suggestion.reason : 'светофор поставил картограф',
+        status: light,
+        reason: light === suggestion.status ? suggestion.reason : 'светофор поставил картограф',
+        photos: photos.length,
       },
       fullCard,
     );
-    setSavedEntries(entries);
+    setSaved(entries);
     onSaved(entries);
     setStep('done');
   };
 
-  const restart = () => {
-    setPoint(null);
-    setPhotoUrl(null);
-    setDraft(null);
-    setFacts(EMPTY_FACTS);
-    setSavedEntries(null);
-    setStep('point');
-  };
+  const back = () => (step === 1 || step === 'done' ? onClose() : setStep((step - 1) as Step));
 
-  // Point: crosshair over the map, a small card at the bottom.
-  if (step === 'point') {
-    return (
-      <>
-        <div className="mapper-crosshair" aria-hidden="true">
-          <span />
-        </div>
-        <section className="mapper-card mapper-card--compact" aria-label="Новый объект">
-          <button type="button" className="mapper-close" aria-label="Закрыть" onClick={onClose}>
-            <X size={20} />
+  if (pickCategory) {
+    return createPortal(
+      <div className="nf-screen" role="dialog" aria-modal="true" aria-label="Категория">
+        <header className="nf-top is-final">
+          <button type="button" aria-label="Назад" onClick={() => setPickCategory(false)}>
+            <ArrowLeft size={22} />
           </button>
-          <NutsaSays>Наведите крестик на вход в здание и нажмите «Вход здесь». Я помогу с остальным.</NutsaSays>
-          <button
-            type="button"
-            className="mapper-primary"
-            onClick={() => {
-              setPoint(getCenter());
-              setStep('photo');
-            }}
-          >
-            Вход здесь
-          </button>
-        </section>
-      </>
+          <span>Категория</span>
+        </header>
+        <ul className="nf-cat-list">
+          {CATEGORIES.map((c) => (
+            <li key={c.slug}>
+              <button
+                type="button"
+                className={c.slug === facts.category ? 'is-on' : ''}
+                onClick={() => {
+                  set({ category: c.slug, subtype: null });
+                  setPickCategory(false);
+                }}
+              >
+                {c.ru}
+                {c.slug === facts.category && <Check size={20} aria-hidden="true" />}
+              </button>
+            </li>
+          ))}
+        </ul>
+      </div>,
+      document.body,
     );
   }
 
-  const category = CATEGORIES.find((c) => c.slug === facts.category) ?? null;
+  // Full screen over the whole app: the map has done its job.
+  return createPortal(
+    <div className="nf-screen" role="dialog" aria-modal="true" aria-label="Новый объект">
+      <header className="nf-top">
+        <button type="button" aria-label="Назад" onClick={back}>
+          <ArrowLeft size={22} />
+        </button>
+        <span>Новый объект</span>
+        <button type="button" aria-label="Закрыть" onClick={onClose}>
+          <X size={22} />
+        </button>
+      </header>
 
-  return (
-    <section className="mapper-card" aria-label="Новый объект">
-      <button type="button" className="mapper-close" aria-label="Закрыть" onClick={onClose}>
-        <X size={20} />
-      </button>
-
-      {photoUrl && step !== 'done' && (
-        <div className="mapper-photo-strip">
-          <img src={photoUrl} alt="Фото входа" />
-          <span>{facts.name || (category ? category.ru : 'Новый объект')}</span>
+      {step !== 'done' && (
+        <div className="nf-progress">
+          <div className="nf-bars" aria-hidden="true">
+            {[1, 2, 3, 4].map((i) => (
+              <i key={i} className={i <= step ? 'on' : ''} />
+            ))}
+          </div>
+          <p>
+            <b>Шаг {step} из 4</b> · {STEP_NAME[step]}
+          </p>
         </div>
       )}
 
-      {step === 'photo' && (
-        <>
-          <NutsaSays>
-            Точка стоит. Теперь сфотографируйте вход целиком — со ступенями и дверью, если они есть.
-          </NutsaSays>
-          <input
-            ref={fileRef}
-            type="file"
-            accept="image/*"
-            capture="environment"
-            hidden
-            onChange={(e) => void onPhoto(e.target.files?.[0])}
-          />
-          <button type="button" className="mapper-primary" onClick={() => fileRef.current?.click()}>
-            <Camera size={20} aria-hidden="true" /> Сфотографировать вход
-          </button>
-          {point && (
-            <p className="mapper-hint">
-              Точка: {point.lat.toFixed(5)}, {point.lng.toFixed(5)}
-            </p>
+      <input ref={cameraRef} type="file" accept="image/*" capture="environment" hidden onChange={(e) => {
+        addPhotos(e.target.files);
+        e.target.value = '';
+      }} />
+      <input ref={galleryRef} type="file" accept="image/*" multiple hidden onChange={(e) => {
+        addPhotos(e.target.files);
+        e.target.value = '';
+      }} />
+
+      {step === 1 && (
+        <div className="nf-body nf-photo-step">
+          {photos.length === 0 ? (
+            <button type="button" className="nf-drop" onClick={() => cameraRef.current?.click()}>
+              <Camera size={48} strokeWidth={1.6} aria-hidden="true" />
+              Сфотографируйте вход
+            </button>
+          ) : (
+            <>
+              <img className="nf-photo-main" src={photos[photos.length - 1].url} alt="Фото входа" />
+              <div className="nf-thumbs">
+                {photos.map((p, i) => (
+                  <img key={p.url} src={p.url} alt={`Фото ${i + 1}`} />
+                ))}
+                {photos.length < MAX_PHOTOS && (
+                  <button type="button" aria-label="Ещё фото" onClick={() => cameraRef.current?.click()}>
+                    <Plus size={22} />
+                  </button>
+                )}
+              </div>
+            </>
           )}
-        </>
-      )}
-
-      {step === 'looking' && (
-        <NutsaSays>
-          Смотрю на фото… Лица и номера машин скрываю ещё на телефоне.
-          <span className="nutsa-dots" aria-hidden="true">
-            <i />
-            <i />
-            <i />
-          </span>
-        </NutsaSays>
-      )}
-
-      {step === 'category' && (
-        <>
-          <NutsaSays>
-            {draft?.subtype
-              ? `Похоже, это ${draft.subtype.toLowerCase()}. Проверьте тип объекта.`
-              : 'Какой это объект? Выберите раздел и тип.'}
-          </NutsaSays>
-          <div className="mapper-chip-grid" role="group" aria-label="Раздел">
-            {CATEGORIES.map((c) => (
-              <button
-                key={c.slug}
-                type="button"
-                className={`mapper-chip${c.slug === facts.category ? ' is-active' : ''}`}
-                aria-pressed={c.slug === facts.category}
-                onClick={() => setFacts({ ...facts, category: c.slug, subtype: null })}
-              >
-                {c.ru}
+          {photos.length === 0 && (
+            <div className="nf-two">
+              <button type="button" className="nf-btn is-work" onClick={() => cameraRef.current?.click()}>
+                <Camera size={18} aria-hidden="true" /> Камера
               </button>
-            ))}
+              <button type="button" className="nf-btn is-ghost" onClick={() => galleryRef.current?.click()}>
+                <ImageIcon size={18} aria-hidden="true" /> Галерея
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+
+      {step === 2 && (
+        <div className="nf-body">
+          <div className="nf-ai-row">
+            {photos[0] && <img src={photos[0].url} alt="" />}
+            <span className={`nf-pill${looking ? ' is-busy' : ''}`}>
+              <Sparkles size={14} aria-hidden="true" />
+              {looking ? 'ИИ смотрит фото…' : 'ИИ распознал по фото'}
+            </span>
           </div>
+
+          <label className="nf-label" htmlFor="nf-name">
+            Название <AiMark on={aiFields.has('name')} />
+          </label>
+          <input
+            id="nf-name"
+            className="nf-input"
+            value={facts.name}
+            onChange={(e) => set({ name: e.target.value })}
+          />
+
+          <span className="nf-label">
+            Категория <AiMark on={aiFields.has('category')} />
+          </span>
+          <button type="button" className="nf-input nf-select" onClick={() => setPickCategory(true)}>
+            {category ? category.ru : 'Выбрать'} <ChevronDown size={18} aria-hidden="true" />
+          </button>
           {facts.category && (
-            <div className="mapper-chip-grid" role="group" aria-label="Тип объекта">
+            <div className="nf-chips" role="group" aria-label="Тип объекта">
               {(SUBTYPES[facts.category] ?? []).map((t) => (
-                <button
-                  key={t}
-                  type="button"
-                  className={`mapper-chip is-sub${t === facts.subtype ? ' is-active' : ''}`}
-                  aria-pressed={t === facts.subtype}
-                  onClick={() => go({ subtype: t })}
-                >
+                <button key={t} type="button" aria-pressed={t === facts.subtype} onClick={() => set({ subtype: t })}>
                   {t}
                 </button>
               ))}
             </div>
           )}
-        </>
-      )}
 
-      {step === 'name' && (
-        <>
-          <NutsaSays>
-            {draft?.name && !editingName
-              ? `На вывеске читаю: «${draft.name}». Верно?`
-              : 'Как называется это место? Как на вывеске.'}
-          </NutsaSays>
-          {draft?.name && !editingName ? (
-            <div className="mapper-choice-row">
-              <button type="button" className="mapper-choice is-yes" onClick={() => go({ name: draft.name ?? '' })}>
-                <Check size={18} aria-hidden="true" /> Верно
-              </button>
-              <button type="button" className="mapper-choice" onClick={() => setEditingName(true)}>
-                <Pencil size={18} aria-hidden="true" /> Исправить
-              </button>
+          <div className="nf-row2">
+            <div>
+              <span className="nf-label">
+                Ступени <AiMark on={aiFields.has('steps')} />
+              </span>
+              <div className="nf-stepper" role="group" aria-label="Ступени">
+                <button type="button" aria-label="Меньше" onClick={() => set({ steps: Math.max(0, (facts.steps ?? 0) - 1) })}>
+                  <Minus size={18} />
+                </button>
+                <output>{facts.steps ?? 0}</output>
+                <button type="button" aria-label="Больше" onClick={() => set({ steps: (facts.steps ?? 0) + 1 })}>
+                  <Plus size={18} />
+                </button>
+              </div>
             </div>
-          ) : (
-            <form
-              className="mapper-name-form"
-              onSubmit={(e) => {
-                e.preventDefault();
-                if (facts.name.trim()) go();
-              }}
-            >
-              <input
-                className="mapper-input"
-                value={facts.name}
-                placeholder="Название"
-                autoFocus
-                onChange={(e) => setFacts({ ...facts, name: e.target.value })}
-              />
-              <button type="submit" className="mapper-primary" disabled={!facts.name.trim()}>
-                Дальше
-              </button>
-            </form>
+            <div>
+              <span className="nf-label">
+                Пандус <AiMark on={aiFields.has('ramp')} />
+              </span>
+              <select
+                className="nf-input"
+                value={facts.ramp ?? ''}
+                onChange={(e) => set({ ramp: (e.target.value || null) as RampType | null })}
+              >
+                <option value="">—</option>
+                {(Object.keys(RAMP_LABEL) as RampType[]).map((r) => (
+                  <option key={r} value={r}>
+                    {RAMP_LABEL[r]}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          {(facts.steps ?? 0) > 0 && (
+            <>
+              <span className="nf-label">Ступень выше 7 см</span>
+              <Seg label="Ступень выше 7 см" value={facts.stepHigh} onChange={(v) => set({ stepHigh: v })} />
+            </>
           )}
-        </>
+          <span className="nf-label">Дверь шире 80 см</span>
+          <Seg label="Дверь шире 80 см" value={facts.doorWide} onChange={(v) => set({ doorWide: v })} />
+
+          <p className="nf-hint">Проверьте и поправьте — ИИ мог ошибиться</p>
+        </div>
       )}
 
-      {step === 'steps' && (
-        <>
-          <NutsaSays>
-            {draft?.stepsVisible != null
-              ? `На фото вижу ${draft.stepsVisible === 0 ? 'вход без ступеней' : `ступеней: ${draft.stepsVisible}`}. Посчитайте на месте и поправьте, если нужно.`
-              : 'Сколько ступеней у входа?'}
-          </NutsaSays>
-          <div className="mapper-stepper" role="group" aria-label="Ступени">
+      {step === 3 && (
+        <div className="nf-body">
+          {(['green', 'yellow', 'red'] as const).map((s) => (
             <button
+              key={s}
               type="button"
-              aria-label="Меньше"
-              onClick={() => setFacts({ ...facts, steps: Math.max(0, (facts.steps ?? 0) - 1) })}
+              className={`nf-status is-${s}`}
+              aria-pressed={light === s}
+              onClick={() => setLight(s)}
             >
-              <Minus size={22} />
+              <span className="nf-dot" aria-hidden="true" />
+              <span className="nf-status-text">
+                <b>{STATUS_CARD[s].title}</b>
+                {s === suggestion.status ? suggestion.reason : STATUS_CARD[s].text}
+              </span>
+              {light === s && <Check className="nf-check" size={22} aria-hidden="true" />}
             </button>
-            <output aria-live="polite">{facts.steps ?? 0}</output>
-            <button type="button" aria-label="Больше" onClick={() => setFacts({ ...facts, steps: (facts.steps ?? 0) + 1 })}>
-              <Plus size={22} />
+          ))}
+          <p className="nf-hint">
+            <Sparkles size={13} aria-hidden="true" /> Предложено по данным входа
+            {suggestion.unchecked.length > 0 && ` · не проверено: ${suggestion.unchecked.join(', ')}`}
+          </p>
+        </div>
+      )}
+
+      {step === 4 && (
+        <div className="nf-body nf-map-step">
+          <div className="nf-map">
+            {point ? (
+              <MapLibreMap
+                places={[]}
+                selectedPlaceId={null}
+                theme={theme}
+                dragMode={{ lat: point.lat, lng: point.lng, onChange: (lat, lng) => setPoint({ lat, lng }) }}
+              />
+            ) : (
+              <p className="nf-hint">Определяем место…</p>
+            )}
+            <span className="nf-map-note">Перетащите пин ко входу</span>
+          </div>
+        </div>
+      )}
+
+      {step === 'done' && saved && (
+        <div className="nf-body nf-done">
+          <span className="nf-done-mark">
+            <Check size={40} aria-hidden="true" />
+          </span>
+          <h2>{facts.name || 'Объект'} — на проверке</h2>
+          <p className="nf-karma">+{saved[saved.length - 1].karma} кармы</p>
+          <p className="nf-hint">Сегодня добавлено: {saved.length}</p>
+          <button type="button" className="nf-btn is-work" onClick={onAnother}>
+            Ещё объект
+          </button>
+          <button type="button" className="nf-btn is-ghost" onClick={onOpenDay}>
+            Кабинет
+          </button>
+        </div>
+      )}
+
+      {step !== 'done' && (step !== 1 || photos.length > 0) && (
+        <footer className="nf-foot">
+          {step === 4 ? (
+            <button type="button" className="nf-btn is-final" disabled={!canNext} onClick={save}>
+              <Check size={18} aria-hidden="true" /> Сохранить объект
             </button>
-          </div>
-          <button type="button" className="mapper-primary" onClick={() => go({ steps: facts.steps ?? 0 })}>
-            {(facts.steps ?? 0) === 0 ? 'Ступеней нет' : 'Верно'}
-          </button>
-        </>
+          ) : (
+            <button type="button" className="nf-btn is-work" disabled={!canNext} onClick={() => goTo((step + 1) as Step)}>
+              Далее
+            </button>
+          )}
+        </footer>
       )}
-
-      {step === 'stepHigh' && (
-        <>
-          <NutsaSays>Хотя бы одна ступень выше 7 сантиметров — примерно в ладонь?</NutsaSays>
-          <YesNo onAnswer={(v) => go({ stepHigh: v })} />
-        </>
-      )}
-
-      {step === 'ramp' && (
-        <>
-          <NutsaSays>
-            {draft?.ramp ? `На фото ${RAMP_SAID[draft.ramp]}. Как на самом деле?` : 'Есть ли пандус?'}
-          </NutsaSays>
-          <div className="mapper-choice-col">
-            {RAMP_OPTIONS.map((o) => (
-              <button
-                key={o.value}
-                type="button"
-                className={`mapper-choice${o.value === facts.ramp ? ' is-yes' : ''}`}
-                onClick={() => go({ ramp: o.value })}
-              >
-                {o.label}
-              </button>
-            ))}
-          </div>
-        </>
-      )}
-
-      {step === 'door' && (
-        <>
-          <NutsaSays>Дверь шире 80 сантиметров? Это примерно длина руки от плеча до кончиков пальцев.</NutsaSays>
-          <YesNo onAnswer={(v) => go({ doorWide: v })} />
-        </>
-      )}
-
-      {step === 'status' && (
-        <>
-          <NutsaSays>
-            Предлагаю светофор: <b className={`status-word is-${suggestion.status}`}>{STATUS_META[suggestion.status].ru.toLowerCase()}</b>{' '}
-            — {suggestion.reason}.
-            {suggestion.unchecked.length > 0 && ` Не проверено: ${suggestion.unchecked.join(', ')}.`}
-          </NutsaSays>
-          <div className="mapper-status-row" role="group" aria-label="Светофор">
-            {(['green', 'yellow', 'red'] as const).map((s) => (
-              <button
-                key={s}
-                type="button"
-                className={`mapper-status is-${s}${s === suggestion.status ? ' is-suggested' : ''}`}
-                onClick={() => save(s)}
-              >
-                <span className="mapper-status-dot" aria-hidden="true" />
-                {STATUS_META[s].ru}
-              </button>
-            ))}
-          </div>
-          <p className="mapper-hint">Нажмите цвет — объект уйдёт на проверку.</p>
-        </>
-      )}
-
-      {step === 'done' && savedEntries && (
-        <>
-          <NutsaSays>
-            Готово, объект на проверке. Сегодня у вас {savedEntries.length}{' '}
-            {savedEntries.length === 1 ? 'объект' : savedEntries.length < 5 ? 'объекта' : 'объектов'} — отличный темп!
-          </NutsaSays>
-          <p className="mapper-karma">+{savedEntries[savedEntries.length - 1].karma} кармы</p>
-          <button type="button" className="mapper-primary" onClick={restart}>
-            Следующий объект
-          </button>
-          <button type="button" className="mapper-secondary" onClick={onOpenDay}>
-            Мой день
-          </button>
-        </>
-      )}
-
-      <p className="mapper-ai-note">ИИ может ошибаться — важное проверяйте</p>
-    </section>
+    </div>,
+    document.body,
   );
 }

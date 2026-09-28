@@ -1,9 +1,9 @@
 /**
- * Mapper assistant (Нуца) — the logic behind the guided add flow.
+ * Mapper assistant — the logic behind the add flow.
  *
- * The mapper does one thing, the next opens (Arbitrator, 25.09). Нуца looks
- * at the entrance photo, fills in what she can see and only asks what a photo
- * cannot tell. The traffic light is suggested with a reason, after the AIS
+ * The assistant is impersonal in public products for now (Arbitrator 28.09).
+ * It looks at the entrance photo, fills in what it can see; the mapper checks
+ * and measures the rest. The traffic light is suggested with a reason, after the AIS
  * methodology (Wheelmap-compatible, stricter): green — step-free entrance;
  * yellow — one low step (≤ 7 cm) or a portable ramp; red — steps without a
  * ramp, a high step or a door narrower than 80 cm.
@@ -12,7 +12,7 @@ import type { AccessibilityStatus, RampType } from '../../shared/index';
 
 export type YesNoUnknown = 'yes' | 'no' | 'unknown';
 
-/** What Нуца read from the entrance photo. Null — not visible. */
+/** What the assistant read from the entrance photo. Null — not visible. */
 export interface EntranceDraft {
   name: string | null;
   category: string | null;
@@ -41,48 +41,6 @@ export const EMPTY_FACTS: EntranceFacts = {
   ramp: null,
   doorWide: 'unknown',
 };
-
-export type FlowStep =
-  | 'point'
-  | 'photo'
-  | 'looking'
-  | 'category'
-  | 'name'
-  | 'steps'
-  | 'stepHigh'
-  | 'ramp'
-  | 'door'
-  | 'status'
-  | 'done';
-
-/** The step after `step`, skipping questions the facts already answer. */
-export function nextStep(step: FlowStep, facts: EntranceFacts): FlowStep {
-  switch (step) {
-    case 'point':
-      return 'photo';
-    case 'photo':
-      return 'looking';
-    case 'looking':
-      return 'category';
-    case 'category':
-      return 'name';
-    case 'name':
-      return 'steps';
-    case 'steps':
-      // A step-free entrance has no step height and needs no ramp.
-      return facts.steps && facts.steps > 0 ? 'stepHigh' : 'door';
-    case 'stepHigh':
-      return 'ramp';
-    case 'ramp':
-      return 'door';
-    case 'door':
-      return 'status';
-    case 'status':
-      return 'done';
-    case 'done':
-      return 'point';
-  }
-}
 
 export interface StatusSuggestion {
   status: Exclude<AccessibilityStatus, 'gray'>;
@@ -135,7 +93,7 @@ export function suggestStatus(facts: EntranceFacts): StatusSuggestion {
   };
 }
 
-/** Facts pre-filled from Нуца's look at the photo. */
+/** Facts pre-filled from the assistant's look at the photo. */
 export function factsFromDraft(draft: EntranceDraft): EntranceFacts {
   return {
     ...EMPTY_FACTS,

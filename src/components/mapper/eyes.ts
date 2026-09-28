@@ -1,5 +1,5 @@
 /**
- * Нуца's eyes: what she reads from the entrance photo.
+ * The assistant's eyes: what it reads from the entrance photo.
  *
  * Arbitrator 28.09: the photo goes to a cloud vision model, but only after
  * the phone itself hides faces and car plates. `prepareForCloud` re-encodes

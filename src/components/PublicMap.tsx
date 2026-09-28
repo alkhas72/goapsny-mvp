@@ -83,6 +83,7 @@ export function PublicMap() {
   const [mapperOpen, setMapperOpen] = useState(false);
   const [dayOpen, setDayOpen] = useState(false);
   const [dayEntries, setDayEntries] = useState<DayEntry[]>(() => (mapperEnabled ? readDay() : []));
+  const [flowKey, setFlowKey] = useState(0);
   const getCenterRef = useRef<(() => { lat: number; lng: number } | null) | null>(null);
   const [authEmail, setAuthEmail] = useState<string | null>(null);
   const [pendingAddAfterAuth, setPendingAddAfterAuth] = useState(false);
@@ -347,7 +348,7 @@ export function PublicMap() {
         {mapperEnabled && !mapperOpen && !dayOpen && (
           <div className="mapper-fab-row">
             <button type="button" className="mapper-day-btn" onClick={() => setDayOpen(true)}>
-              Мой день · {dayEntries.length}
+              Сегодня · {dayEntries.length}
             </button>
             <button type="button" className="mapper-fab" onClick={() => setMapperOpen(true)}>
               + Добавить объект
@@ -356,7 +357,10 @@ export function PublicMap() {
         )}
         {mapperEnabled && mapperOpen && (
           <MapperFlow
+            key={`flow-${flowKey}`}
+            theme={theme}
             getCenter={() => getCenterRef.current?.() ?? null}
+            onAnother={() => setFlowKey((k) => k + 1)}
             onClose={() => setMapperOpen(false)}
             onSaved={setDayEntries}
             onOpenDay={() => {

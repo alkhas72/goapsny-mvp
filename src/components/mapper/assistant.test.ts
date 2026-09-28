@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { EMPTY_FACTS, nextStep, suggestStatus, type EntranceFacts } from './assistant';
+import { EMPTY_FACTS, suggestStatus, type EntranceFacts } from './assistant';
 
 const facts = (patch: Partial<EntranceFacts>): EntranceFacts => ({ ...EMPTY_FACTS, name: 'x', ...patch });
 
@@ -38,16 +38,5 @@ describe('suggestStatus', () => {
 
   it('lists what is still unchecked', () => {
     expect(suggestStatus(facts({ steps: 1, ramp: 'none' })).unchecked).toEqual(['ширина двери', 'высота ступени']);
-  });
-});
-
-describe('nextStep', () => {
-  it('skips step height and ramp for a step-free entrance', () => {
-    expect(nextStep('steps', facts({ steps: 0 }))).toBe('door');
-  });
-
-  it('asks step height and ramp when there are steps', () => {
-    expect(nextStep('steps', facts({ steps: 2 }))).toBe('stepHigh');
-    expect(nextStep('stepHigh', facts({ steps: 2 }))).toBe('ramp');
   });
 });
