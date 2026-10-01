@@ -14,6 +14,7 @@ artifacts
 .env
 .env.*
 !.env.example
+!.env.development
 *.local
 
 # Editor directories and files
