@@ -14,6 +14,7 @@ artifacts
 .env
 .env.*
 !.env.example
+!.env.development
 *.local
 
 # Editor directories and files
@@ -32,3 +33,4 @@ supabase/.temp/
 # Локальная конфигурация MCP: указывает на конкретные проекты Supabase,
 # у каждого разработчика своя. В общую ветку не идёт.
 .mcp.json
+

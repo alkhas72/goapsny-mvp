@@ -17,7 +17,7 @@ export const STATUS_META: Record<AccessibilityStatus, StatusMeta> = {
   green: { ru: 'Доступно', description: 'вход, зал и туалет доступны', color: '#2EA84A', wheelchairTag: 'yes', operatorSelectable: true },
   yellow: { ru: 'Частично', description: 'въезд есть, но с ограничениями', color: '#EBA92B', wheelchairTag: 'limited', operatorSelectable: true },
   red: { ru: 'Недоступно', description: 'входная группа недоступна', color: '#E24B4A', wheelchairTag: 'no', operatorSelectable: true },
-  gray: { ru: 'На проверке', description: 'предварительно, ожидает проверки сообщества', color: '#A0A8B0', wheelchairTag: 'unknown', operatorSelectable: false },
+  gray: { ru: 'Ещё не оценено', description: 'предварительно, ожидает проверки сообщества', color: '#A0A8B0', wheelchairTag: 'unknown', operatorSelectable: false },
 };
 
 // Statuses an operator may pick in v1 (gray is reserved, not offered).

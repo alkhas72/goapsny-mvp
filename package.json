@@ -18,11 +18,13 @@
     "e2e:telegram": "node scripts/e2e-telegram-submit.mjs"
   },
   "dependencies": {
+    "@protomaps/basemaps": "^5.7.2",
     "@supabase/supabase-js": "^2.99.1",
     "@types/leaflet": "^1.9.21",
     "leaflet": "^1.9.4",
     "lucide-react": "^1.17.0",
     "maplibre-gl": "^6.10.0",
+    "pmtiles": "^4.5.0",
     "react": "^19.2.6",
     "react-dom": "^19.2.6"
   },

@@ -1,3 +1,5 @@
 # Демонстрационный anon-ключ локального Supabase (iss=supabase-demo) в e2e-скриптах — общеизвестный, не секрет
 63dc12fba5207804a23126833410ac47576b3513:scripts/e2e-telegram-submit.mjs:jwt:64
 ca0660b31301a0d49e913303aa957e016c14be4b:scripts/e2e-public-submit.mjs:jwt:26
+# Публичный (publishable) ключ Supabase для dev и облачных сессий — уже в публичном бандле map.goapsny.org, не секрет (слово Арбитра 01.10)
+ae8a3a490fc4f724ac45b00404a169ce10a75d17:.env.development:generic-api-key:5
