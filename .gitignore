@@ -33,5 +33,3 @@ supabase/.temp/
 # у каждого разработчика своя. В общую ветку не идёт.
 .mcp.json
 
-# Local basemap extract (27 MB), served from netcup in production
-public/tiles/
