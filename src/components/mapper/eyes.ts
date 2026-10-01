@@ -10,6 +10,7 @@
  * can be tried on the phone before the cloud call is switched on.
  */
 import type { EntranceDraft } from './assistant';
+import { maskSensitive, nativeFaceDetector, type SensitiveDetector } from './privacyMask';
 
 export interface AssistantEyes {
   look(photo: File): Promise<EntranceDraft>;
@@ -17,8 +18,18 @@ export interface AssistantEyes {
 
 const MAX_SIDE = 1280;
 
-/** Re-encode on the device: no EXIF (location), at most 1280 px a side. */
-export async function prepareForCloud(photo: File): Promise<Blob> {
+/** Detectors available on this device. Plates have none yet (AISP-328), so the cloud path stays closed. */
+export function deviceDetectors(): SensitiveDetector[] {
+  const face = nativeFaceDetector();
+  return face ? [face] : [];
+}
+
+/**
+ * Re-encode on the device: no EXIF (location), at most 1280 px a side, faces and
+ * plates hidden. Throws `privacy_unavailable` when a detector is missing — the
+ * photo must then not leave the phone.
+ */
+export async function prepareForCloud(photo: File, detectors: SensitiveDetector[] = deviceDetectors()): Promise<Blob> {
   const bitmap = await createImageBitmap(photo);
   const scale = Math.min(1, MAX_SIDE / Math.max(bitmap.width, bitmap.height));
   const canvas = document.createElement('canvas');
@@ -28,7 +39,7 @@ export async function prepareForCloud(photo: File): Promise<Blob> {
   if (!ctx) throw new Error('canvas_unavailable');
   ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
   bitmap.close();
-  // TODO(AISP-328): mask faces and plates here before upload.
+  await maskSensitive(canvas, detectors);
   return await new Promise((resolve, reject) =>
     canvas.toBlob((b) => (b ? resolve(b) : reject(new Error('encode_failed'))), 'image/jpeg', 0.85),
   );
