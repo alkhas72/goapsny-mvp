@@ -13,6 +13,11 @@ interface AddWizardProps {
   onCancel: () => void;
 }
 
+// Дефолтная точка — центр Сухума. Нужна, когда GPS недоступен:
+// шаг 4 всегда показывает карту, и оператор ставит метку вручную.
+const DEFAULT_LAT = 43.0033;
+const DEFAULT_LNG = 41.0237;
+
 const initialDraft: AddDraft = {
   photoFile: null,
   photoUrl: null,
@@ -55,7 +60,7 @@ export function AddWizard({ profile, theme, onSave, onCancel }: AddWizardProps) 
       setDraft(prev => ({ ...prev, lat: pos.lat, lng: pos.lng }));
     } catch (e: any) {
       console.error(e);
-      setLocationError("Не удалось получить геопозицию. Установите координаты вручную на шаге 4.");
+      setLocationError("Геопозиция не определена — не страшно: продолжите, точку можно будет поставить вручную на карте (шаг 4).");
     } finally {
       setLocating(false);
     }
@@ -124,7 +129,7 @@ export function AddWizard({ profile, theme, onSave, onCancel }: AddWizardProps) 
   };
 
   const canGoNext = () => {
-    if (step === 1) return !!draft.photoUrl && !!draft.lat;
+    if (step === 1) return !!draft.photoUrl;
     if (step === 2) return !!draft.name && !!draft.category;
     if (step === 3) return !!draft.status;
     return true;
@@ -137,8 +142,8 @@ export function AddWizard({ profile, theme, onSave, onCancel }: AddWizardProps) 
       const placeData: Partial<Place> = {
         name: draft.name,
         category: draft.category,
-        lat: draft.lat || 43.0033,
-        lng: draft.lng || 41.0237,
+        lat: draft.lat || DEFAULT_LAT,
+        lng: draft.lng || DEFAULT_LNG,
         status: draft.status as AccessibilityStatus,
         stepsCount: draft.stepsCount ? parseInt(draft.stepsCount) : null,
         stepHeightCm: draft.stepHeightCm ? parseInt(draft.stepHeightCm) : null,
@@ -449,22 +454,24 @@ export function AddWizard({ profile, theme, onSave, onCancel }: AddWizardProps) 
       {step === 4 && (
         <>
           <h2 className="wizard-title">Шаг 4: Подстройка геопозиции</h2>
-          <p className="wizard-sub">Перетащите маркер на карте, чтобы точно указать вход в здание.</p>
+          <p className="wizard-sub">
+            {draft.lat != null && draft.lng != null
+              ? "Перетащите маркер на карте, чтобы точно указать вход в здание."
+              : "GPS недоступен: поставьте точку входа вручную — перетащите маркер на карте."}
+          </p>
 
           <div className="drag-map-container">
             <div className="drag-map-instruction">Перетащите маркер к точке входа</div>
-            {draft.lat && draft.lng && (
-              <LeafletMap
-                places={[]}
-                selectedPlaceId={null}
-                theme={theme}
-                dragMode={{
-                  lat: draft.lat,
-                  lng: draft.lng,
-                  onChange: (lat, lng) => setDraft(prev => ({ ...prev, lat, lng }))
-                }}
-              />
-            )}
+            <LeafletMap
+              places={[]}
+              selectedPlaceId={null}
+              theme={theme}
+              dragMode={{
+                lat: draft.lat ?? DEFAULT_LAT,
+                lng: draft.lng ?? DEFAULT_LNG,
+                onChange: (lat, lng) => setDraft(prev => ({ ...prev, lat, lng }))
+              }}
+            />
           </div>
         </>
       )}
