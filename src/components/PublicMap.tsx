@@ -11,7 +11,9 @@ import {
   applyPlaceFilters,
   fetchPlaceById,
   fetchPublishedPlaces,
+  mergePublishedPlaces,
   publicPlaceFromSubmission,
+  publicPlaceToViewPlace,
   upsertPublicPlace,
   type PlaceFilters,
   type PublicPlace,
@@ -24,34 +26,6 @@ import {
   subscribePublicSession,
 } from '../services/publicAuth';
 import { isSupabaseConfigured } from '../services/supabase';
-import type { Place } from '../types';
-
-function toMapPlace(place: PublicPlace): Place {
-  return {
-    id: place.id,
-    name: place.name,
-    category: place.category,
-    lat: place.lat,
-    lng: place.lng,
-    status: place.status,
-    stepsCount: place.stepsCount,
-    stepHeightCm: place.stepHeightCm,
-    rampType: place.rampType,
-    doorWidthCm: place.doorWidthCm,
-    entranceNotes: place.entranceNotes,
-    toiletExists: place.toiletExists,
-    toiletAccessible: place.toiletAccessible,
-    parking: place.parking,
-    comment: place.comment,
-    osmTags: place.osmTags,
-    moderationStatus: place.moderationStatus,
-    source: place.source as Place['source'],
-    createdBy: place.createdBy,
-    createdAt: place.createdAt,
-    updatedAt: place.updatedAt,
-    mainPhoto: place.facadePhotoUrl ?? undefined,
-  };
-}
 
 export function PublicMap() {
   const [theme] = useState<'light' | 'dark'>(() =>
@@ -105,12 +79,22 @@ export function PublicMap() {
     };
   }, []);
 
-  const reloadPlaces = useCallback(async () => {
+  const reloadPlaces = useCallback(async (keepPlace?: PublicPlace) => {
     const data = await fetchPublishedPlaces();
-    setPlaces(data);
+    setPlaces(mergePublishedPlaces(data, keepPlace));
     setLoadState('ready');
     setLoadError(null);
   }, []);
+
+  useEffect(() => {
+    if (loadState !== 'ready') return;
+    const onVisible = () => {
+      if (document.visibilityState !== 'visible') return;
+      void reloadPlaces().catch(() => undefined);
+    };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => document.removeEventListener('visibilitychange', onVisible);
+  }, [loadState, reloadPlaces]);
 
   useEffect(() => {
     let cancelled = false;
@@ -147,7 +131,7 @@ export function PublicMap() {
   }, [loadAttempt]);
 
   const visiblePlaces = useMemo(
-    () => applyPlaceFilters(places, filters).map(toMapPlace),
+    () => applyPlaceFilters(places, filters).map(publicPlaceToViewPlace),
     [places, filters],
   );
 
@@ -257,7 +241,7 @@ export function PublicMap() {
       setPlaces((current) => upsertPublicPlace(current, immediatePlace));
 
       try {
-        await reloadPlaces();
+        await reloadPlaces(immediatePlace);
       } catch {
         // DG-3: координаты и название — те, что человек только что отправил, не выдумка.
         setCabinetNote(

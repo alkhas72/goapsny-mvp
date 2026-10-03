@@ -1,4 +1,5 @@
 import type { AccessibilityStatus, RampType, ToiletAccessible, YesNoUnknown } from '../shared/index';
+import type { Place } from '../types';
 import { getSupabaseClient, isSupabaseConfigured } from './supabase';
 
 export const PLACE_COLUMNS =
@@ -185,6 +186,42 @@ export function publicPlaceFromSubmission(snapshot: SubmittedPlaceSnapshot): Pub
 /** Insert or replace one place in the in-memory published list. */
 export function upsertPublicPlace(places: PublicPlace[], place: PublicPlace): PublicPlace[] {
   return [place, ...places.filter((item) => item.id !== place.id)];
+}
+
+/** Map the shared published-place row into the Leaflet `Place` view model. */
+export function publicPlaceToViewPlace(place: PublicPlace): Place {
+  return {
+    id: place.id,
+    name: place.name,
+    category: place.category,
+    lat: place.lat,
+    lng: place.lng,
+    status: place.status,
+    stepsCount: place.stepsCount,
+    stepHeightCm: place.stepHeightCm,
+    rampType: place.rampType,
+    doorWidthCm: place.doorWidthCm,
+    entranceNotes: place.entranceNotes,
+    toiletExists: place.toiletExists,
+    toiletAccessible: place.toiletAccessible,
+    parking: place.parking,
+    comment: place.comment,
+    osmTags: place.osmTags,
+    moderationStatus: place.moderationStatus,
+    source: place.source as Place['source'],
+    createdBy: place.createdBy,
+    createdAt: place.createdAt,
+    updatedAt: place.updatedAt,
+    mainPhoto: place.facadePhotoUrl ?? undefined,
+  };
+}
+
+/** Merge a server reload with a just-submitted pin so a fast read cannot erase it. */
+export function mergePublishedPlaces(
+  fetched: PublicPlace[],
+  keepPlace?: PublicPlace | null,
+): PublicPlace[] {
+  return keepPlace ? upsertPublicPlace(fetched, keepPlace) : fetched;
 }
 
 export function applyPlaceFilters(places: PublicPlace[], filters: PlaceFilters): PublicPlace[] {

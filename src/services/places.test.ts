@@ -4,7 +4,9 @@ import {
   hasSeenWelcome,
   mapPlaceRow,
   markWelcomeSeen,
+  mergePublishedPlaces,
   publicPlaceFromSubmission,
+  publicPlaceToViewPlace,
   upsertPublicPlace,
   WELCOME_STORAGE_KEY,
   type PlaceRow,
@@ -108,6 +110,40 @@ describe('upsertPublicPlace', () => {
     });
 
     expect(upsertPublicPlace([existing, other], updated)).toEqual([updated, other]);
+  });
+});
+
+describe('mergePublishedPlaces', () => {
+  it('keeps a just-submitted pin when the server reload has not caught up yet', () => {
+    const existing = publicPlaceFromSubmission({
+      placeId: 'a',
+      name: 'Кафе',
+      category: 'food',
+      lat: 1,
+      lng: 2,
+    });
+    const fresh = publicPlaceFromSubmission({
+      placeId: 'b',
+      name: 'Новая серая метка',
+      category: 'food',
+      lat: 3,
+      lng: 4,
+    });
+
+    expect(mergePublishedPlaces([existing], fresh)).toEqual([fresh, existing]);
+  });
+});
+
+describe('publicPlaceToViewPlace', () => {
+  it('maps gray status and facade url into the shared Leaflet view model', () => {
+    const place = publicPlaceToViewPlace({
+      ...mapPlaceRow(baseRow),
+      status: 'gray',
+      facadePhotoUrl: 'https://example.com/facade.jpg',
+    });
+
+    expect(place.status).toBe('gray');
+    expect(place.mainPhoto).toBe('https://example.com/facade.jpg');
   });
 });
 
