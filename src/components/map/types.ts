@@ -22,4 +22,13 @@ export interface MapViewProps {
   onMarkerButton?: (placeId: string, button: HTMLButtonElement | null) => void;
   /** Optional, MapLibre only: map centre for the mapper crosshair. */
   onCenterApi?: (getCenter: () => { lat: number; lng: number } | null) => void;
+  /** Optional, MapLibre only: visible area after load and after each move. */
+  onBoundsChange?: (bounds: MapBounds) => void;
+}
+
+export interface MapBounds {
+  west: number;
+  south: number;
+  east: number;
+  north: number;
 }

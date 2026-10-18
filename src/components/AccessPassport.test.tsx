@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { cleanup, render, screen, within } from '@testing-library/react';
-import { AccessPassport, stepsText } from './AccessPassport';
+import { AccessPassport } from './AccessPassport';
+import { stepsText } from '../utils/accessText';
 import type { PublicPlace } from '../services/places';
 
 const BLANK: PublicPlace = {

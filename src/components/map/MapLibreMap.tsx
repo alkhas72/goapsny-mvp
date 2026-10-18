@@ -205,12 +205,17 @@ export function MapLibreMap({
   useBrowserGeolocation = false,
   onMarkerButton,
   onCenterApi,
+  onBoundsChange,
 }: MapViewProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
   const markersRef = useRef<MarkerHandle[]>([]);
   const userMarkerRef = useRef<maplibregl.Marker | null>(null);
   const draggableMarkerRef = useRef<maplibregl.Marker | null>(null);
+  const onBoundsChangeRef = useRef(onBoundsChange);
+  useEffect(() => {
+    onBoundsChangeRef.current = onBoundsChange;
+  }, [onBoundsChange]);
 
   const [locating, setLocating] = useState(false);
   const [userLocationActive, setUserLocationActive] = useState(false);
@@ -260,6 +265,12 @@ export function MapLibreMap({
     // Dev-only handle for visual checks from the browser console.
     if (import.meta.env.DEV) (window as unknown as { __goapsnyMap?: maplibregl.Map }).__goapsnyMap = map;
 
+    const reportBounds = () => {
+      const b = map.getBounds();
+      onBoundsChangeRef.current?.({ west: b.getWest(), south: b.getSouth(), east: b.getEast(), north: b.getNorth() });
+    };
+    map.on('moveend', reportBounds);
+
     // Fit the default Abkhazia frame once the style is ready. Precise live
     // geolocation is never requested here — see the locate control below.
     map.once('load', () => {
@@ -269,6 +280,7 @@ export function MapLibreMap({
         return;
       }
       map.fitBounds(ABKHAZIA_BOUNDS as maplibregl.LngLatBoundsLike, { animate: false });
+      reportBounds();
     });
 
     const resizeObserver = new ResizeObserver(() => {

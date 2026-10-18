@@ -2,20 +2,12 @@ import type { ReactNode } from 'react';
 import type { PublicPlace } from '../services/places';
 import { hasPortableRamp, rampLabel } from '../services/places';
 import { RAMP_COLOR } from '../utils/status';
+import { stepsText } from '../utils/accessText';
 
 const UNKNOWN = 'неизвестно';
 
 const YES_NO: Record<string, string> = { yes: 'есть', no: 'нет' };
 const ACCESSIBLE: Record<string, string> = { yes: 'да', partial: 'частично', no: 'нет' };
-
-export function stepsText(count: number): string {
-  if (count === 0) return 'Нет ступеней';
-  const mod10 = count % 10;
-  const mod100 = count % 100;
-  if (mod10 === 1 && mod100 !== 11) return `${count} ступень`;
-  if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) return `${count} ступени`;
-  return `${count} ступеней`;
-}
 
 function cm(value: number | null): string | null {
   return value === null ? null : `${value} см`;
@@ -44,7 +36,7 @@ interface Row {
   value: ReactNode | null;
 }
 
-export function passportGroups(place: PublicPlace): { title: string; rows: Row[] }[] {
+function passportGroups(place: PublicPlace): { title: string; rows: Row[] }[] {
   const noSteps = place.stepsCount === 0;
   const entrance: Row[] = [
     { label: 'Ступени', value: place.stepsCount === null ? null : stepsText(place.stepsCount) },

@@ -39,6 +39,7 @@ const {
       if (event === 'load') cb();
     }),
     off: vi.fn(),
+    getBounds: vi.fn(() => ({ getWest: () => 40, getSouth: () => 42, getEast: () => 42, getNorth: () => 44 })),
     remove: vi.fn(),
     setStyle: vi.fn(),
     flyTo: vi.fn(),
