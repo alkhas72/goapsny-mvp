@@ -278,6 +278,18 @@ describe('LabPlaceSheet', () => {
       expect(onSubmit).not.toHaveBeenCalled();
     });
 
+    it('returns focus to the add button after the form closes', async () => {
+      const { user } = setup(UNKNOWN, OK);
+      await user.click(screen.getByRole('button', { name: addButtonName('door_width_cm') }));
+      await user.type(screen.getByRole('spinbutton', { name: FACT_LABEL.door_width_cm + ', см' }), '80');
+      await user.click(screen.getByRole('button', { name: LAB_TEXT.save }));
+      expect(document.activeElement).toBe(screen.getByRole('button', { name: addButtonName('door_width_cm') }));
+
+      await user.click(screen.getByRole('button', { name: addButtonName('steps_count') }));
+      await user.click(screen.getByRole('button', { name: LAB_TEXT.cancel }));
+      expect(document.activeElement).toBe(screen.getByRole('button', { name: addButtonName('steps_count') }));
+    });
+
     it('keeps the form open with an alert when saving fails', async () => {
       const { onSubmit, user } = setup(UNKNOWN, QUOTA);
       await user.click(screen.getByRole('button', { name: addButtonName('door_width_cm') }));
@@ -375,6 +387,13 @@ describe('LabPlaceSheet', () => {
         placeId: KNOWN.id,
         placeName: KNOWN.name,
       });
+    });
+
+    it('returns focus to the report button after the form closes', async () => {
+      const { user } = setup(KNOWN, OK);
+      await user.click(screen.getByRole('button', { name: LAB_TEXT.reportOpen }));
+      await user.click(screen.getByRole('button', { name: LAB_TEXT.cancel }));
+      expect(document.activeElement).toBe(screen.getByRole('button', { name: LAB_TEXT.reportOpen }));
     });
   });
 });

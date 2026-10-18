@@ -199,6 +199,13 @@ export function LabPlaceSheet({ place, onClose, onSubmit }: LabPlaceSheetProps) 
   const [rowFeedback, setRowFeedback] = useState<{ field: FactField; feedback: Feedback } | null>(null);
   const [reporting, setReporting] = useState(false);
   const [reportFeedback, setReportFeedback] = useState<Feedback>(null);
+  // A closing form unmounts the focused control; send focus back to the button that opened it.
+  const [returnFocus, setReturnFocus] = useState<string | null>(null);
+  useEffect(() => {
+    if (!returnFocus) return;
+    sheetRef.current?.querySelector<HTMLElement>(`[data-focus-key="${returnFocus}"]`)?.focus();
+    setReturnFocus(null);
+  }, [returnFocus]);
 
   // The parent may re-create onClose on every save; keep the trap (and focus) stable.
   const onCloseRef = useRef(onClose);
@@ -276,6 +283,7 @@ export function LabPlaceSheet({ place, onClose, onSubmit }: LabPlaceSheetProps) 
                         <button
                           type="button"
                           className="lab-sheet-add"
+                          data-focus-key={`add-${field}`}
                           aria-label={`${LAB_TEXT.add}: ${FACT_LABEL[field]}`}
                           onClick={() => {
                             setEditing(field);
@@ -292,6 +300,7 @@ export function LabPlaceSheet({ place, onClose, onSubmit }: LabPlaceSheetProps) 
                           onDone={(feedback) => {
                             setEditing(null);
                             setRowFeedback(feedback ? { field, feedback } : null);
+                            setReturnFocus(`add-${field}`);
                           }}
                         />
                       )}
@@ -312,12 +321,14 @@ export function LabPlaceSheet({ place, onClose, onSubmit }: LabPlaceSheetProps) 
             onDone={(feedback) => {
               setReporting(false);
               setReportFeedback(feedback);
+              setReturnFocus('report');
             }}
           />
         ) : (
           <button
             type="button"
             className="lab-sheet-secondary"
+            data-focus-key="report"
             onClick={() => {
               setReporting(true);
               setReportFeedback(null);
