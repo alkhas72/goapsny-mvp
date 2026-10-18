@@ -8,8 +8,8 @@ vi.mock('./LabViewport', () => ({ LabViewport: ({ onBounds, onPhase }: { onBound
 import { LabApp } from './LabApp';
 afterEach(cleanup);
 it('restores marks on reload and preserves checked status through the shell', () => {
-  const view = render(<LabApp />);
-  const opener = screen.getByRole('button', { name: 'Демо: вход А (вымышленный) · Доступно' });
+  const view = render(<LabApp PlaceSheet={LabIntegrationSheet} />);
+  const opener = screen.getByRole('button', { name: 'Демо: кафе у моря · Доступно' });
   opener.focus();
   fireEvent.click(opener);
   fireEvent.click(screen.getByRole('button', { name: 'Недоступно' }));
@@ -17,7 +17,7 @@ it('restores marks on reload and preserves checked status through the shell', ()
   fireEvent.keyDown(screen.getByRole('region'), { key: 'Escape' });
   expect(document.activeElement).toBe(opener);
   view.unmount();
-  render(<LabApp />);
+  render(<LabApp PlaceSheet={LabIntegrationSheet} />);
   fireEvent.click(screen.getByRole('button', { name: 'Мои отметки (1)' }));
   expect(screen.getByText(/Предложение: Недоступно/)).toBeTruthy();
 });
@@ -36,4 +36,19 @@ it('submits a proposal without mutating the checked place, reports duplicate and
   expect(createLabStore().load().items).toHaveLength(1);
   fireEvent.keyDown(screen.getByRole('region'), { key: 'Escape' });
   expect(close).toHaveBeenCalledOnce();
+});
+it('integrates Claude card with the local store and keeps checked status', () => {
+  render(<LabApp />);
+  const trigger = screen.getByRole('button', { name: 'Демо: кафе у моря · Доступно' });
+  trigger.focus(); fireEvent.click(trigger);
+  const dialog = screen.getByRole('dialog');
+  fireEvent.click(within(dialog).getByRole('button', { name: 'Нисколько' }));
+  expect(within(dialog).getByText('Доступно', { exact: true })).toBeTruthy();
+  fireEvent.click(within(dialog).getByRole('button', { name: 'Нисколько' }));
+  expect(createLabStore().load().items).toHaveLength(1);
+  expect(within(dialog).getByText('Уже сохранено на телефоне')).toBeTruthy();
+  fireEvent.keyDown(dialog, { key: 'Escape' });
+  expect(document.activeElement).toBe(trigger);
+  fireEvent.click(screen.getByRole('button', { name: 'Мои отметки (1)' }));
+  expect(screen.getByText(/Предложение: Недоступно/)).toBeTruthy();
 });

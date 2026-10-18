@@ -14,6 +14,7 @@ export function LabViewport({ places, onBounds, onPhase, onSelect }: {
 }) {
   const container = useRef<HTMLDivElement>(null);
   const mapRef = useRef<maplibre.Map | null>(null);
+  const initialPlaces = useRef(places);
   useEffect(() => {
     if (!container.current) return;
     let map: maplibre.Map;
@@ -28,7 +29,14 @@ export function LabViewport({ places, onBounds, onPhase, onSelect }: {
       onBounds({ west: b.getWest(), south: b.getSouth(), east: b.getEast(), north: b.getNorth() });
     };
     map.addControl(new maplibre.NavigationControl({ showCompass: false }));
-    map.on('load', () => { bounds(); onPhase('ready'); });
+    map.on('load', () => {
+      if (initialPlaces.current.length) {
+        const points = initialPlaces.current;
+        map.fitBounds([[Math.min(...points.map(p => p.lng)), Math.min(...points.map(p => p.lat))],
+          [Math.max(...points.map(p => p.lng)), Math.max(...points.map(p => p.lat))]], { padding: 50, maxZoom: 16, animate: false });
+      }
+      bounds(); onPhase('ready');
+    });
     map.on('moveend', bounds);
     map.on('error', () => onPhase('error'));
     const observer = new ResizeObserver(() => map.resize());

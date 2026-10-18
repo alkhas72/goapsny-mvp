@@ -8,6 +8,7 @@ import {
   ACCESSIBLE_OPTIONS,
   FACT_LABEL,
   LAB_TEXT,
+  NUMBER_UNIT,
   PROBLEM_OPTIONS,
   RAMP_OPTIONS,
   RATING_LABEL,
@@ -244,7 +245,7 @@ describe('LabPlaceSheet', () => {
       const { onSubmit, user } = setup(UNKNOWN, OK);
       await user.click(screen.getByRole('button', { name: addButtonName(field) }));
 
-      const input = screen.getByRole('spinbutton', { name: FACT_LABEL[field] });
+      const input = screen.getByRole('spinbutton', { name: FACT_LABEL[field] + (NUMBER_UNIT[field] ? `, ${NUMBER_UNIT[field]}` : '') });
       const save = () => screen.getByRole('button', { name: LAB_TEXT.save });
       expect(isDisabled(save())).toBe(true);
 
@@ -280,11 +281,11 @@ describe('LabPlaceSheet', () => {
     it('keeps the form open with an alert when saving fails', async () => {
       const { onSubmit, user } = setup(UNKNOWN, QUOTA);
       await user.click(screen.getByRole('button', { name: addButtonName('door_width_cm') }));
-      await user.type(screen.getByRole('spinbutton', { name: FACT_LABEL.door_width_cm }), '80');
+      await user.type(screen.getByRole('spinbutton', { name: FACT_LABEL.door_width_cm + ', см' }), '80');
       await user.click(screen.getByRole('button', { name: LAB_TEXT.save }));
 
       expect(onSubmit).toHaveBeenCalledTimes(1);
-      expect(screen.getByRole('spinbutton', { name: FACT_LABEL.door_width_cm })).toBeTruthy();
+      expect(screen.getByRole('spinbutton', { name: FACT_LABEL.door_width_cm + ', см' })).toBeTruthy();
       expect(liveText('alert')).toContain(LAB_TEXT.saveFailed);
     });
 

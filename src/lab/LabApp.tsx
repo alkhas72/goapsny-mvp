@@ -3,7 +3,8 @@ import { STATUS_META } from '../shared';
 import { areaState, inBounds, type LabBounds, type LabContribution, type LabDraft, type LabPlace, type LabPlaceSheetProps } from './contract';
 import { createLabStore } from './store';
 import { LabViewport } from './LabViewport';
-import { LabIntegrationSheet } from './LabIntegrationSheet';
+import { LabPlaceSheet } from './LabPlaceSheet';
+import { labFixtures } from './fixtures';
 import './lab.css';
 
 // Integration-only seeds, not Claude's fixture file. No real institutions/ratings.
@@ -14,7 +15,7 @@ const seeds: LabPlace[] = [
 const store = createLabStore();
 const factLabels = { steps_count: 'Количество ступеней', step_height_cm: 'Высота ступени, см', door_width_cm: 'Ширина двери, см', ramp_type: 'Пандус', toilet_exists: 'Наличие туалета', toilet_accessible: 'Доступность туалета', parking: 'Наличие парковки', parking_accessible: 'Доступность парковки' };
 const valueLabels: Record<string, string> = { yes: 'да', no: 'нет', unknown: 'неизвестно', partial: 'частично', none: 'нет', permanent: 'стационарный', portable_on_request: 'переносной по запросу', portable_available: 'переносной на месте' };
-export function LabApp({ PlaceSheet = LabIntegrationSheet, fixtures = seeds }: { PlaceSheet?: ComponentType<LabPlaceSheetProps>; fixtures?: LabPlace[] }) {
+export function LabApp({ PlaceSheet = LabPlaceSheet, fixtures = labFixtures }: { PlaceSheet?: ComponentType<LabPlaceSheetProps>; fixtures?: LabPlace[] }) {
   const [loaded] = useState(() => store.load());
   const [items, setItems] = useState<LabContribution[]>(loaded.items);
   const [message, setMessage] = useState(loaded.error ?? '');
