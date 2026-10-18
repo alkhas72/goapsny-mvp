@@ -1,7 +1,7 @@
 import { useEffect, useId, useRef, useState, type FormEvent } from 'react';
 import { X } from 'lucide-react';
 import { STATUS_META } from '../shared';
-import { trapFocus } from '../utils/focusTrap';
+import { trapLabFocus } from './labFocus';
 import type { LabDraft, LabFact, LabPayload, LabPlace, LabPlaceSheetProps, LabSaveResult } from './contract';
 import {
   ACCESSIBLE_OPTIONS,
@@ -207,7 +207,7 @@ export function LabPlaceSheet({ place, onClose, onSubmit }: LabPlaceSheetProps) 
   }, [onClose]);
   useEffect(() => {
     if (!sheetRef.current) return;
-    return trapFocus(sheetRef.current, { initialFocus: closeRef.current, onEscape: () => onCloseRef.current() });
+    return trapLabFocus(sheetRef.current, { initialFocus: closeRef.current, onEscape: () => onCloseRef.current() });
   }, []);
 
   const save = (payload: LabPayload): LabSaveResult => {

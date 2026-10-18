@@ -1,0 +1,14 @@
+.goapsny-lab { max-width: 60rem; margin: auto; padding: 1rem; padding-bottom: max(1rem, env(safe-area-inset-bottom)); color: #2a2017; background: #fff; overflow-wrap: anywhere; }
+.goapsny-lab button, .goapsny-lab input, .goapsny-lab select, .goapsny-lab textarea { font: inherit; min-height: 44px; max-width: 100%; margin: .25rem; }
+.goapsny-lab button { padding: .5rem .75rem; cursor: pointer; }
+.goapsny-lab label { display: block; }
+.goapsny-lab :focus-visible { outline: 3px solid #155da0; outline-offset: 3px; }
+.goapsny-lab section { border: 1px solid #a1897a; padding: 1rem; margin-top: 1rem; }
+.goapsny-lab .lab-map { height: min(45vh, 28rem); min-height: 220px; }
+.goapsny-lab .lab-pin { border: 2px solid #222; border-radius: 50%; width: 44px; height: 44px; color: #111; margin: 0; }
+.goapsny-lab li { margin-block: .5rem; }
+.goapsny-lab .maplibregl-ctrl-group button { width: 44px; height: 44px; padding: 0; margin: 0; }
+.goapsny-lab, .goapsny-lab * { box-sizing: border-box; min-width: 0; }
+.goapsny-lab nav { display: flex; flex-wrap: wrap; gap: .5rem; }
+.goapsny-lab button, .goapsny-lab input, .goapsny-lab select, .goapsny-lab textarea { max-width: calc(100% - .5rem); }
+.goapsny-lab ul { padding-inline-start: 1.25rem; }
