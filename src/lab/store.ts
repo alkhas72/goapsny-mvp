@@ -3,28 +3,51 @@ export const LAB_STORAGE_KEY = 'goapsny.lab.contributions.v1';
 type StoragePort = Pick<Storage, 'getItem' | 'setItem'>;
 const failure = 'Не удалось сохранить на устройстве. Запись не сохранена; повторите попытку.';
 
-// Validate untrusted persisted data before rendering or accepting another write.
+const enumValue = (value: unknown, options: readonly string[]) => typeof value === 'string' && options.includes(value);
+const presence = ['yes', 'no', 'unknown'];
+const accessibility = [...presence, 'partial'];
+const ramps = ['none', 'permanent', 'portable_on_request', 'portable_available', 'unknown'];
+const measurement = (value: unknown, integer = false) => value === null ||
+  (typeof value === 'number' && Number.isFinite(value) && value >= 0 && (!integer || Number.isInteger(value)));
+const record = (value: unknown): value is Record<string, unknown> => !!value && typeof value === 'object' && !Array.isArray(value);
+
+// Validate all promised fields before handing persisted data to the card.
 function isItem(value: unknown): value is LabContribution {
-  if (!value || typeof value !== 'object') return false;
-  const v = value as Record<string, unknown>;
+  if (!record(value)) return false;
+  const v = value;
   if (typeof v.id !== 'string' || typeof v.placeId !== 'string' || typeof v.placeName !== 'string' ||
       typeof v.createdAt !== 'string' || !Number.isFinite(Date.parse(v.createdAt)) || v.state !== 'local-only') return false;
-  if (v.kind === 'rating') return ['green', 'yellow', 'red'].includes(String(v.proposedStatus));
-  if (v.kind === 'problem') return ['entrance', 'information', 'other'].includes(String(v.problem)) && typeof v.comment === 'string';
-  if (v.kind === 'fact' && v.fact && typeof v.fact === 'object') {
-    const f = v.fact as Record<string, unknown>;
-    if (['steps_count', 'step_height_cm', 'door_width_cm'].includes(String(f.field))) return f.value === null || (typeof f.value === 'number' && Number.isFinite(f.value) && f.value >= 0 && (f.field !== 'steps_count' || Number.isInteger(f.value)));
-    const values = f.field === 'ramp_type' ? ['none', 'permanent', 'portable_on_request', 'portable_available', 'unknown'] :
-      ['toilet_accessible', 'parking_accessible'].includes(String(f.field)) ? ['yes', 'no', 'partial', 'unknown'] :
-      ['parking', 'toilet_exists'].includes(String(f.field)) ? ['yes', 'no', 'unknown'] : [];
-    return values.includes(String(f.value));
+  if (v.kind === 'rating') return enumValue(v.proposedStatus, ['green', 'yellow', 'red']);
+  if (v.kind === 'problem') return enumValue(v.problem, ['entrance', 'information', 'other']) && typeof v.comment === 'string';
+  if (v.kind === 'fact' && record(v.fact)) {
+    const f = v.fact;
+    if (enumValue(f.field, ['steps_count', 'step_height_cm', 'door_width_cm'])) return measurement(f.value, f.field === 'steps_count');
+    const values = f.field === 'ramp_type' ? ramps :
+      enumValue(f.field, ['toilet_accessible', 'parking_accessible']) ? accessibility :
+      enumValue(f.field, ['parking', 'toilet_exists']) ? presence : [];
+    return enumValue(f.value, values);
   }
-  if (v.kind === 'new-place' && v.place && typeof v.place === 'object') {
-    const p = v.place as Record<string, unknown>;
-    return p.id === v.placeId && typeof p.name === 'string' && p.status === 'gray' &&
-      typeof p.lat === 'number' && Math.abs(p.lat) <= 90 && typeof p.lng === 'number' && Math.abs(p.lng) <= 180;
+  if (v.kind === 'new-place' && record(v.place)) {
+    const p = v.place;
+    return p.id === v.placeId && p.name === v.placeName && p.status === 'gray' &&
+      typeof p.lat === 'number' && Math.abs(p.lat) <= 90 && typeof p.lng === 'number' && Math.abs(p.lng) <= 180 &&
+      measurement(p.steps_count, true) && measurement(p.step_height_cm) && measurement(p.door_width_cm) &&
+      enumValue(p.ramp_type, ramps) && enumValue(p.toilet_exists, presence) && enumValue(p.parking, presence) &&
+      enumValue(p.toilet_accessible, accessibility) && enumValue(p.parking_accessible, accessibility);
   }
   return false;
+}
+// Canonicalize recursively: equivalent cards may construct object keys in any order.
+function canonical(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(canonical);
+  if (record(value)) return Object.fromEntries(Object.keys(value).sort().map(key => [key, canonical(value[key])]));
+  return value;
+}
+function fingerprint(entry: LabContribution): string {
+  const { placeId, kind } = entry;
+  const payload = kind === 'rating' ? { proposedStatus: entry.proposedStatus } :
+    kind === 'fact' ? { fact: entry.fact } : kind === 'problem' ? { problem: entry.problem, comment: entry.comment } : { place: entry.place };
+  return JSON.stringify(canonical({ placeId, kind, ...payload }));
 }
 export function createLabStore(storage: () => StoragePort = () => window.localStorage) {
   function load(): { items: LabContribution[]; error: string | null } {
@@ -41,7 +64,6 @@ export function createLabStore(storage: () => StoragePort = () => window.localSt
     if (loaded.error) return { ok: false, error: loaded.error };
     const item: LabContribution = { ...draft, id: crypto.randomUUID(), createdAt: new Date().toISOString(), state: 'local-only' };
     if (!isItem(item)) return { ok: false, error: 'Проверьте введённые данные.' };
-    const fingerprint = (entry: LabContribution) => JSON.stringify(Object.fromEntries(Object.entries(entry).filter(([key]) => !['id', 'createdAt', 'state'].includes(key))));
     if (loaded.items.some(entry => fingerprint(entry) === fingerprint(item))) return { ok: true, duplicate: true, items: loaded.items };
     const items = [...loaded.items, item];
     try {

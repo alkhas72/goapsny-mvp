@@ -20,7 +20,7 @@ export function LabViewport({ places, onBounds, onPhase, onSelect }: {
     try {
       map = new maplibre.Map({ container: container.current, center: [41.0237, 43.0033], zoom: 14,
         style: { version: 8, sources: {}, layers: [{ id: 'background', type: 'background', paint: { 'background-color': '#eee8e0' } }] },
-        attributionControl: false });
+        attributionControl: false, locale: { 'NavigationControl.ZoomIn': 'Увеличить масштаб', 'NavigationControl.ZoomOut': 'Уменьшить масштаб' } });
     } catch { onPhase('error'); return; }
     mapRef.current = map;
     const bounds = () => {
