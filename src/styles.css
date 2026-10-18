@@ -1509,6 +1509,59 @@ body {
   margin: 6px 0;
 }
 
+.access-passport {
+  margin: 12px 0;
+  padding-top: 12px;
+  border-top: 1px solid color-mix(in srgb, var(--text-color) 12%, transparent);
+}
+
+.access-passport-title {
+  margin: 0 0 8px;
+  font-size: 16px;
+}
+
+.access-passport-group + .access-passport-group {
+  margin-top: 10px;
+}
+
+.access-passport-group-title {
+  margin: 0 0 4px;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.access-passport-rows {
+  margin: 0;
+}
+
+.access-passport-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 4px 0;
+  font-size: 15px;
+}
+
+.access-passport-row dt {
+  color: var(--text-secondary);
+}
+
+.access-passport-row dd {
+  margin: 0;
+  text-align: right;
+}
+
+.access-passport-unknown {
+  color: var(--text-secondary);
+  font-style: italic;
+}
+
+.passport-ramp {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
 .sheet-photo-missing {
   min-height: 120px;
   display: grid;

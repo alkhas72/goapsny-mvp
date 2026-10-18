@@ -2,8 +2,9 @@ import { useCallback, useEffect, useRef } from 'react';
 import { X, ChevronDown, ChevronRight } from 'lucide-react';
 import { CATEGORIES } from '../shared/index';
 import type { PublicPlace } from '../services/places';
-import { hasPortableRamp, isPartialPlace, rampLabel } from '../services/places';
-import { RAMP_COLOR, statusColor, statusLabel } from '../utils/status';
+import { isPartialPlace } from '../services/places';
+import { statusColor, statusLabel } from '../utils/status';
+import { AccessPassport } from './AccessPassport';
 import { trapFocus } from '../utils/focusTrap';
 
 export type PlaceSheetState = 'idle' | 'loading' | 'error' | 'partial';
@@ -138,12 +139,7 @@ export function PlaceSheet({
 
           {place.details.address && <p className="sheet-address">{place.details.address}</p>}
 
-          {hasPortableRamp(place.rampType) && (
-            <p className="sheet-ramp-line">
-              <span className="sheet-ramp-dot" style={{ backgroundColor: RAMP_COLOR }} aria-hidden="true" />
-              <span>{rampLabel(place.rampType)}</span>
-            </p>
-          )}
+          <AccessPassport place={place} />
 
           {place.details.verification?.verified_at && (
             <p className="sheet-verified">
