@@ -1,15 +1,18 @@
 import * as maplibregl from 'maplibre-gl';
 import maplibreWorkerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url';
 import 'maplibre-gl/dist/maplibre-gl.css';
+import { LocateFixed } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
-import type { AccessibilityStatus } from '../../shared/index';
 import type { Place } from '../../types';
 import { getBrowserLocation } from '../../utils/location';
-import { RAMP_COLOR, statusColor, statusLabel } from '../../utils/status';
 import { telegram } from '../../utils/telegram';
-import type { PinMarkupInput } from './pinMarkup';
+import { framePadding, initialPlacesBounds } from './initialView';
+import { MapAttribution } from './MapAttribution';
+import { createPinElement } from './pinMarkup';
+import { coveredBottom, findBottomCard, selectedPinOffset } from './selectionCamera';
 import type { MapViewProps } from './types';
 import { MapViewControls } from './MapViewControls';
+import './mapChrome.css';
 import {
   BASEMAP_PALETTES,
   defaultLightPreset,
@@ -18,11 +21,11 @@ import {
   type LightPreset,
 } from './goapsnyBasemap';
 import {
-  ABKHAZIA_BOUNDS,
+  CITY_ZOOM,
   DEFAULT_MAP_ZOOM,
   DRAFT_ZOOM,
   getVectorStyle,
-  MAP_ATTRIBUTION,
+  PLACES_MAX_ZOOM,
   SELECTED_ZOOM,
   SUKHUM_CENTER,
 } from './vectorStyle';
@@ -81,73 +84,17 @@ function writeLook(look: MapLook): void {
 
 const PITCH_3D = 60;
 
+function prefersReducedMotion(): boolean {
+  try {
+    return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  } catch {
+    return false;
+  }
+}
+
 interface MarkerHandle {
   marker: maplibregl.Marker;
   release: () => void;
-}
-
-function pinStatusMeta(status: string): { color: string; label: string } {
-  if (status === 'green' || status === 'yellow' || status === 'red' || status === 'gray') {
-    return {
-      color: statusColor(status as AccessibilityStatus),
-      label: statusLabel(status as AccessibilityStatus),
-    };
-  }
-  return { color: '#A0A8B0', label: status };
-}
-
-function createMarkerRoot({
-  placeName,
-  status,
-  rampType,
-  isSelected,
-  placeId,
-}: PinMarkupInput): HTMLDivElement {
-  const { color: statusColorValue, label: statusText } = pinStatusMeta(status);
-  const hasPortableRamp = rampType === 'portable_available' || rampType === 'portable_on_request';
-  const isCoralCenter = hasPortableRamp && (status === 'green' || status === 'yellow');
-
-  const root = document.createElement('div');
-  root.className = 'goapsny-maplibre-marker';
-
-  const button = document.createElement('button');
-  button.type = 'button';
-  button.className = `map-pin-button${isSelected ? ' is-selected' : ''}`;
-  button.dataset.placeId = placeId;
-  button.setAttribute('aria-label', `${placeName}, ${statusText}`);
-
-  const wrapper = document.createElement('span');
-  wrapper.className = `map-pin-wrapper${isSelected ? ' is-selected' : ''}`;
-  wrapper.setAttribute('aria-hidden', 'true');
-
-  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-  svg.setAttribute('width', '28');
-  svg.setAttribute('height', '36');
-  svg.setAttribute('viewBox', '0 0 28 36');
-  svg.setAttribute('fill', 'none');
-
-  const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-  path.setAttribute('d', 'M14 36C14 36 27 24 27 14C27 6.8 21.2 1 14 1C6.8 1 1 6.8 1 14C1 24 14 36 14 36Z');
-  path.setAttribute('fill', statusColorValue);
-  path.setAttribute('stroke', '#FFFFFF');
-  path.setAttribute('stroke-width', '1.8');
-  path.setAttribute('stroke-linejoin', 'round');
-
-  const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
-  circle.setAttribute('cx', '14');
-  circle.setAttribute('cy', '14');
-  circle.setAttribute('r', '5.5');
-  circle.setAttribute('fill', isCoralCenter ? RAMP_COLOR : '#FFFFFF');
-  if (isCoralCenter) {
-    circle.setAttribute('stroke', '#FFFFFF');
-    circle.setAttribute('stroke-width', '2.5');
-  }
-
-  svg.append(path, circle);
-  wrapper.append(svg);
-  button.append(wrapper);
-  root.append(button);
-  return root;
 }
 
 function wireMarkerButton(
@@ -186,8 +133,11 @@ function wireMarkerButton(
  * MapLibre adapter. Drop-in behind the same props/events as `LeafletMap`.
  *
  * Boundary guarantees:
- *  - initial public load fits Abkhazia bounds and NEVER requests geolocation
- *    (no automatic permission prompt);
+ *  - initial public load frames the places (the densest town), or Sukhum at
+ *    town scale when there are none, and NEVER requests geolocation (no
+ *    automatic permission prompt);
+ *  - the first non-empty places reframe the map only while the person has
+ *    not moved it and nothing is selected;
  *  - location tracking is opt-in via an explicit user control, and a precise
  *    fix overrides the default bounds via `flyTo`;
  *  - theme toggles restyle the map in place (`setStyle`) without recreating it.
@@ -216,6 +166,14 @@ export function MapLibreMap({
   useEffect(() => {
     onBoundsChangeRef.current = onBoundsChange;
   }, [onBoundsChange]);
+  // Initial framing: done once, and never after the person moved the map.
+  const placesRef = useRef(places);
+  const loadedRef = useRef(false);
+  const framedRef = useRef(false);
+  const userMovedRef = useRef(false);
+  useEffect(() => {
+    placesRef.current = places;
+  }, [places]);
 
   const [locating, setLocating] = useState(false);
   const [userLocationActive, setUserLocationActive] = useState(false);
@@ -233,7 +191,25 @@ export function MapLibreMap({
     });
   };
 
-  // 1. Initialize map + Abkhazia default bounds. No geolocation here.
+  // Frame the places once. Without places, show Sukhum at town scale and
+  // leave framing open for when places arrive.
+  const frameInitialView = (map: maplibregl.Map, animate: boolean) => {
+    const bounds = initialPlacesBounds(placesRef.current);
+    if (!bounds) {
+      map.jumpTo({ center: [SUKHUM_CENTER.lng, SUKHUM_CENTER.lat], zoom: CITY_ZOOM });
+      return;
+    }
+    const container = map.getContainer();
+    map.fitBounds(bounds, {
+      padding: framePadding(container.clientWidth, container.clientHeight),
+      maxZoom: PLACES_MAX_ZOOM,
+      animate: animate && !prefersReducedMotion(),
+      duration: 450,
+    });
+    framedRef.current = true;
+  };
+
+  // 1. Initialize map + initial view. No geolocation here.
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return;
 
@@ -247,11 +223,15 @@ export function MapLibreMap({
       attributionControl: false,
     });
 
+    // Zoom buttons for mouse users; hidden on phones by CSS (pinch instead).
+    // Credits are rendered by <MapAttribution /> below.
     map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'bottom-right');
-    map.addControl(
-      new maplibregl.AttributionControl({ compact: true, customAttribution: MAP_ATTRIBUTION }),
-      'bottom-left',
-    );
+
+    // A gesture by the person (drag, pinch, wheel, keyboard) ends automatic
+    // framing; camera moves made by code carry no originalEvent.
+    map.on('movestart', (event: { originalEvent?: unknown }) => {
+      if (event.originalEvent) userMovedRef.current = true;
+    });
 
     if (onClearSelection) {
       map.on('click', onClearSelection);
@@ -271,15 +251,16 @@ export function MapLibreMap({
     };
     map.on('moveend', reportBounds);
 
-    // Fit the default Abkhazia frame once the style is ready. Precise live
-    // geolocation is never requested here — see the locate control below.
+    // Frame the places once the style is ready. Precise live geolocation is
+    // never requested here — see the locate control below.
     map.once('load', () => {
+      loadedRef.current = true;
       // A draft pin opens close to the entrance, not on the whole country.
       if (dragMode) {
         map.jumpTo({ center: [dragMode.lng, dragMode.lat], zoom: DRAFT_ZOOM });
         return;
       }
-      map.fitBounds(ABKHAZIA_BOUNDS as maplibregl.LngLatBoundsLike, { animate: false });
+      if (!userMovedRef.current) frameInitialView(map, false);
       reportBounds();
     });
 
@@ -344,7 +325,7 @@ export function MapLibreMap({
 
     places.forEach((place) => {
       const isSelected = place.id === selectedPlaceId;
-      const root = createMarkerRoot({
+      const root = createPinElement({
         placeName: place.name,
         status: place.status,
         rampType: place.rampType || 'none',
@@ -359,19 +340,56 @@ export function MapLibreMap({
     });
   }, [places, selectedPlaceId, onSelectPlace, dragMode, onMarkerButton]);
 
-  // 4. Re-center on selection (skipped while placing a draft pin).
+  // 3b. Places that arrive after the map loaded (or the first non-empty
+  // set) frame the map once — unless the person already moved it.
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || dragMode || !loadedRef.current) return;
+    if (framedRef.current || userMovedRef.current || selectedPlaceId) return;
+    if (places.length === 0) return;
+    frameInitialView(map, true);
+  }, [places, dragMode, selectedPlaceId]);
+
+  // 4. Re-center on selection (skipped while placing a draft pin). The pin
+  // stays clear of the place card; while the card settles (content loads,
+  // height changes) the camera follows it for a short while.
   useEffect(() => {
     const map = mapRef.current;
     if (!map || dragMode) return;
 
     const selectedPlace = places.find((place) => place.id === selectedPlaceId);
-    if (selectedPlace) {
-      map.flyTo({
-        center: [selectedPlace.lng, selectedPlace.lat],
-        zoom: SELECTED_ZOOM,
-        essential: true,
-      });
-    }
+    if (!selectedPlace) return;
+    framedRef.current = true;
+
+    const container = map.getContainer();
+    const center: [number, number] = [selectedPlace.lng, selectedPlace.lat];
+    // Never zoom out a map the person already zoomed in.
+    const zoom = Math.max(map.getZoom(), SELECTED_ZOOM);
+    const offsetNow = () =>
+      selectedPinOffset(container.clientWidth, container.clientHeight, coveredBottom(container));
+
+    let lastOffset = offsetNow();
+    map.flyTo({ center, zoom, offset: lastOffset, essential: true });
+
+    const card = findBottomCard(container);
+    if (!card || typeof ResizeObserver === 'undefined') return;
+    const follow = () => {
+      const next = offsetNow();
+      if (Math.abs(next[1] - lastOffset[1]) < 16 && Math.abs(next[0] - lastOffset[0]) < 16) return;
+      lastOffset = next;
+      map.easeTo({ center, zoom, offset: next, duration: prefersReducedMotion() ? 0 : 250, essential: true });
+    };
+    const observer = new ResizeObserver(follow);
+    observer.observe(card);
+    card.addEventListener('transitionend', follow);
+    card.addEventListener('animationend', follow);
+    const stop = window.setTimeout(() => observer.disconnect(), 2500);
+    return () => {
+      window.clearTimeout(stop);
+      observer.disconnect();
+      card.removeEventListener('transitionend', follow);
+      card.removeEventListener('animationend', follow);
+    };
   }, [selectedPlaceId, places, dragMode]);
 
   // 5. Draft pin during place creation.
@@ -392,7 +410,7 @@ export function MapLibreMap({
       if (draggableMarkerRef.current) {
         draggableMarkerRef.current.setLngLat([dragMode.lng, dragMode.lat]);
       } else {
-        const root = createMarkerRoot({
+        const root = createPinElement({
           placeName: 'Новое место',
           status: 'yellow',
           rampType: 'none',
@@ -441,7 +459,8 @@ export function MapLibreMap({
         ? await getBrowserLocation()
         : await telegram.getUserLocation();
 
-      // A precise live fix overrides the default Abkhazia bounds.
+      // A precise live fix overrides the initial view.
+      framedRef.current = true;
       map.flyTo({ center: [pos.lng, pos.lat], zoom: SELECTED_ZOOM, essential: true });
 
       userMarkerRef.current?.remove();
@@ -460,7 +479,8 @@ export function MapLibreMap({
 
   return (
     <div className="map-wrapper map-wrapper--maplibre" ref={containerRef}>
-      {!dragMode && (
+      {/* The place card covers this corner; the map look waits until it closes. */}
+      {!dragMode && !selectedPlaceId && (
         <MapViewControls
           palette={look.palette}
           preset={look.preset ?? defaultLightPreset(theme)}
@@ -481,12 +501,10 @@ export function MapLibreMap({
           aria-label={userLocationActive ? 'Скрыть моё местоположение' : 'Показать моё местоположение'}
           aria-pressed={userLocationActive}
         >
-          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2.5">
-            <circle cx="12" cy="12" r="10" />
-            <path d="M12 2v4M12 18v4M2 12h4M18 12h4" />
-          </svg>
+          <LocateFixed size={22} strokeWidth={2.25} aria-hidden="true" />
         </button>
       )}
+      <MapAttribution />
     </div>
   );
 }

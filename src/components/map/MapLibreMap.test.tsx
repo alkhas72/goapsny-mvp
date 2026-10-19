@@ -44,7 +44,9 @@ const {
     setStyle: vi.fn(),
     flyTo: vi.fn(),
     jumpTo: vi.fn(),
+    easeTo: vi.fn(),
     fitBounds: vi.fn(),
+    getZoom: vi.fn(() => 15),
     addControl: vi.fn(),
     resize: vi.fn(),
     getCenter: vi.fn(() => ({ lat: 43.0033, lng: 41.0237 })),
@@ -126,7 +128,7 @@ const { getBrowserLocation } = vi.hoisted(() => ({
 vi.mock('../../utils/location', () => ({ getBrowserLocation }));
 
 import { MapLibreMap } from './MapLibreMap';
-import { ABKHAZIA_BOUNDS, DEFAULT_MAP_ZOOM } from './vectorStyle';
+import { CITY_ZOOM, DEFAULT_MAP_ZOOM, PLACES_MAX_ZOOM, SUKHUM_CENTER } from './vectorStyle';
 
 // --- fixtures ---------------------------------------------------------------
 
@@ -243,33 +245,142 @@ describe('MapLibreMap', () => {
     );
   });
 
-  // 2. Abkhazia default bounds without overriding precise live location ------
-  it('fits to Abkhazia bounds on initial mount and does not prompt geolocation', () => {
-    render(<MapLibreMap places={[]} selectedPlaceId={null} theme="light" />);
+  // 2. Initial view: the places, not the country; no geolocation prompt -----
+  const secondPlace: Place = { ...basePlace, id: 'place-2', name: 'Аптека', lat: 43.0049, lng: 41.0172 };
+
+  function fireUserMove() {
+    const call = mockMapInstance.on.mock.calls.find(([event]) => event === 'movestart');
+    expect(call).toBeTruthy();
+    (call![1] as (e: { originalEvent?: unknown }) => void)({ originalEvent: new Event('pointermove') });
+  }
+
+  it('frames the places on initial mount and does not prompt geolocation', () => {
+    render(<MapLibreMap places={[basePlace, secondPlace]} selectedPlaceId={null} theme="light" />);
 
     expect(mockMapInstance.fitBounds).toHaveBeenCalledTimes(1);
     expect(mockMapInstance.fitBounds).toHaveBeenCalledWith(
-      ABKHAZIA_BOUNDS,
-      expect.anything(),
+      [
+        [secondPlace.lng, basePlace.lat],
+        [basePlace.lng, secondPlace.lat],
+      ],
+      expect.objectContaining({ maxZoom: PLACES_MAX_ZOOM, padding: expect.any(Object) }),
     );
-
-    expect(mockAttributionCtor).toHaveBeenCalledWith(
-      expect.objectContaining({
-        compact: true,
-        customAttribution: expect.stringContaining('https://www.openstreetmap.org/copyright'),
-      }),
-    );
-    expect(mockAttributionCtor).toHaveBeenCalledWith(
-      expect.objectContaining({
-        customAttribution: expect.stringContaining('MapLibre'),
-      }),
-    );
-
     expect(mockMapCtor).toHaveBeenCalledWith(
       expect.objectContaining({ zoom: DEFAULT_MAP_ZOOM }),
     );
-
     expect(getBrowserLocation).not.toHaveBeenCalled();
+  });
+
+  it('opens on Sukhum at town scale when there are no places', () => {
+    render(<MapLibreMap places={[]} selectedPlaceId={null} theme="light" />);
+
+    expect(mockMapInstance.fitBounds).not.toHaveBeenCalled();
+    expect(mockMapInstance.jumpTo).toHaveBeenCalledWith({
+      center: [SUKHUM_CENTER.lng, SUKHUM_CENTER.lat],
+      zoom: CITY_ZOOM,
+    });
+    expect(getBrowserLocation).not.toHaveBeenCalled();
+  });
+
+  it('frames places that arrive after load once, and never again', () => {
+    const { rerender } = render(<MapLibreMap places={[]} selectedPlaceId={null} theme="light" />);
+    expect(mockMapInstance.fitBounds).not.toHaveBeenCalled();
+
+    rerender(<MapLibreMap places={[basePlace]} selectedPlaceId={null} theme="light" />);
+    expect(mockMapInstance.fitBounds).toHaveBeenCalledTimes(1);
+
+    // A filter change later must not yank the map back.
+    rerender(<MapLibreMap places={[basePlace, secondPlace]} selectedPlaceId={null} theme="light" />);
+    expect(mockMapInstance.fitBounds).toHaveBeenCalledTimes(1);
+  });
+
+  it('leaves the map where the person moved it', () => {
+    const { rerender } = render(<MapLibreMap places={[]} selectedPlaceId={null} theme="light" />);
+    fireUserMove();
+
+    rerender(<MapLibreMap places={[basePlace]} selectedPlaceId={null} theme="light" />);
+    expect(mockMapInstance.fitBounds).not.toHaveBeenCalled();
+  });
+
+  it('opens a draft pin close up instead of framing places', () => {
+    render(
+      <MapLibreMap
+        places={[basePlace]}
+        selectedPlaceId={null}
+        theme="light"
+        dragMode={{ lat: 43.005, lng: 41.03, onChange: vi.fn() }}
+      />,
+    );
+    expect(mockMapInstance.fitBounds).not.toHaveBeenCalled();
+    expect(mockMapInstance.jumpTo).toHaveBeenCalledWith(
+      expect.objectContaining({ center: [41.03, 43.005] }),
+    );
+  });
+
+  // Credits: collapsed "i", opens on tap, links stay clickable.
+  it('keeps map credits behind a collapsed button', async () => {
+    const user = userEvent.setup();
+    render(<MapLibreMap places={[]} selectedPlaceId={null} theme="light" />);
+
+    expect(mockAttributionCtor).not.toHaveBeenCalled();
+    const trigger = screen.getByRole('button', { name: 'Авторы карты' });
+    expect(trigger.getAttribute('aria-expanded')).toBe('false');
+    expect(screen.queryByRole('link', { name: /OpenStreetMap/ })).toBeNull();
+
+    await user.click(trigger);
+    expect(trigger.getAttribute('aria-expanded')).toBe('true');
+    expect(
+      screen.getByRole('link', { name: /OpenStreetMap/ }).getAttribute('href'),
+    ).toBe('https://www.openstreetmap.org/copyright');
+    expect(screen.getByRole('link', { name: 'MapLibre' })).toBeTruthy();
+
+    await user.keyboard('{Escape}');
+    expect(trigger.getAttribute('aria-expanded')).toBe('false');
+    expect(document.activeElement).toBe(trigger);
+  });
+
+  // Map look: one button, a labelled panel, Escape/outside close.
+  it('opens the map look panel from one button and closes it on Escape', async () => {
+    const user = userEvent.setup();
+    render(<MapLibreMap places={[]} selectedPlaceId={null} theme="light" />);
+
+    const trigger = screen.getByRole('button', { name: 'Вид карты' });
+    expect(trigger.getAttribute('aria-expanded')).toBe('false');
+    expect(screen.queryByRole('dialog', { name: 'Вид карты' })).toBeNull();
+
+    await user.click(trigger);
+    expect(trigger.getAttribute('aria-expanded')).toBe('true');
+    const panel = screen.getByRole('dialog', { name: 'Вид карты' });
+    expect(panel).toBeTruthy();
+    expect(screen.getByRole('group', { name: 'Цвет карты' })).toBeTruthy();
+    expect(screen.getByRole('group', { name: 'Освещение' })).toBeTruthy();
+    expect(screen.getByRole('switch', { name: '3D' }).getAttribute('aria-checked')).toBe('false');
+
+    await user.keyboard('{Escape}');
+    expect(screen.queryByRole('dialog', { name: 'Вид карты' })).toBeNull();
+    expect(document.activeElement).toBe(trigger);
+  });
+
+  it('changes the map look from the panel and closes on a tap outside', async () => {
+    const user = userEvent.setup();
+    render(<MapLibreMap places={[]} selectedPlaceId={null} theme="light" />);
+    await user.click(screen.getByRole('button', { name: 'Вид карты' }));
+
+    mockMapInstance.setStyle.mockClear();
+    const blue = screen.getByRole('button', { name: 'Синяя' });
+    await user.click(blue);
+    expect(blue.getAttribute('aria-pressed')).toBe('true');
+    expect(mockMapInstance.setStyle).toHaveBeenCalledTimes(1);
+
+    const threeD = screen.getByRole('switch', { name: '3D' });
+    await user.click(threeD);
+    expect(threeD.getAttribute('aria-checked')).toBe('true');
+
+    await user.click(document.body);
+    expect(screen.queryByRole('dialog', { name: 'Вид карты' })).toBeNull();
+    await waitFor(() => {
+      expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Вид карты' }));
+    });
   });
 
   // 3 + 4. explicit user control + no auto prompt ----------------------------

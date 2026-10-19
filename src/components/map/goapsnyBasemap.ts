@@ -429,6 +429,15 @@ function paletteTokens(palette: BasemapPalette, preset: LightPreset): MonoTokens
   };
 }
 
+/** Colours for the palette picker's preview under the current light. */
+export function palettePreviewColors(
+  palette: BasemapPalette,
+  preset: LightPreset,
+): { land: string; water: string; road: string; roadMajor: string } {
+  const t = paletteTokens(palette, preset);
+  return { land: t.land, water: t.water, road: t.road, roadMajor: t.roadMajor };
+}
+
 export function defaultLightPreset(theme: BasemapTheme): LightPreset {
   return theme === 'dark' ? 'night' : 'day';
 }
