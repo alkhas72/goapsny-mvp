@@ -302,6 +302,18 @@ describe('MapLibreMap', () => {
     expect(mockMapInstance.fitBounds).not.toHaveBeenCalled();
   });
 
+  it('stays on a place chosen before load instead of framing all places', () => {
+    render(<MapLibreMap places={[basePlace, secondPlace]} selectedPlaceId="place-2" theme="light" />);
+
+    expect(mockMapInstance.fitBounds).not.toHaveBeenCalled();
+    expect(mockMapInstance.easeTo).toHaveBeenCalledWith(
+      expect.objectContaining({ center: [secondPlace.lng, secondPlace.lat], zoom: 16 }),
+    );
+    expect(mockMapInstance.flyTo).toHaveBeenCalledWith(
+      expect.objectContaining({ center: [secondPlace.lng, secondPlace.lat] }),
+    );
+  });
+
   it('opens a draft pin close up instead of framing places', () => {
     render(
       <MapLibreMap

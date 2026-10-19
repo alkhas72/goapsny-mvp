@@ -171,9 +171,11 @@ export function MapLibreMap({
   const loadedRef = useRef(false);
   const framedRef = useRef(false);
   const userMovedRef = useRef(false);
+  const selectedIdRef = useRef(selectedPlaceId);
   useEffect(() => {
     placesRef.current = places;
-  }, [places]);
+    selectedIdRef.current = selectedPlaceId;
+  }, [places, selectedPlaceId]);
 
   const [locating, setLocating] = useState(false);
   const [userLocationActive, setUserLocationActive] = useState(false);
@@ -260,7 +262,21 @@ export function MapLibreMap({
         map.jumpTo({ center: [dragMode.lng, dragMode.lat], zoom: DRAFT_ZOOM });
         return;
       }
-      if (!userMovedRef.current) frameInitialView(map, false);
+      // Opened with a place already chosen (a shared ?place= link): the
+      // camera stays on that place; framing the whole set would undo it.
+      const selected = placesRef.current.find((place) => place.id === selectedIdRef.current);
+      if (selected) {
+        framedRef.current = true;
+        const c = map.getContainer();
+        map.easeTo({
+          center: [selected.lng, selected.lat],
+          zoom: Math.max(map.getZoom(), SELECTED_ZOOM),
+          offset: selectedPinOffset(c.clientWidth, c.clientHeight, coveredBottom(c)),
+          duration: 0,
+        });
+      } else if (!userMovedRef.current) {
+        frameInitialView(map, false);
+      }
       reportBounds();
     });
 

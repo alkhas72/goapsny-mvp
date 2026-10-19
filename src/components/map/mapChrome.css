@@ -1,6 +1,13 @@
 /* Map chrome: map-look button and panel, locate button, zoom, credits, pins,
    bottom rail. Theme tokens come from styles.css (:root / :root.light). */
 
+/* The map gets its own render surface. Without it Chromium's occlusion
+   culling can drop part of the WebGL canvas behind an opaque scrolling
+   overlay (the place card), leaving a bare rectangle above the card. */
+.map-wrapper--maplibre .maplibregl-canvas-container {
+  opacity: 0.999;
+}
+
 .map-wrapper--maplibre {
   --chrome-bg: var(--bg-color);
   --chrome-fg: var(--text-color);
