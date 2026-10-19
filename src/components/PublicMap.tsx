@@ -1,12 +1,28 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react';
+import { List, MapPinPlus, SearchX } from 'lucide-react';
 import { MapLibreMap } from './map/MapLibreMap';
-import { MapHeader } from './MapHeader';
+import type { MapBounds } from './map/types';
+import { AccessibleIconLogo, MapHeader } from './MapHeader';
 import { MapFooter } from './MapFooter';
 import { MapFilters } from './MapFilters';
 import { MenuOverlay } from './MenuOverlay';
 import { PlaceSheet, type PlaceSheetState } from './PlaceSheet';
 import { EmailOtpSheet } from './EmailOtpSheet';
 import { PublicAddSheet } from './PublicAddSheet';
+import { PlaceListSheet, SearchResults } from './PlaceList';
+import {
+  EMPTY_FILTERS,
+  boundsCenter,
+  cameraNeedsPlace,
+  countByStatus,
+  emptyStateKind,
+  placesInView,
+  readPlaceParam,
+  sortByDistance,
+  syncPlaceParam,
+  withoutStatus,
+} from './PlaceListModel';
+import './discovery.css';
 import { MapperDay } from './mapper/MapperDay';
 import { MapperFlow } from './mapper/MapperFlow';
 import { readDay, type DayEntry } from './mapper/dayLog';
@@ -28,6 +44,12 @@ import {
 } from '../services/publicAuth';
 import { isSupabaseConfigured } from '../services/supabase';
 import type { Place } from '../types';
+
+const SEARCH_RESULTS_ID = 'dv-search-results';
+/** How long a shared `?place=` link may still pull the camera to its place. */
+const PLACE_LINK_CAMERA_MS = 10000;
+const PLACE_LINK_CAMERA_TRIES = 2;
+const PLACE_LINK_CAMERA_SETTLE_MS = 300;
 
 function toMapPlace(place: PublicPlace): Place {
   return {
@@ -75,6 +97,9 @@ export function PublicMap() {
     status: 'all',
     query: '',
   });
+  const [bounds, setBounds] = useState<MapBounds | null>(null);
+  const [listOpen, setListOpen] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
   const [cabinetNote, setCabinetNote] = useState<string | null>(null);
   const [authOpen, setAuthOpen] = useState(false);
   const [addOpen, setAddOpen] = useState(false);
@@ -92,6 +117,12 @@ export function PublicMap() {
 
   const menuButtonRef = useRef<HTMLButtonElement | null>(null);
   const filterButtonRef = useRef<HTMLButtonElement | null>(null);
+  const listButtonRef = useRef<HTMLButtonElement | null>(null);
+  const searchInputRef = useRef<HTMLInputElement | null>(null);
+  const firstResultRef = useRef<HTMLButtonElement | null>(null);
+  const placeLinkHandledRef = useRef(false);
+  const placeLinkCameraRef = useRef<{ placeId: string; until: number; tries: number } | null>(null);
+  const [cameraNonce, setCameraNonce] = useState(0);
   const markerButtonsRef = useRef<Record<string, HTMLButtonElement>>({});
   const pendingMarkerFocusRef = useRef<string | null>(null);
 
@@ -156,10 +187,40 @@ export function PublicMap() {
     };
   }, [loadAttempt]);
 
-  const visiblePlaces = useMemo(
-    () => applyPlaceFilters(places, filters).map(toMapPlace),
-    [places, filters],
+  const filteredPlaces = useMemo(() => applyPlaceFilters(places, filters), [places, filters]);
+  // A new array makes the map fly to the selected place again (see handleBoundsChange).
+  const visiblePlaces = useMemo(() => {
+    void cameraNonce;
+    return filteredPlaces.map(toMapPlace);
+  }, [filteredPlaces, cameraNonce]);
+  const mapCenter = useMemo(() => (bounds ? boundsCenter(bounds) : null), [bounds]);
+  const placesInArea = useMemo(() => placesInView(filteredPlaces, bounds), [filteredPlaces, bounds]);
+  const statusCounts = useMemo(
+    () => countByStatus(placesInView(applyPlaceFilters(places, withoutStatus(filters)), bounds)),
+    [places, filters, bounds],
   );
+  const categoryCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    for (const place of placesInView(applyPlaceFilters(places, { ...filters, categories: [] }), bounds)) {
+      counts[place.category] = (counts[place.category] ?? 0) + 1;
+    }
+    return counts;
+  }, [places, filters, bounds]);
+  const listPlaces = useMemo(
+    () => (listOpen ? sortByDistance(placesInArea, mapCenter) : []),
+    [listOpen, placesInArea, mapCenter],
+  );
+  const searchActive = searchOpen && filters.query.trim() !== '';
+  const searchResults = useMemo(
+    () => (searchActive ? sortByDistance(filteredPlaces, mapCenter) : []),
+    [searchActive, filteredPlaces, mapCenter],
+  );
+  const emptyKind = emptyStateKind({
+    loadState,
+    boundsKnown: bounds !== null,
+    inViewCount: placesInArea.length,
+    filters,
+  });
 
   useEffect(() => {
     const placeId = pendingMarkerFocusRef.current;
@@ -175,6 +236,7 @@ export function PublicMap() {
   }, [selectedPlaceId, visiblePlaces]);
 
   const closeSheet = useCallback(() => {
+    syncPlaceParam(null);
     setSelectedPlaceId(null);
     setSheetPlace(null);
     setSheetState('idle');
@@ -182,6 +244,7 @@ export function PublicMap() {
   }, []);
 
   const openPlaceSheet = useCallback(async (placeId: string) => {
+    syncPlaceParam(placeId);
     setSelectedPlaceId(placeId);
     setSheetState('loading');
     setSheetError(undefined);
@@ -207,6 +270,94 @@ export function PublicMap() {
     }
   }, [places]);
 
+  const placesRef = useRef(places);
+  const selectedPlaceIdRef = useRef(selectedPlaceId);
+  useEffect(() => {
+    placesRef.current = places;
+    selectedPlaceIdRef.current = selectedPlaceId;
+  }, [places, selectedPlaceId]);
+
+  // A shared link `?place=<id>` opens that card as soon as the list is loaded.
+  useEffect(() => {
+    if (loadState !== 'ready' || placeLinkHandledRef.current) return;
+    const timer = window.setTimeout(() => {
+      placeLinkHandledRef.current = true;
+      const placeId = readPlaceParam(window.location.search);
+      if (!placeId) return;
+      placeLinkCameraRef.current = { placeId, until: Date.now() + PLACE_LINK_CAMERA_MS, tries: 0 };
+      // The map may report its area before React commits the selection.
+      selectedPlaceIdRef.current = placeId;
+      void openPlaceSheet(placeId);
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, [loadState, openPlaceSheet]);
+
+  // The map frames the whole country when it finishes loading, which can
+  // override the flight to a linked place. Once the camera has been still for
+  // a moment away from the place, ask for the flight again.
+  const cameraTimerRef = useRef<number | null>(null);
+  useEffect(() => () => {
+    if (cameraTimerRef.current !== null) window.clearTimeout(cameraTimerRef.current);
+  }, []);
+  const handleBoundsChange = useCallback((next: MapBounds) => {
+    setBounds(next);
+    if (cameraTimerRef.current !== null) {
+      window.clearTimeout(cameraTimerRef.current);
+      cameraTimerRef.current = null;
+    }
+    const pending = placeLinkCameraRef.current;
+    if (!pending) return;
+    const place = placesRef.current.find((item) => item.id === pending.placeId);
+    if (
+      !place ||
+      selectedPlaceIdRef.current !== pending.placeId ||
+      Date.now() > pending.until ||
+      pending.tries >= PLACE_LINK_CAMERA_TRIES
+    ) {
+      placeLinkCameraRef.current = null;
+      return;
+    }
+    if (!cameraNeedsPlace(place, next)) return;
+    cameraTimerRef.current = window.setTimeout(() => {
+      cameraTimerRef.current = null;
+      if (placeLinkCameraRef.current !== pending || selectedPlaceIdRef.current !== pending.placeId) return;
+      pending.tries += 1;
+      setCameraNonce((value) => value + 1);
+    }, PLACE_LINK_CAMERA_SETTLE_MS);
+  }, []);
+
+  const selectFromList = useCallback(
+    (placeId: string) => {
+      setListOpen(false);
+      setSearchOpen(false);
+      void openPlaceSheet(placeId);
+    },
+    [openPlaceSheet],
+  );
+
+  const closeList = useCallback(() => setListOpen(false), []);
+
+  const closeSearch = useCallback(() => {
+    setSearchOpen(false);
+    searchInputRef.current?.focus();
+  }, []);
+
+  const handleSearchKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
+    if (event.key === 'ArrowDown' || event.key === 'Enter') {
+      if (firstResultRef.current) {
+        event.preventDefault();
+        firstResultRef.current.focus();
+      } else if (event.key === 'Enter') {
+        event.preventDefault();
+      }
+      return;
+    }
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      if (searchActive) setSearchOpen(false);
+      else setFilters((current) => ({ ...current, query: '' }));
+    }
+  };
 
   const handleMarkerButton = useCallback((placeId: string, button: HTMLButtonElement | null) => {
     if (button) {
@@ -275,6 +426,7 @@ export function PublicMap() {
         );
       }
 
+      syncPlaceParam(result.placeId);
       setSelectedPlaceId(result.placeId);
       setSheetPlace(immediatePlace);
       setSheetState('loading');
@@ -297,22 +449,39 @@ export function PublicMap() {
 
   if (loadState === 'loading') {
     return (
-      <div className="public-loading" role="status">
-        Загрузка карты…
+      <div className="dv-splash" role="status">
+        <span className="dv-splash-mark">
+          <AccessibleIconLogo />
+        </span>
+        <span className="dv-splash-name">GoApsny</span>
+        <span className="dv-splash-bar" aria-hidden="true" />
+        <span className="dv-splash-text">Загрузка карты…</span>
       </div>
     );
   }
 
   if (loadState === 'error') {
     return (
-      <div className="public-error" role="alert">
-        <p>{loadError}</p>
-        <button type="button" className="primary-btn" onClick={() => setLoadAttempt((attempt) => attempt + 1)}>
+      <div className="dv-splash dv-splash--error" role="alert">
+        <span className="dv-splash-mark">
+          <AccessibleIconLogo />
+        </span>
+        <p className="dv-splash-title">Не удалось загрузить карту</p>
+        <p className="dv-splash-detail">{loadError}</p>
+        <button
+          type="button"
+          className="dv-btn dv-btn--primary dv-splash-retry"
+          onClick={() => setLoadAttempt((attempt) => attempt + 1)}
+        >
           Повторить
         </button>
       </div>
     );
   }
+
+  const otherLayerOpen = Boolean(selectedPlaceId) || addOpen || authOpen || mapperOpen || dayOpen || filtersOpen || menuOpen;
+  const showListButton = !otherLayerOpen && !searchActive && placesInArea.length > 0;
+  const showEmptyNotice = emptyKind !== 'none' && !otherLayerOpen && !listOpen && !searchActive;
 
   return (
     <div className="public-map-shell">
@@ -320,16 +489,38 @@ export function PublicMap() {
         onOpenMenu={() => {
           setMenuOpen((open) => !open);
           setFiltersOpen(false);
+          setSearchOpen(false);
         }}
+        menuOpen={menuOpen}
+        menuButtonRef={menuButtonRef}
+        query={filters.query}
+        onQueryChange={(query) => {
+          setFilters((current) => ({ ...current, query }));
+          setSearchOpen(true);
+          setListOpen(false);
+        }}
+        onSearchFocus={() => {
+          setSearchOpen(true);
+          setMenuOpen(false);
+        }}
+        onSearchKeyDown={handleSearchKeyDown}
+        searchInputRef={searchInputRef}
+        searchResultsId={SEARCH_RESULTS_ID}
+        searchResultsOpen={searchActive}
         onOpenFilters={() => {
           setFiltersOpen(true);
           setMenuOpen(false);
+          setSearchOpen(false);
         }}
-        filterQuery={filters.query}
-        onFilterQueryChange={(query) => setFilters((current) => ({ ...current, query }))}
-        menuOpen={menuOpen}
-        menuButtonRef={menuButtonRef}
         filterButtonRef={filterButtonRef}
+        categoryCount={filters.categories.length}
+        onResetCategories={() => {
+          setFilters((current) => ({ ...current, categories: [] }));
+          filterButtonRef.current?.focus();
+        }}
+        status={filters.status}
+        statusCounts={statusCounts}
+        onStatusChange={(status) => setFilters((current) => ({ ...current, status }))}
       />
 
       <main className="public-map-main">
@@ -344,6 +535,70 @@ export function PublicMap() {
           onCenterApi={(fn) => {
             getCenterRef.current = fn;
           }}
+          onBoundsChange={handleBoundsChange}
+        />
+        {searchActive && (
+          <>
+            <div className="dv-search-scrim" aria-hidden="true" onClick={() => setSearchOpen(false)} />
+            <SearchResults
+              id={SEARCH_RESULTS_ID}
+              query={filters.query}
+              places={searchResults}
+              onSelect={selectFromList}
+              firstRowRef={firstResultRef}
+              onBackToInput={() => searchInputRef.current?.focus()}
+              onClose={closeSearch}
+              onResetFilters={
+                filters.categories.length > 0 || filters.status !== 'all'
+                  ? () => setFilters((current) => ({ ...current, categories: [], status: 'all' }))
+                  : undefined
+              }
+            />
+          </>
+        )}
+        {showEmptyNotice && (
+          <div className={`dv-empty dv-empty--${emptyKind}`} role="status">
+            {emptyKind === 'filtered' ? (
+              <>
+                <SearchX size={20} aria-hidden />
+                <span className="dv-empty-text">Нет мест по фильтру</span>
+                <button type="button" className="dv-btn dv-btn--small" onClick={() => setFilters(EMPTY_FILTERS)}>
+                  Сбросить
+                </button>
+              </>
+            ) : (
+              <>
+                <MapPinPlus size={20} aria-hidden />
+                <span className="dv-empty-text">Здесь пока нет отметок — будьте первым</span>
+                <button type="button" className="dv-btn dv-btn--small dv-btn--primary" onClick={beginAddFlow}>
+                  Добавить место
+                </button>
+              </>
+            )}
+          </div>
+        )}
+        {showListButton && (
+          <button
+            ref={listButtonRef}
+            type="button"
+            className={`dv-list-pill${mapperEnabled ? ' dv-list-pill--raised' : ''}`}
+            aria-haspopup="dialog"
+            onClick={() => {
+              setListOpen(true);
+              setSearchOpen(false);
+            }}
+          >
+            <List size={18} aria-hidden />
+            <span>Списком</span>{' '}
+            <span className="dv-list-pill-count">· {placesInArea.length}</span>
+          </button>
+        )}
+        <PlaceListSheet
+          open={listOpen}
+          places={listPlaces}
+          onSelect={selectFromList}
+          onClose={closeList}
+          returnFocusRef={listButtonRef}
         />
         {mapperEnabled && !mapperOpen && !dayOpen && (
           <div className="mapper-fab-row">
@@ -386,6 +641,8 @@ export function PublicMap() {
           onClose={() => setFiltersOpen(false)}
           onApplyStatus={handleApplyStatus}
           returnFocusRef={filterButtonRef}
+          categoryCounts={categoryCounts}
+          resultCount={placesInArea.length}
         />
         <PlaceSheet
           open={Boolean(selectedPlaceId)}

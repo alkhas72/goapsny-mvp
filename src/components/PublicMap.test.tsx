@@ -1,5 +1,5 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
-import { cleanup, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { PublicMap } from './PublicMap';
 import type { PublicPlace } from '../services/places';
@@ -134,18 +134,30 @@ vi.mock('../services/places', async (importOriginal) => {
   };
 });
 
-vi.mock('./map/MapLibreMap', () => ({
+// The visible area the mock map reports; null means the map never reports one.
+const WHOLE_WORLD = { west: -180, south: -85, east: 180, north: 85 };
+let mockBounds: { west: number; south: number; east: number; north: number } | null = WHOLE_WORLD;
+
+vi.mock('./map/MapLibreMap', async () => {
+  const { useEffect } = await import('react');
+  return {
   MapLibreMap: ({
     places,
     selectedPlaceId,
     onSelectPlace,
     onMarkerButton,
+    onBoundsChange,
   }: {
     places: Array<{ id: string; name: string }>;
     selectedPlaceId: string | null;
     onSelectPlace: (id: string) => void;
     onMarkerButton?: (id: string, button: HTMLButtonElement | null) => void;
-  }) => (
+    onBoundsChange?: (bounds: { west: number; south: number; east: number; north: number }) => void;
+  }) => {
+    useEffect(() => {
+      if (mockBounds) onBoundsChange?.(mockBounds);
+    }, [onBoundsChange]);
+    return (
     <div data-testid="mock-map">
       {places.map((place) => (
         <button
@@ -159,8 +171,10 @@ vi.mock('./map/MapLibreMap', () => ({
         </button>
       ))}
     </div>
-  ),
-}));
+    );
+  },
+  };
+});
 
 import { fetchPlaceById, fetchPublishedPlaces } from '../services/places';
 
@@ -171,7 +185,7 @@ async function renderLoadedMap() {
 }
 
 function filterTriggerButton() {
-  return screen.getByRole('button', { name: 'Поиск и фильтр' });
+  return screen.getByRole('button', { name: /^Категории/ });
 }
 
 describe('PublicMap integration', () => {
@@ -184,6 +198,8 @@ describe('PublicMap integration', () => {
 
   afterEach(() => {
     cleanup();
+    mockBounds = WHOLE_WORLD;
+    window.history.replaceState(null, '', '/');
   });
 
   it('loads published places and renders markers', async () => {
@@ -437,5 +453,149 @@ describe('PublicMap integration', () => {
     for (const place of mockPlaces) {
       expect(screen.getByRole('button', { name: place.name })).toBeTruthy();
     }
+  });
+  describe('discovery', () => {
+    it('shows status chips with counts and toggles a status with one tap', async () => {
+      const user = userEvent.setup();
+      await renderLoadedMap();
+
+      const all = screen.getByRole('button', { name: /^Все\s*2$/ });
+      const green = screen.getByRole('button', { name: /^Доступно\s*1$/ });
+      expect(all.getAttribute('aria-pressed')).toBe('true');
+      expect(screen.getByRole('button', { name: /^Не оценено\s*1$/ })).toBeTruthy();
+
+      await user.click(green);
+      expect(green.getAttribute('aria-pressed')).toBe('true');
+      expect(screen.queryByRole('button', { name: 'Кафе Серый' })).toBeNull();
+      expect(screen.getByRole('button', { name: 'Магазин Зелёный' })).toBeTruthy();
+
+      await user.click(green);
+      expect(screen.getByRole('button', { name: /^Все/ }).getAttribute('aria-pressed')).toBe('true');
+      expect(screen.getByRole('button', { name: 'Кафе Серый' })).toBeTruthy();
+    });
+
+    it('counts and lists only places inside the visible area', async () => {
+      // Only the green place (43.002, 41.024) is inside.
+      mockBounds = { west: 41.0236, south: 43.0018, east: 41.0300, north: 43.0100 };
+      const user = userEvent.setup();
+      await renderLoadedMap();
+
+      await user.click(await screen.findByRole('button', { name: /Списком\s*·\s*1/ }));
+      const dialog = screen.getByRole('dialog', { name: 'Места на карте' });
+      const rows = within(dialog).getAllByRole('button').filter((button) => button.className.includes('dv-row'));
+      expect(rows).toHaveLength(1);
+      expect(rows[0].textContent).toContain('Магазин Зелёный');
+      expect(rows[0].textContent).toContain('Еда и напитки');
+      expect(rows[0].textContent).toContain('Доступно');
+      expect(rows[0].textContent).toContain('Нет ступеней');
+    });
+
+    it('sorts the list by distance from the map centre and opens the card from a row', async () => {
+      // Centre is right on the green place.
+      mockBounds = { west: 41.014, south: 42.992, east: 41.034, north: 43.012 };
+      const user = userEvent.setup();
+      await renderLoadedMap();
+
+      const pill = await screen.findByRole('button', { name: /Списком\s*·\s*2/ });
+      await user.click(pill);
+      const dialog = screen.getByRole('dialog', { name: 'Места на карте' });
+      const rows = within(dialog).getAllByRole('button').filter((button) => button.className.includes('dv-row'));
+      expect(rows.map((row) => row.querySelector('.dv-row-name')?.textContent)).toEqual([
+        'Магазин Зелёный',
+        'Кафе Серый',
+      ]);
+
+      await user.click(rows[1]);
+      expect(screen.queryByRole('dialog', { name: 'Места на карте' })).toBeNull();
+      await screen.findByRole('dialog', { name: 'Кафе Серый' });
+      expect(new URLSearchParams(window.location.search).get('place')).toBe('place-gray');
+    });
+
+    it('closes the list with Escape and returns focus to the list button', async () => {
+      const user = userEvent.setup();
+      await renderLoadedMap();
+      const pill = screen.getByRole('button', { name: /Списком/ });
+      await user.click(pill);
+      expect(screen.getByRole('dialog', { name: 'Места на карте' })).toBeTruthy();
+      await user.keyboard('{Escape}');
+      expect(screen.queryByRole('dialog', { name: 'Места на карте' })).toBeNull();
+      expect(document.activeElement).toBe(screen.getByRole('button', { name: /Списком/ }));
+    });
+
+    it('invites to add the first place when the visible area is empty', async () => {
+      mockBounds = { west: 40, south: 42, east: 40.1, north: 42.1 };
+      const user = userEvent.setup();
+      await renderLoadedMap();
+
+      expect(await screen.findByText('Здесь пока нет отметок — будьте первым')).toBeTruthy();
+      expect(screen.queryByRole('button', { name: /Списком/ })).toBeNull();
+      await user.click(screen.getByRole('button', { name: 'Добавить место' }));
+      expect(screen.getByRole('button', { name: 'Mock verify OTP' })).toBeTruthy();
+    });
+
+    it('offers to reset the filter when nothing in the area matches it', async () => {
+      const user = userEvent.setup();
+      await renderLoadedMap();
+
+      await user.click(screen.getByRole('button', { name: /^Недоступно/ }));
+      expect(screen.getByText('Нет мест по фильтру')).toBeTruthy();
+      await user.click(screen.getByRole('button', { name: 'Сбросить' }));
+      expect(screen.queryByText('Нет мест по фильтру')).toBeNull();
+      expect(screen.getByRole('button', { name: 'Кафе Серый' })).toBeTruthy();
+    });
+
+    it('shows no empty notice while the map has not reported its area', async () => {
+      mockBounds = null;
+      const user = userEvent.setup();
+      await renderLoadedMap();
+      await user.click(screen.getByRole('button', { name: /^Недоступно/ }));
+      expect(screen.queryByText('Нет мест по фильтру')).toBeNull();
+    });
+
+    it('lists search matches under the search bar and says when nothing is found', async () => {
+      const user = userEvent.setup();
+      await renderLoadedMap();
+
+      const input = screen.getByRole('searchbox', { name: 'Поиск мест' });
+      await user.type(input, 'Пушкина');
+      const results = screen.getByRole('region', { name: 'Результаты поиска' });
+      expect(within(results).getByText('Магазин Зелёный')).toBeTruthy();
+      expect(within(results).queryByText('Кафе Серый')).toBeNull();
+
+      await user.keyboard('{ArrowDown}');
+      expect(document.activeElement?.textContent).toContain('Магазин Зелёный');
+      await user.keyboard('{Enter}');
+      await screen.findByRole('dialog', { name: 'Магазин Зелёный' });
+      expect(screen.queryByRole('region', { name: 'Результаты поиска' })).toBeNull();
+    });
+
+    it('says «Ничего не найдено» for a query without matches', async () => {
+      const user = userEvent.setup();
+      await renderLoadedMap();
+      await user.type(screen.getByRole('searchbox', { name: 'Поиск мест' }), 'кинотеатр');
+      expect(screen.getByText('Ничего не найдено')).toBeTruthy();
+    });
+
+    it('opens the card from ?place= and keeps other parameters when it closes', async () => {
+      window.history.replaceState(null, '', '/?lang=ru&place=place-green');
+      const user = userEvent.setup();
+      vi.mocked(fetchPublishedPlaces).mockResolvedValueOnce(mockPlaces);
+      render(<PublicMap />);
+
+      await screen.findByRole('dialog', { name: 'Магазин Зелёный' });
+      await user.click(screen.getByRole('button', { name: /закрыть карточку/i }));
+      expect(window.location.search).toBe('?lang=ru');
+    });
+
+    it('writes ?place= when a card opens from a marker', async () => {
+      window.history.replaceState(null, '', '/?mapper_off=1');
+      const user = userEvent.setup();
+      await renderLoadedMap();
+      await user.click(screen.getByRole('button', { name: 'Кафе Серый' }));
+      await screen.findByRole('dialog', { name: 'Кафе Серый' });
+      const params = new URLSearchParams(window.location.search);
+      expect(params.get('place')).toBe('place-gray');
+      expect(params.get('mapper_off')).toBe('1');
+    });
   });
 });
