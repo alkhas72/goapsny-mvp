@@ -1,7 +1,11 @@
-import { Menu, Search } from 'lucide-react';
-import type { RefObject } from 'react';
+import { Menu, Search, SlidersHorizontal, X } from 'lucide-react';
+import type { KeyboardEvent, RefObject } from 'react';
+import { STATUS_META } from '../shared/index';
+import type { StatusFilter } from '../services/places';
+import { STATUS_CHIP_LABEL, STATUS_ORDER, type StatusCounts } from './PlaceListModel';
+import './discovery.css';
 
-function AccessibleIconLogo() {
+export function AccessibleIconLogo() {
   return (
     <svg viewBox="0 0 451 451" className="logo-svg" aria-hidden="true" style={{ stroke: 'none', fill: 'currentColor' }}>
       <path
@@ -15,70 +19,165 @@ function AccessibleIconLogo() {
 
 interface MapHeaderProps {
   onOpenMenu: () => void;
-  onOpenFilters: () => void;
-  filterQuery: string;
-  onFilterQueryChange: (value: string) => void;
   menuOpen: boolean;
   menuButtonRef: RefObject<HTMLButtonElement | null>;
+  query: string;
+  onQueryChange: (value: string) => void;
+  onSearchFocus: () => void;
+  onSearchKeyDown: (event: KeyboardEvent<HTMLInputElement>) => void;
+  searchInputRef: RefObject<HTMLInputElement | null>;
+  searchResultsId: string;
+  searchResultsOpen: boolean;
+  onOpenFilters: () => void;
   filterButtonRef: RefObject<HTMLButtonElement | null>;
+  categoryCount: number;
+  onResetCategories: () => void;
+  status: StatusFilter;
+  statusCounts: StatusCounts;
+  onStatusChange: (status: StatusFilter) => void;
 }
 
 export function MapHeader({
   onOpenMenu,
-  onOpenFilters,
-  filterQuery,
-  onFilterQueryChange,
   menuOpen,
   menuButtonRef,
+  query,
+  onQueryChange,
+  onSearchFocus,
+  onSearchKeyDown,
+  searchInputRef,
+  searchResultsId,
+  searchResultsOpen,
+  onOpenFilters,
   filterButtonRef,
+  categoryCount,
+  onResetCategories,
+  status,
+  statusCounts,
+  onStatusChange,
 }: MapHeaderProps) {
   return (
-    <header className="public-map-header">
-      <div className="public-top-rail">
-        <div className="logo-container" aria-label="GoApsny">
-          <div style={{ width: 24, height: 24, color: 'var(--accent)' }}>
+    <header className="public-map-header dv-header">
+      <div className="dv-top-rail">
+        <div className="dv-brand" aria-label="GoApsny">
+          <span className="dv-brand-mark">
             <AccessibleIconLogo />
-          </div>
-          <span className="app-title">GoApsny</span>
+          </span>
+          <span className="dv-brand-name">GoApsny</span>
         </div>
         <button
           ref={menuButtonRef}
           type="button"
-          className="icon-btn"
+          className="dv-icon-btn"
           aria-label="Меню"
           aria-expanded={menuOpen}
           aria-haspopup="dialog"
           onClick={onOpenMenu}
         >
-          <Menu size={20} />
+          <Menu size={22} aria-hidden />
         </button>
       </div>
-      <div className="public-filter-rail">
-        <button
-          ref={filterButtonRef}
-          type="button"
-          className="public-search-trigger"
-          onClick={onOpenFilters}
-          aria-label="Поиск и фильтр"
-          aria-haspopup="dialog"
-        >
-          <Search size={18} aria-hidden="true" />
-          <span className="public-search-placeholder">
-            {filterQuery || 'Улица или название…'}
-          </span>
-        </button>
+
+      <div className="dv-search" role="search">
+        <Search className="dv-search-icon" size={18} aria-hidden />
         <label className="visually-hidden" htmlFor="public-search-input">
-          Поиск по улице или названию
+          Поиск мест
         </label>
         <input
+          ref={searchInputRef}
           id="public-search-input"
-          className="public-search-input"
-          value={filterQuery}
-          onChange={(event) => onFilterQueryChange(event.target.value)}
-          onFocus={onOpenFilters}
-          placeholder="Улица или название…"
+          className="dv-search-input"
+          type="search"
+          enterKeyHint="search"
+          value={query}
+          onChange={(event) => onQueryChange(event.target.value)}
+          onFocus={onSearchFocus}
+          onKeyDown={onSearchKeyDown}
+          placeholder="Название или улица"
           autoComplete="off"
+          spellCheck={false}
+          aria-controls={searchResultsOpen ? searchResultsId : undefined}
         />
+        {query && (
+          <button
+            type="button"
+            className="dv-search-clear"
+            aria-label="Очистить поиск"
+            onClick={() => {
+              onQueryChange('');
+              searchInputRef.current?.focus();
+            }}
+          >
+            <X size={18} aria-hidden />
+          </button>
+        )}
+      </div>
+
+      <div className="dv-chip-row">
+        <div className="dv-chip-scroller">
+          <button
+            ref={filterButtonRef}
+            type="button"
+            className={`dv-chip dv-chip--category${categoryCount > 0 ? ' is-active' : ''}`}
+            aria-haspopup="dialog"
+            aria-label={categoryCount > 0 ? `Категории, выбрано ${categoryCount}` : 'Категории'}
+            onClick={onOpenFilters}
+          >
+            <span className="dv-chip-face">
+              <SlidersHorizontal size={16} aria-hidden />
+              <span>Категории</span>
+              {categoryCount > 0 && <span className="dv-chip-badge">{categoryCount}</span>}
+            </span>
+          </button>
+          {categoryCount > 0 && (
+            <button
+              type="button"
+              className="dv-chip dv-chip--reset"
+              aria-label="Сбросить категории"
+              onClick={onResetCategories}
+            >
+              <span className="dv-chip-face">
+                <X size={16} aria-hidden />
+              </span>
+            </button>
+          )}
+          <span className="dv-chip-divider" aria-hidden="true" />
+          <div className="dv-chip-group" role="group" aria-label="Доступность">
+            <button
+              type="button"
+              className={`dv-chip${status === 'all' ? ' is-active' : ''}`}
+              aria-pressed={status === 'all'}
+              onClick={() => onStatusChange('all')}
+            >
+              <span className="dv-chip-face">
+                <span>Все</span>
+                <span className="dv-chip-count">{statusCounts.all}</span>
+              </span>
+            </button>
+            {STATUS_ORDER.map((value) => {
+              const active = status === value;
+              return (
+                <button
+                  key={value}
+                  type="button"
+                  className={`dv-chip${active ? ' is-active' : ''}`}
+                  aria-pressed={active}
+                  onClick={() => onStatusChange(active ? 'all' : value)}
+                >
+                  <span className="dv-chip-face">
+                    <span
+                      className="dv-dot"
+                      style={{ backgroundColor: STATUS_META[value].color }}
+                      aria-hidden="true"
+                    />
+                    <span>{STATUS_CHIP_LABEL[value]}</span>
+                    <span className="dv-chip-count">{statusCounts[value]}</span>
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
       </div>
     </header>
   );

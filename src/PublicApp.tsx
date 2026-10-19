@@ -11,17 +11,11 @@ export function PublicApp() {
     setShowWelcome(false);
   };
 
-  if (showWelcome) {
-    return (
-      <div className="app-shell public-app-shell">
-        <WelcomeLegend onContinue={handleWelcomeContinue} />
-      </div>
-    );
-  }
-
+  // The welcome legend is an overlay over the live map (DESIGN.md §7).
   return (
     <div className="app-shell public-app-shell">
       <PublicMap />
+      {showWelcome && <WelcomeLegend onContinue={handleWelcomeContinue} />}
     </div>
   );
 }

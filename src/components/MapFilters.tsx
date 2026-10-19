@@ -1,17 +1,11 @@
 import { useEffect, useRef, type RefObject } from 'react';
-import { X } from 'lucide-react';
+import { Check, X } from 'lucide-react';
 import { CATEGORIES, STATUS_META } from '../shared/index';
-import type { AccessibilityStatus } from '../shared/index';
 import type { PlaceFilters, StatusFilter } from '../services/places';
 import { trapFocus } from '../utils/focusTrap';
-
-const STATUS_OPTIONS: { value: StatusFilter; label: string }[] = [
-  { value: 'all', label: 'Все' },
-  { value: 'green', label: STATUS_META.green.ru },
-  { value: 'yellow', label: 'Частично' },
-  { value: 'red', label: STATUS_META.red.ru },
-  { value: 'gray', label: STATUS_META.gray.ru },
-];
+import { CategoryIcon } from './PlaceList';
+import { STATUS_ORDER, STATUS_WORD, placesWord } from './PlaceListModel';
+import './discovery.css';
 
 interface MapFiltersProps {
   open: boolean;
@@ -20,6 +14,10 @@ interface MapFiltersProps {
   onClose: () => void;
   onApplyStatus: (status: StatusFilter) => void;
   returnFocusRef?: RefObject<HTMLElement | null>;
+  /** Places per category in the visible area (status and search applied). */
+  categoryCounts?: Record<string, number>;
+  /** Places the current filter leaves in the visible area. */
+  resultCount?: number;
 }
 
 export function MapFilters({
@@ -29,6 +27,8 @@ export function MapFilters({
   onClose,
   onApplyStatus,
   returnFocusRef,
+  categoryCounts,
+  resultCount,
 }: MapFiltersProps) {
   const panelRef = useRef<HTMLElement | null>(null);
   const closeButtonRef = useRef<HTMLButtonElement | null>(null);
@@ -58,79 +58,99 @@ export function MapFilters({
     returnFocusRef?.current?.focus();
   };
 
+  const hasSelection = filters.categories.length > 0 || filters.status !== 'all';
+
   return (
-    <div className="overlay-scrim" onClick={handleClose}>
+    <div className="dv-sheet-scrim" onClick={handleClose}>
       <section
         ref={panelRef}
-        className="filter-panel"
+        className="dv-sheet dv-filter"
         role="dialog"
         aria-modal="true"
-        aria-label="Поиск и фильтр"
+        aria-labelledby="dv-filter-title"
         onClick={(event) => event.stopPropagation()}
       >
-        <div className="filter-panel-header">
-          <span>Поиск и фильтр</span>
+        <span className="dv-sheet-grabber" aria-hidden="true" />
+        <header className="dv-sheet-header">
+          <h2 id="dv-filter-title" className="dv-sheet-title">
+            Фильтр
+          </h2>
           <button
             ref={closeButtonRef}
             type="button"
-            className="icon-btn"
+            className="dv-icon-btn"
             aria-label="Закрыть фильтр"
             onClick={handleClose}
           >
-            <X size={20} />
+            <X size={20} aria-hidden />
           </button>
+        </header>
+
+        <div className="dv-sheet-body dv-filter-body">
+          <h3 className="dv-filter-label" id="dv-filter-categories">
+            Категории
+          </h3>
+          <div className="dv-cat-grid" role="group" aria-labelledby="dv-filter-categories">
+            {CATEGORIES.map((category) => {
+              const active = filters.categories.includes(category.slug);
+              const count = categoryCounts?.[category.slug];
+              return (
+                <button
+                  key={category.slug}
+                  type="button"
+                  className={`dv-cat${active ? ' is-active' : ''}`}
+                  aria-pressed={active}
+                  onClick={() => toggleCategory(category.slug)}
+                >
+                  <span className="dv-cat-icon" aria-hidden="true">
+                    {active ? <Check size={18} strokeWidth={2.5} aria-hidden /> : <CategoryIcon slug={category.slug} />}
+                  </span>
+                  <span className="dv-cat-name">{category.ru}</span>
+                  {count !== undefined && <span className="dv-cat-count">{count}</span>}
+                </button>
+              );
+            })}
+          </div>
+
+          <h3 className="dv-filter-label" id="dv-filter-status">
+            Доступность
+          </h3>
+          <div className="dv-status-list" role="group" aria-labelledby="dv-filter-status">
+            {(['all', ...STATUS_ORDER] as StatusFilter[]).map((value) => {
+              const active = filters.status === value;
+              return (
+                <button
+                  key={value}
+                  type="button"
+                  className={`dv-status-option${active ? ' is-active' : ''}`}
+                  aria-pressed={active}
+                  onClick={() => onApplyStatus(value)}
+                >
+                  {value === 'all' ? (
+                    <span className="dv-dot dv-dot--all" aria-hidden="true" />
+                  ) : (
+                    <span className="dv-dot" style={{ backgroundColor: STATUS_META[value].color }} aria-hidden="true" />
+                  )}
+                  <span>{value === 'all' ? 'Все' : STATUS_WORD[value]}</span>
+                </button>
+              );
+            })}
+          </div>
         </div>
 
-        <label className="visually-hidden" htmlFor="filter-search">
-          Поиск по улице или названию
-        </label>
-        <input
-          id="filter-search"
-          className="filter-search-input"
-          value={filters.query}
-          onChange={(event) => onChange({ ...filters, query: event.target.value })}
-          placeholder="Улица или название…"
-          autoComplete="off"
-        />
-
-        <div className="filter-category-grid" role="group" aria-label="Категории">
-          {CATEGORIES.map((category) => {
-            const active = filters.categories.includes(category.slug);
-            return (
-              <button
-                key={category.slug}
-                type="button"
-                className={`filter-category-chip${active ? ' active' : ''}`}
-                aria-pressed={active}
-                onClick={() => toggleCategory(category.slug)}
-              >
-                {category.ru}
-                {active ? ' ✓' : ''}
-              </button>
-            );
-          })}
-        </div>
-
-        <div className="filter-status-row" role="group" aria-label="Статус доступности">
-          {STATUS_OPTIONS.map((option) => (
-            <button
-              key={option.value}
-              type="button"
-              className={`filter-status-chip${filters.status === option.value ? ' active' : ''}`}
-              aria-pressed={filters.status === option.value}
-              onClick={() => onApplyStatus(option.value)}
-            >
-              {option.value !== 'all' && (
-                <span
-                  className="filter-status-dot"
-                  style={{ backgroundColor: STATUS_META[option.value as AccessibilityStatus]?.color ?? 'transparent' }}
-                  aria-hidden="true"
-                />
-              )}
-              {option.label}
-            </button>
-          ))}
-        </div>
+        <footer className="dv-sheet-footer">
+          <button
+            type="button"
+            className="dv-btn dv-btn--ghost"
+            disabled={!hasSelection}
+            onClick={() => onChange({ ...filters, categories: [], status: 'all' })}
+          >
+            Сбросить
+          </button>
+          <button type="button" className="dv-btn dv-btn--primary" onClick={handleClose}>
+            {resultCount === undefined ? 'Готово' : `Показать ${resultCount} ${placesWord(resultCount)}`}
+          </button>
+        </footer>
       </section>
     </div>
   );
