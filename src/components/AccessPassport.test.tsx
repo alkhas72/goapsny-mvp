@@ -34,6 +34,10 @@ function valueOf(label: string): string {
   return term.nextElementSibling?.textContent ?? '';
 }
 
+function groupValue(key: 'entrance' | 'toilet' | 'parking'): string {
+  return screen.getByTestId(`passport-${key}-value`).textContent ?? '';
+}
+
 describe('AccessPassport', () => {
   afterEach(cleanup);
 
@@ -45,12 +49,22 @@ describe('AccessPassport', () => {
     }
   });
 
-  it('shows unknown for every unfilled field, never zero or "нет"', () => {
+  it('collapses a group with nothing recorded to one "неизвестно", never zero or "нет"', () => {
     render(<AccessPassport place={BLANK} />);
-    for (const label of ['Ступени', 'Высота ступени', 'Ширина двери', 'Пандус', 'Лифт', 'Туалет', 'Доступен для коляски', 'Парковка']) {
+    expect(groupValue('entrance')).toBe('неизвестно');
+    expect(groupValue('toilet')).toBe('неизвестно');
+    expect(groupValue('parking')).toBe('неизвестно');
+    expect(screen.queryByText('Ступени')).toBeNull();
+    expect(screen.queryByText(/0 см|Нет ступеней|^нет$/)).toBeNull();
+  });
+
+  it('shows unknown for the unfilled fields of a partly recorded group', () => {
+    render(<AccessPassport place={{ ...BLANK, doorWidthCm: 90, toiletExists: 'yes' }} />);
+    for (const label of ['Ступени', 'Высота ступени', 'Пандус', 'Лифт', 'Доступен для коляски']) {
       expect(valueOf(label)).toBe('неизвестно');
     }
-    expect(screen.queryByText(/0 см|Нет ступеней/)).toBeNull();
+    expect(valueOf('Ширина двери')).toBe('90 см');
+    expect(groupValue('toilet')).toBe('есть');
   });
 
   it('formats known values with units and plurals', () => {
@@ -75,9 +89,9 @@ describe('AccessPassport', () => {
     expect(valueOf('Ширина двери')).toBe('90 см');
     expect(valueOf('Пандус')).toBe('Пандус по запросу');
     expect(valueOf('Лифт')).toBe('нет');
-    expect(valueOf('Туалет')).toBe('есть');
+    expect(groupValue('toilet')).toBe('есть');
     expect(valueOf('Доступен для коляски')).toBe('частично');
-    expect(valueOf('Парковка')).toBe('есть');
+    expect(groupValue('parking')).toBe('есть');
     expect(valueOf('Заметка о входе')).toBe('вход со двора');
   });
 
@@ -95,7 +109,7 @@ describe('AccessPassport', () => {
 
   it('hides toilet access when there is no toilet', () => {
     render(<AccessPassport place={{ ...BLANK, toiletExists: 'no', toiletAccessible: 'no' }} />);
-    expect(valueOf('Туалет')).toBe('нет');
+    expect(groupValue('toilet')).toBe('нет');
     expect(screen.queryByText('Доступен для коляски')).toBeNull();
   });
 

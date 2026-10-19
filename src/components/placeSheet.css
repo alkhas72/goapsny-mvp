@@ -230,13 +230,20 @@
   flex: none;
 }
 
+/* One row that scrolls sideways keeps the half-open card short. */
 .ps-highlights {
   list-style: none;
-  margin: 14px 0 0;
-  padding: 0;
+  margin: 14px -16px 0;
+  padding: 0 16px;
   display: flex;
-  flex-wrap: wrap;
   gap: 8px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  overscroll-behavior-x: contain;
+}
+
+.ps-highlights::-webkit-scrollbar {
+  display: none;
 }
 
 .ps-chip {
@@ -249,6 +256,8 @@
   background: var(--ps-surface);
   font-size: 14px;
   font-weight: 550;
+  white-space: nowrap;
+  flex: none;
 }
 
 .ps-chip svg {
@@ -659,7 +668,7 @@
 .ps-photo--hero {
   margin-top: 0;
   aspect-ratio: auto;
-  height: clamp(150px, 24dvh, 210px);
+  height: clamp(140px, 21dvh, 190px);
   border-radius: 0;
 }
 

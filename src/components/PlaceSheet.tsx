@@ -391,8 +391,9 @@ export function PlaceSheet({
       }
       // On short screens the top block may not fit: stop at the last whole
       // element that does, never in the middle of a button or a line.
+      // Half-open keeps the map in sight: at most ~45% of the screen.
       const room = (sheet.offsetParent as HTMLElement | null)?.clientHeight ?? window.innerHeight;
-      const limit = room * 0.74;
+      const limit = Math.min(room * 0.74, window.innerHeight * 0.45);
       let bottom = peek.offsetTop + peek.offsetHeight + 20;
       if (bottom > limit) {
         bottom = 0;
