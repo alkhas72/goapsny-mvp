@@ -133,15 +133,13 @@ export function mapPlaceRow(row: PlaceRow, facadePhotoUrl?: string | null): Publ
   };
 }
 
+/**
+ * True only when part of the place failed to load (today: a facade photo that
+ * exists in storage but could not be signed). Data that was simply never
+ * recorded — no address, no photo, no audit yet — is not a failure.
+ */
 export function isPartialPlace(place: PublicPlace): boolean {
-  const missingAddress = !place.details.address?.trim();
-  const missingPhoto = !place.facadePhotoUrl;
-  const missingAudit =
-    place.status !== 'gray' &&
-    !place.details.verification?.verified_at &&
-    !place.entranceNotes &&
-    place.stepsCount == null;
-  return missingAddress || missingPhoto || missingAudit;
+  return place.facadePhotoError === true;
 }
 
 /** Minimal client snapshot of a just-submitted gray pin (real form data, not placeholders). */
