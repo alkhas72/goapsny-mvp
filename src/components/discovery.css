@@ -356,15 +356,16 @@
   font-variant-numeric: tabular-nums;
 }
 
+/* Leaves the right edge to the map's own view controls. */
 .dv-empty {
   position: absolute;
   top: 12px;
   left: 12px;
-  right: 12px;
+  right: 72px;
   z-index: 20;
   max-width: 440px;
-  margin: 0 auto;
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 10px;
   padding: 8px 8px 8px 14px;
@@ -377,7 +378,6 @@
 }
 
 .dv-empty--blank {
-  flex-wrap: wrap;
   padding: 12px 12px 12px 14px;
 }
 
@@ -390,7 +390,7 @@
 }
 
 .dv-empty-text {
-  flex: 1;
+  flex: 1 1 120px;
   color: var(--text-color);
   font-size: 14px;
   font-weight: 500;
@@ -973,4 +973,29 @@
   .dv-search {
     max-width: 560px;
   }
+}
+
+/* One line on a 360 px phone: the reset reads as a link inside the notice. */
+.dv-empty--filtered {
+  flex-wrap: nowrap;
+  gap: 6px;
+  padding: 0 4px 0 14px;
+}
+
+.dv-empty--filtered .dv-empty-text {
+  flex: 1 1 auto;
+  white-space: nowrap;
+}
+
+.dv-empty--filtered .dv-btn {
+  padding: 0 10px;
+  border: none;
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.dv-empty > svg,
+.dv-search-empty > svg {
+  flex: none;
 }

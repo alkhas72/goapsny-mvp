@@ -280,13 +280,16 @@ export function PublicMap() {
   // A shared link `?place=<id>` opens that card as soon as the list is loaded.
   useEffect(() => {
     if (loadState !== 'ready' || placeLinkHandledRef.current) return;
-    placeLinkHandledRef.current = true;
-    const placeId = readPlaceParam(window.location.search);
-    if (!placeId) return;
-    placeLinkCameraRef.current = { placeId, until: Date.now() + PLACE_LINK_CAMERA_MS, tries: 0 };
-    // The map may report its area before React commits the selection.
-    selectedPlaceIdRef.current = placeId;
-    void openPlaceSheet(placeId);
+    const timer = window.setTimeout(() => {
+      placeLinkHandledRef.current = true;
+      const placeId = readPlaceParam(window.location.search);
+      if (!placeId) return;
+      placeLinkCameraRef.current = { placeId, until: Date.now() + PLACE_LINK_CAMERA_MS, tries: 0 };
+      // The map may report its area before React commits the selection.
+      selectedPlaceIdRef.current = placeId;
+      void openPlaceSheet(placeId);
+    }, 0);
+    return () => window.clearTimeout(timer);
   }, [loadState, openPlaceSheet]);
 
   // The map frames the whole country when it finishes loading, which can
@@ -586,7 +589,7 @@ export function PublicMap() {
             }}
           >
             <List size={18} aria-hidden />
-            <span>Списком</span>
+            <span>Списком</span>{' '}
             <span className="dv-list-pill-count">· {placesInArea.length}</span>
           </button>
         )}

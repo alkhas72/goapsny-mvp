@@ -154,7 +154,6 @@ vi.mock('./map/MapLibreMap', async () => {
     onMarkerButton?: (id: string, button: HTMLButtonElement | null) => void;
     onBoundsChange?: (bounds: { west: number; south: number; east: number; north: number }) => void;
   }) => {
-    // eslint-disable-next-line react-hooks/rules-of-hooks -- mock component body
     useEffect(() => {
       if (mockBounds) onBoundsChange?.(mockBounds);
     }, [onBoundsChange]);
@@ -481,7 +480,7 @@ describe('PublicMap integration', () => {
       const user = userEvent.setup();
       await renderLoadedMap();
 
-      await user.click(screen.getByRole('button', { name: /Списком\s*·\s*1/ }));
+      await user.click(await screen.findByRole('button', { name: /Списком\s*·\s*1/ }));
       const dialog = screen.getByRole('dialog', { name: 'Места на карте' });
       const rows = within(dialog).getAllByRole('button').filter((button) => button.className.includes('dv-row'));
       expect(rows).toHaveLength(1);
@@ -497,7 +496,7 @@ describe('PublicMap integration', () => {
       const user = userEvent.setup();
       await renderLoadedMap();
 
-      const pill = screen.getByRole('button', { name: /Списком\s*·\s*2/ });
+      const pill = await screen.findByRole('button', { name: /Списком\s*·\s*2/ });
       await user.click(pill);
       const dialog = screen.getByRole('dialog', { name: 'Места на карте' });
       const rows = within(dialog).getAllByRole('button').filter((button) => button.className.includes('dv-row'));
@@ -528,7 +527,7 @@ describe('PublicMap integration', () => {
       const user = userEvent.setup();
       await renderLoadedMap();
 
-      expect(screen.getByText('Здесь пока нет отметок — будьте первым')).toBeTruthy();
+      expect(await screen.findByText('Здесь пока нет отметок — будьте первым')).toBeTruthy();
       expect(screen.queryByRole('button', { name: /Списком/ })).toBeNull();
       await user.click(screen.getByRole('button', { name: 'Добавить место' }));
       expect(screen.getByRole('button', { name: 'Mock verify OTP' })).toBeTruthy();
