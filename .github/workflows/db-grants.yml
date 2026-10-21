@@ -35,6 +35,22 @@ jobs:
       - name: Simulate Supabase without default grants
         run: cp scripts/ci/simulate-no-default-grants.sql supabase/migrations/00000000000000_ci_no_default_grants.sql
 
+      # Шаблон письма с кодом в config.toml не подключён (см. комментарий там: в дашборде
+      # вручную). Без него письмо приходит со ссылкой, без кода, и e2e не может войти.
+      # Подключаем только в CI, в рабочем дереве раннера.
+      - name: Use OTP email template in CI
+        run: |
+          cat >> supabase/config.toml <<'TOML'
+
+          [auth.email.template.magic_link]
+          subject = "Код входа"
+          content_path = "./supabase/templates/otp.html"
+
+          [auth.email.template.confirmation]
+          subject = "Код входа"
+          content_path = "./supabase/templates/otp.html"
+          TOML
+
       - name: Start local Supabase (all migrations and seed from scratch)
         run: npx --yes supabase@latest start -x studio,imgproxy,logflare,vector,supavisor
 
