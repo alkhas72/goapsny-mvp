@@ -43,8 +43,18 @@ jobs:
 
       - name: Public end-to-end scenario
         run: |
-          eval "$(npx --yes supabase@latest status -o env | grep -E '^(ANON_KEY|API_URL)=')"
-          E2E_SUPABASE_URL="$API_URL" E2E_ANON_KEY="$ANON_KEY" npm run e2e:public
+          eval "$(npx --yes supabase@latest status -o env | grep -E '^(ANON_KEY|API_URL|MAILPIT_URL)=')"
+          E2E_SUPABASE_URL="$API_URL" E2E_ANON_KEY="$ANON_KEY" \
+            E2E_MAILPIT_URL="${MAILPIT_URL:-http://127.0.0.1:54324}" npm run e2e:public
+
+      - name: Diagnostics on failure
+        if: failure()
+        run: |
+          docker ps --format '{{.Names}}\t{{.Status}}\t{{.Ports}}'
+          npx --yes supabase@latest status -o env | grep -E '^(API_URL|MAILPIT_URL|INBUCKET_URL)=' || true
+          curl -s http://127.0.0.1:54324/api/v1/messages?limit=5 | head -c 2000 || true
+          echo
+          docker logs --tail 60 supabase_auth_goapsny-mvp 2>&1 || true
 
       - name: Stop local Supabase
         if: always()
