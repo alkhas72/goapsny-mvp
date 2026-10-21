@@ -1,0 +1,77 @@
+name: DB grants
+
+# AISP-347. С 30.10.2026 Supabase не выдаёт ролям API права на новые таблицы
+# в public по умолчанию. Проверка поднимает локальный стек в раннере (без связи
+# с боевым проектом и без его ключей), отключает права по умолчанию, применяет
+# все миграции с нуля, сверяет права и прогоняет публичный сквозной сценарий.
+
+on:
+  pull_request:
+    paths:
+      - "supabase/**"
+      - "scripts/ci/**"
+      - "scripts/e2e-public-submit.mjs"
+      - ".github/workflows/db-grants.yml"
+  push:
+    branches: [main]
+    paths:
+      - "supabase/**"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  grants:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+
+      - name: Install dependencies
+        run: npm ci --no-audit --no-fund
+
+      - name: Simulate Supabase without default grants
+        run: cp scripts/ci/simulate-no-default-grants.sql supabase/migrations/00000000000000_ci_no_default_grants.sql
+
+      # Шаблон письма с кодом в config.toml не подключён (см. комментарий там: в дашборде
+      # вручную). Без него письмо приходит со ссылкой, без кода, и e2e не может войти.
+      # Подключаем только в CI, в рабочем дереве раннера.
+      - name: Use OTP email template in CI
+        run: |
+          cat >> supabase/config.toml <<'TOML'
+
+          [auth.email.template.magic_link]
+          subject = "Код входа"
+          content_path = "./supabase/templates/otp.html"
+
+          [auth.email.template.confirmation]
+          subject = "Код входа"
+          content_path = "./supabase/templates/otp.html"
+          TOML
+
+      - name: Start local Supabase (all migrations and seed from scratch)
+        run: npx --yes supabase@latest start -x studio,imgproxy,logflare,vector,supavisor
+
+      - name: Check explicit grants
+        run: psql "postgresql://postgres:postgres@127.0.0.1:54322/postgres" -v ON_ERROR_STOP=1 -f scripts/ci/check-grants.sql
+
+      - name: Public end-to-end scenario
+        run: |
+          eval "$(npx --yes supabase@latest status -o env | grep -E '^(ANON_KEY|API_URL|MAILPIT_URL)=')"
+          E2E_SUPABASE_URL="$API_URL" E2E_ANON_KEY="$ANON_KEY" \
+            E2E_MAILPIT_URL="${MAILPIT_URL:-http://127.0.0.1:54324}" npm run e2e:public
+
+      - name: Diagnostics on failure
+        if: failure()
+        run: |
+          docker ps --format '{{.Names}}\t{{.Status}}\t{{.Ports}}'
+          npx --yes supabase@latest status -o env | grep -E '^(API_URL|MAILPIT_URL|INBUCKET_URL)=' || true
+          curl -s http://127.0.0.1:54324/api/v1/messages?limit=5 | head -c 2000 || true
+          echo
+          docker logs --tail 60 supabase_auth_goapsny-mvp 2>&1 || true
+
+      - name: Stop local Supabase
+        if: always()
+        run: npx --yes supabase@latest stop --no-backup
