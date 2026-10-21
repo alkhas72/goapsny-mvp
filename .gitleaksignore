@@ -3,6 +3,8 @@
 ca0660b31301a0d49e913303aa957e016c14be4b:scripts/e2e-public-submit.mjs:jwt:26
 # Публичный publishable-ключ Supabase (sb_publishable_*), уже в публичном бандле map.goapsny.org; защита данных — RLS. Ложное срабатывание.
 ae8a3a490fc4f724ac45b00404a169ce10a75d17:.env.development:generic-api-key:5
-# Название теста «toilet access: yes/partial/no radios» в опытных ветках lab/interface-candidates-2026-10-* — ложное срабатывание generic-api-key.
+# Название теста про доступность туалета (LabPlaceSheet.test.tsx) в опытных ветках lab/interface-candidates-2026-10-* — ложное срабатывание generic-api-key.
+# Та же фраза в комментарии этого файла в коммите 6d4fb22 — то же ложное срабатывание.
+6d4fb22f30c982bb95927e471c2abbb681f7138f:.gitleaksignore:generic-api-key:6
 20a0efebc501c1d38640be502a0d586b9b5bef62:src/lab/LabPlaceSheet.test.tsx:generic-api-key:331
 c28862c7a117e31f4addf64c35ecff7fd6e5000b:src/lab/LabPlaceSheet.test.tsx:generic-api-key:331
