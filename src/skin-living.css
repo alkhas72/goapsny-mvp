@@ -1133,6 +1133,38 @@
     max-width: none;
     height: 100dvh;
   }
+
+  /* Во весь экран название одно: его несёт шапка приложения, подпись сцены уходит. */
+  [data-skin='living'][data-shell='full'] .lv-brand {
+    display: none;
+  }
+
+  [data-skin='living'][data-shell='full'] .lv-dock {
+    top: 13px;
+    left: auto;
+    right: 74px;
+  }
+
+  [data-skin='living'][data-shell='full'] .lv-moods {
+    padding: 5px 9px;
+    box-shadow: none;
+  }
+
+  /* На широком окне нижний ряд и кнопки картографа не растягиваются на всю ширину. */
+  [data-skin='living'][data-shell='full'] .public-bottom-rail {
+    width: min(100%, 620px);
+    margin-inline: auto;
+  }
+
+  [data-skin='living'][data-shell='full'] .welcome-screen > * {
+    width: min(100%, 460px);
+    margin-inline: auto;
+  }
+
+  [data-skin='living'][data-shell='full'] .mapper-fab-row {
+    left: auto;
+    width: min(calc(100% - 28px), 420px);
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
