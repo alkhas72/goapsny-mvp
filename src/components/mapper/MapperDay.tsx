@@ -249,7 +249,7 @@ export function MapperDay({
                   ))}
                 </ol>
                 <p className="nf-hint">
-                  Объекты лежат на этом устройстве с фото и уйдут на проверку сами, когда появится связь.
+                  Объекты лежат на этом устройстве вместе с фото и уйдут на проверку сами, как только получится.
                 </p>
                 {flushNote && (
                   <p className="nf-hint cab-outbox-note" role="status">

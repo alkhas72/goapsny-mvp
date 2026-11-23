@@ -522,7 +522,7 @@ export function MapperFlow({
           </span>
           <h2>{facts.name || 'Объект'} — сохранён на устройстве</h2>
           <p className="nf-hint">{keptText(kept)}</p>
-          <p className="nf-hint">Ждущие отправки объекты видны в кабинете.</p>
+          <p className="nf-hint">Объекты, которые ждут отправки, видны в кабинете.</p>
           <button type="button" className="nf-btn is-work" onClick={onAnother}>
             Ещё объект
           </button>
