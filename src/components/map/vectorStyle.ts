@@ -36,8 +36,8 @@ export const MAP_ATTRIBUTION =
  * (MapLibre LngLatBounds-like array form).
  */
 export const ABKHAZIA_BOUNDS: readonly [readonly [number, number], readonly [number, number]] = [
-  [39.83, 42.55],
-  [41.2, 43.62],
+  [39.83, 42.35],
+  [42.2, 43.62],
 ];
 
 /**
