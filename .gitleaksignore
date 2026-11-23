@@ -3,3 +3,7 @@
 ca0660b31301a0d49e913303aa957e016c14be4b:scripts/e2e-public-submit.mjs:jwt:26
 # Публичный publishable-ключ Supabase (sb_publishable_*), уже в публичном бандле map.goapsny.org; защита данных — RLS. Ложное срабатывание.
 ae8a3a490fc4f724ac45b00404a169ce10a75d17:.env.development:generic-api-key:5
+# Ложные срабатывания в чужих ветках (lab/interface-candidates-2026-10-*, feat/explicit-grants-ci): название теста про туалет в LabPlaceSheet.test.tsx и строка-пояснение с этим названием. Секретов там нет; проверка читает все ветки, поэтому падала в main и в каждом PR.
+20a0efebc501c1d38640be502a0d586b9b5bef62:src/lab/LabPlaceSheet.test.tsx:generic-api-key:331
+c28862c7a117e31f4addf64c35ecff7fd6e5000b:src/lab/LabPlaceSheet.test.tsx:generic-api-key:331
+6d4fb22f30c982bb95927e471c2abbb681f7138f:.gitleaksignore:generic-api-key:6
