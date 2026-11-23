@@ -30,9 +30,9 @@ export function buildPinHtml({
       ? statusColor(status as AccessibilityStatus)
       : '#A0A8B0';
   const hasPortableRamp = rampType === 'portable_available' || rampType === 'portable_on_request';
-  const isCoralCenter = hasPortableRamp && (status === 'green' || status === 'yellow');
-  const centerFill = isCoralCenter ? RAMP_COLOR : '#FFFFFF';
-  const centerStroke = isCoralCenter ? 'stroke="#FFFFFF" stroke-width="2.5"' : '';
+  const isRampCenter = hasPortableRamp && (status === 'green' || status === 'yellow');
+  const centerFill = isRampCenter ? RAMP_COLOR : '#FFFFFF';
+  const centerStroke = isRampCenter ? 'stroke="#FFFFFF" stroke-width="2.5"' : '';
   const label = escapeAttr(`${placeName}, ${statusLabel(status as AccessibilityStatus)}`);
 
   return `

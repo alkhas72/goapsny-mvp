@@ -3,7 +3,7 @@
  * (OpenStreetMap data, Protomaps v4 schema).
  *
  * The basemap is a quiet background for the accessibility pins: green,
- * yellow, red and the coral ramp dot must be the only saturated colours on
+ * yellow, red and the purple ramp dot must be the only saturated colours on
  * screen. So parks and woods are desaturated sage, POI icons are neutral,
  * and the palette follows the app themes — warm paper for the light
  * (orange) theme, deep navy for the dark (blue) theme.

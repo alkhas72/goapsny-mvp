@@ -9,4 +9,5 @@ export function statusColor(status: AccessibilityStatus): string {
   return STATUS_META[status].color;
 }
 
-export const RAMP_COLOR = '#EF705D';
+// Слово Алхаса 2026-11-23: центр пина при приставном пандусе пурпурный (тот же цвет — точка в Stopgap).
+export const RAMP_COLOR = '#7A5AF8';
