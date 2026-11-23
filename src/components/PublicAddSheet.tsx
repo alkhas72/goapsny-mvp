@@ -30,6 +30,8 @@ const SUBMIT_ERROR_MESSAGES: Record<SubmitPlaceErrorKind, string> = {
   facade_reused: 'Это фото уже используется.',
   coordinates_invalid: 'Укажите корректные координаты.',
   storage_path_invalid: 'Ошибка пути фото. Попробуйте ещё раз.',
+  card_invalid: 'Проверьте данные карточки и попробуйте ещё раз.',
+  server_not_ready: 'Сервис обновляется. Попробуйте позже.',
   unknown: 'Не удалось опубликовать место. Попробуйте позже.',
 };
 
