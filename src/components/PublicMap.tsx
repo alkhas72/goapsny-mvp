@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { LeafletMap } from './LeafletMap';
+import { MapLibreMap } from './map/MapLibreMap';
 import { MapHeader } from './MapHeader';
 import { MapFooter } from './MapFooter';
 import { MapFilters } from './MapFilters';
@@ -7,6 +7,9 @@ import { MenuOverlay } from './MenuOverlay';
 import { PlaceSheet, type PlaceSheetState } from './PlaceSheet';
 import { EmailOtpSheet } from './EmailOtpSheet';
 import { PublicAddSheet } from './PublicAddSheet';
+import { MapperDay } from './mapper/MapperDay';
+import { MapperFlow } from './mapper/MapperFlow';
+import { readDay, type DayEntry } from './mapper/dayLog';
 import {
   applyPlaceFilters,
   fetchPlaceById,
@@ -75,6 +78,13 @@ export function PublicMap() {
   const [cabinetNote, setCabinetNote] = useState<string | null>(null);
   const [authOpen, setAuthOpen] = useState(false);
   const [addOpen, setAddOpen] = useState(false);
+  // Mapper prototype (AISP-328): guided add flow with Нуца, behind ?mapper=1.
+  const mapperEnabled = typeof window !== 'undefined' && new URLSearchParams(window.location.search).has('mapper');
+  const [mapperOpen, setMapperOpen] = useState(false);
+  const [dayOpen, setDayOpen] = useState(false);
+  const [dayEntries, setDayEntries] = useState<DayEntry[]>(() => (mapperEnabled ? readDay() : []));
+  const [flowKey, setFlowKey] = useState(0);
+  const getCenterRef = useRef<(() => { lat: number; lng: number } | null) | null>(null);
   const [authEmail, setAuthEmail] = useState<string | null>(null);
   const [pendingAddAfterAuth, setPendingAddAfterAuth] = useState(false);
   const [authSheetKey, setAuthSheetKey] = useState(0);
@@ -323,7 +333,7 @@ export function PublicMap() {
       />
 
       <main className="public-map-main">
-        <LeafletMap
+        <MapLibreMap
           places={visiblePlaces}
           selectedPlaceId={selectedPlaceId}
           theme={theme}
@@ -331,7 +341,35 @@ export function PublicMap() {
           onClearSelection={closeSheet}
           useBrowserGeolocation
           onMarkerButton={handleMarkerButton}
+          onCenterApi={(fn) => {
+            getCenterRef.current = fn;
+          }}
         />
+        {mapperEnabled && !mapperOpen && !dayOpen && (
+          <div className="mapper-fab-row">
+            <button type="button" className="mapper-day-btn" onClick={() => setDayOpen(true)}>
+              Сегодня · {dayEntries.length}
+            </button>
+            <button type="button" className="mapper-fab" onClick={() => setMapperOpen(true)}>
+              + Добавить объект
+            </button>
+          </div>
+        )}
+        {mapperEnabled && mapperOpen && (
+          <MapperFlow
+            key={`flow-${flowKey}`}
+            theme={theme}
+            getCenter={() => getCenterRef.current?.() ?? null}
+            onAnother={() => setFlowKey((k) => k + 1)}
+            onClose={() => setMapperOpen(false)}
+            onSaved={setDayEntries}
+            onOpenDay={() => {
+              setMapperOpen(false);
+              setDayOpen(true);
+            }}
+          />
+        )}
+        {mapperEnabled && dayOpen && <MapperDay entries={dayEntries} onClose={() => setDayOpen(false)} />}
         <MenuOverlay
           open={menuOpen}
           onClose={() => setMenuOpen(false)}

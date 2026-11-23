@@ -9,4 +9,4 @@ export function statusColor(status: AccessibilityStatus): string {
   return STATUS_META[status].color;
 }
 
-export const RAMP_COLOR = '#7A5AF8';
+export const RAMP_COLOR = '#EF705D';

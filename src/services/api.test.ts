@@ -35,6 +35,8 @@ afterEach(() => {
 
 describe('api.loginTelegram', () => {
   it('throws when Supabase is not configured', async () => {
+    vi.stubEnv('VITE_SUPABASE_URL', '');
+    vi.stubEnv('VITE_SUPABASE_ANON_KEY', '');
     const { api } = await importApi();
     await expect(api.loginTelegram('initData')).rejects.toThrow(/не настроен/i);
   });

@@ -8,7 +8,7 @@
        2. cp deploy/launchd/org.abhazia.goapsny-backup.plist ~/Library/LaunchAgents/
        3. launchctl load ~/Library/LaunchAgents/org.abhazia.goapsny-backup.plist
      BACKUP_DIR по умолчанию из скрипта (/srv/...) на маке недоступен —
-     задать в env-файле, например BACKUP_DIR=$HOME/AI-Agents/_backups/goapsny -->
+     задать в env-файле, например BACKUP_DIR=$HOME/AI-Agents/Claude/backups-goapsny -->
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>

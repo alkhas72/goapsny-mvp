@@ -4,8 +4,8 @@ import userEvent from '@testing-library/user-event';
 import { PublicAddSheet } from './PublicAddSheet';
 import { SubmitPlaceError } from '../services/submit-place';
 
-vi.mock('./LeafletMap', () => ({
-  LeafletMap: ({
+vi.mock('./map/MapLibreMap', () => ({
+  MapLibreMap: ({
     dragMode,
   }: {
     dragMode?: { lat: number; lng: number; onChange: (lat: number, lng: number) => void };

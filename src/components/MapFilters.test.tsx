@@ -19,7 +19,7 @@ describe('MapFilters keyboard and apply', () => {
       />,
     );
 
-    const grayButton = screen.getByRole('button', { name: /На проверке/i });
+    const grayButton = screen.getByRole('button', { name: /Ещё не оценено/i });
     expect(grayButton.getAttribute('aria-pressed')).toBe('false');
     await user.click(grayButton);
     expect(onApplyStatus).toHaveBeenCalledWith('gray');

@@ -134,8 +134,8 @@ vi.mock('../services/places', async (importOriginal) => {
   };
 });
 
-vi.mock('./LeafletMap', () => ({
-  LeafletMap: ({
+vi.mock('./map/MapLibreMap', () => ({
+  MapLibreMap: ({
     places,
     selectedPlaceId,
     onSelectPlace,
@@ -220,7 +220,7 @@ describe('PublicMap integration', () => {
     await renderLoadedMap();
 
     await user.click(filterTriggerButton());
-    await user.click(screen.getByRole('button', { name: /На проверке/i }));
+    await user.click(screen.getByRole('button', { name: /Ещё не оценено/i }));
 
     await waitFor(() => {
       expect(screen.getByRole('button', { name: 'Кафе Серый' })).toBeTruthy();
@@ -264,7 +264,7 @@ describe('PublicMap integration', () => {
 
     const filterTrigger = filterTriggerButton();
     await user.click(filterTrigger);
-    await user.click(screen.getByRole('button', { name: /На проверке/i }));
+    await user.click(screen.getByRole('button', { name: /Ещё не оценено/i }));
 
     await waitFor(() => {
       expect(filterTrigger).toBe(document.activeElement);

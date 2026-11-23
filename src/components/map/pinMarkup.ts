@@ -1,5 +1,5 @@
 import type { AccessibilityStatus } from '../../shared/index';
-import { statusColor, statusLabel } from '../../utils/status';
+import { RAMP_COLOR, statusColor, statusLabel } from '../../utils/status';
 
 /**
  * Pin markup shared with the Leaflet implementation. Kept byte-for-byte
@@ -30,9 +30,9 @@ export function buildPinHtml({
       ? statusColor(status as AccessibilityStatus)
       : '#A0A8B0';
   const hasPortableRamp = rampType === 'portable_available' || rampType === 'portable_on_request';
-  const isPurpleCenter = hasPortableRamp && (status === 'green' || status === 'yellow');
-  const centerFill = isPurpleCenter ? '#7A5AF8' : '#FFFFFF';
-  const centerStroke = isPurpleCenter ? 'stroke="#FFFFFF" stroke-width="2.5"' : '';
+  const isCoralCenter = hasPortableRamp && (status === 'green' || status === 'yellow');
+  const centerFill = isCoralCenter ? RAMP_COLOR : '#FFFFFF';
+  const centerStroke = isCoralCenter ? 'stroke="#FFFFFF" stroke-width="2.5"' : '';
   const label = escapeAttr(`${placeName}, ${statusLabel(status as AccessibilityStatus)}`);
 
   return `

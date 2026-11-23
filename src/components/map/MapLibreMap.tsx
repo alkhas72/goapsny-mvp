@@ -5,15 +5,23 @@ import { useEffect, useRef, useState } from 'react';
 import type { AccessibilityStatus } from '../../shared/index';
 import type { Place } from '../../types';
 import { getBrowserLocation } from '../../utils/location';
-import { statusColor, statusLabel } from '../../utils/status';
+import { RAMP_COLOR, statusColor, statusLabel } from '../../utils/status';
 import { telegram } from '../../utils/telegram';
 import type { PinMarkupInput } from './pinMarkup';
 import type { MapViewProps } from './types';
+import { MapViewControls } from './MapViewControls';
+import {
+  BASEMAP_PALETTES,
+  defaultLightPreset,
+  LIGHT_PRESETS,
+  type BasemapPalette,
+  type LightPreset,
+} from './goapsnyBasemap';
 import {
   ABKHAZIA_BOUNDS,
   DEFAULT_MAP_ZOOM,
   DRAFT_ZOOM,
-  getVectorStyleUrl,
+  getVectorStyle,
   MAP_ATTRIBUTION,
   SELECTED_ZOOM,
   SUKHUM_CENTER,
@@ -21,6 +29,57 @@ import {
 
 // maplibre-gl 6 is ESM-only; Vite cannot resolve the worker unless we set it.
 maplibregl.setWorkerUrl(maplibreWorkerUrl);
+
+// Register PMTiles protocol for offline-first vector tile archives.
+import * as pmtiles from 'pmtiles';
+
+let pmtilesProtocolRegistered = false;
+function ensurePmtilesProtocol(): void {
+  if (pmtilesProtocolRegistered) return;
+  try {
+    const protocol = new pmtiles.Protocol();
+    maplibregl.addProtocol('pmtiles', protocol.tile);
+    pmtilesProtocolRegistered = true;
+  } catch (err) {
+    console.warn('Could not register pmtiles protocol', err);
+  }
+}
+ensurePmtilesProtocol();
+
+// The viewer's map look is a per-device convenience; storage may be absent.
+const LOOK_KEY = 'goapsny.mapLook';
+
+interface MapLook {
+  palette: BasemapPalette;
+  preset: LightPreset | null;
+  threeD: boolean;
+}
+
+function readLook(): MapLook {
+  const fallback: MapLook = { palette: 'gray', preset: null, threeD: false };
+  try {
+    const raw = window.localStorage.getItem(LOOK_KEY);
+    if (!raw) return fallback;
+    const v = JSON.parse(raw) as Partial<MapLook>;
+    return {
+      palette: BASEMAP_PALETTES.includes(v.palette as BasemapPalette) ? (v.palette as BasemapPalette) : 'gray',
+      preset: LIGHT_PRESETS.includes(v.preset as LightPreset) ? (v.preset as LightPreset) : null,
+      threeD: v.threeD === true,
+    };
+  } catch {
+    return fallback;
+  }
+}
+
+function writeLook(look: MapLook): void {
+  try {
+    window.localStorage.setItem(LOOK_KEY, JSON.stringify(look));
+  } catch {
+    // Private mode or blocked storage: the choice just is not remembered.
+  }
+}
+
+const PITCH_3D = 60;
 
 interface MarkerHandle {
   marker: maplibregl.Marker;
@@ -46,7 +105,7 @@ function createMarkerRoot({
 }: PinMarkupInput): HTMLDivElement {
   const { color: statusColorValue, label: statusText } = pinStatusMeta(status);
   const hasPortableRamp = rampType === 'portable_available' || rampType === 'portable_on_request';
-  const isPurpleCenter = hasPortableRamp && (status === 'green' || status === 'yellow');
+  const isCoralCenter = hasPortableRamp && (status === 'green' || status === 'yellow');
 
   const root = document.createElement('div');
   root.className = 'goapsny-maplibre-marker';
@@ -78,8 +137,8 @@ function createMarkerRoot({
   circle.setAttribute('cx', '14');
   circle.setAttribute('cy', '14');
   circle.setAttribute('r', '5.5');
-  circle.setAttribute('fill', isPurpleCenter ? '#7A5AF8' : '#FFFFFF');
-  if (isPurpleCenter) {
+  circle.setAttribute('fill', isCoralCenter ? RAMP_COLOR : '#FFFFFF');
+  if (isCoralCenter) {
     circle.setAttribute('stroke', '#FFFFFF');
     circle.setAttribute('stroke-width', '2.5');
   }
@@ -145,6 +204,7 @@ export function MapLibreMap({
   dragMode,
   useBrowserGeolocation = false,
   onMarkerButton,
+  onCenterApi,
 }: MapViewProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
@@ -154,6 +214,19 @@ export function MapLibreMap({
 
   const [locating, setLocating] = useState(false);
   const [userLocationActive, setUserLocationActive] = useState(false);
+  const [look, setLook] = useState<MapLook>(readLook);
+  const styleOptions = {
+    palette: look.palette,
+    preset: look.preset ?? undefined,
+    threeD: look.threeD,
+  };
+  const updateLook = (patch: Partial<MapLook>) => {
+    setLook((prev) => {
+      const next = { ...prev, ...patch };
+      writeLook(next);
+      return next;
+    });
+  };
 
   // 1. Initialize map + Abkhazia default bounds. No geolocation here.
   useEffect(() => {
@@ -161,7 +234,9 @@ export function MapLibreMap({
 
     const map = new maplibregl.Map({
       container: containerRef.current,
-      style: getVectorStyleUrl(theme),
+      style: getVectorStyle(theme, styleOptions),
+      pitch: look.threeD ? PITCH_3D : 0,
+      maxPitch: 70,
       center: [SUKHUM_CENTER.lng, SUKHUM_CENTER.lat],
       zoom: DEFAULT_MAP_ZOOM,
       attributionControl: false,
@@ -178,10 +253,21 @@ export function MapLibreMap({
     }
 
     mapRef.current = map;
+    onCenterApi?.(() => {
+      const c = mapRef.current?.getCenter();
+      return c ? { lat: c.lat, lng: c.lng } : null;
+    });
+    // Dev-only handle for visual checks from the browser console.
+    if (import.meta.env.DEV) (window as unknown as { __goapsnyMap?: maplibregl.Map }).__goapsnyMap = map;
 
     // Fit the default Abkhazia frame once the style is ready. Precise live
     // geolocation is never requested here — see the locate control below.
     map.once('load', () => {
+      // A draft pin opens close to the entrance, not on the whole country.
+      if (dragMode) {
+        map.jumpTo({ center: [dragMode.lng, dragMode.lat], zoom: DRAFT_ZOOM });
+        return;
+      }
       map.fitBounds(ABKHAZIA_BOUNDS as maplibregl.LngLatBoundsLike, { animate: false });
     });
 
@@ -212,12 +298,26 @@ export function MapLibreMap({
     // eslint-disable-next-line react-hooks/exhaustive-deps -- theme/onClear applied via dedicated effects; never recreate the map on prop change
   }, []);
 
-  // 2. Dynamic theme — restyle in place, do not recreate the map.
+  // 2. Dynamic theme and map look — restyle in place, do not recreate the map.
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
-    map.setStyle(getVectorStyleUrl(theme));
-  }, [theme]);
+    map.setStyle(getVectorStyle(theme, styleOptions));
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- styleOptions is derived from look
+  }, [theme, look.palette, look.preset, look.threeD]);
+
+  // 3D view tilts the camera; 2D returns it flat. The initial pitch is set
+  // at construction, so only react to the user's toggle.
+  const pitchReadyRef = useRef(false);
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+    if (!pitchReadyRef.current) {
+      pitchReadyRef.current = true;
+      return;
+    }
+    map.easeTo({ pitch: look.threeD ? PITCH_3D : 0, duration: 600 });
+  }, [look.threeD]);
 
   // 3. Render POI markers (skipped while a draft pin is being placed).
   useEffect(() => {
@@ -348,6 +448,16 @@ export function MapLibreMap({
 
   return (
     <div className="map-wrapper map-wrapper--maplibre" ref={containerRef}>
+      {!dragMode && (
+        <MapViewControls
+          palette={look.palette}
+          preset={look.preset ?? defaultLightPreset(theme)}
+          threeD={look.threeD}
+          onPalette={(palette) => updateLook({ palette })}
+          onPreset={(preset) => updateLook({ preset })}
+          onThreeD={(threeD) => updateLook({ threeD })}
+        />
+      )}
       {!dragMode && (
         <button
           type="button"
