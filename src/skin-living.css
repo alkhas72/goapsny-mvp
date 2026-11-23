@@ -1,0 +1,1146 @@
+/*
+ * Оболочка «живой интерфейс» для карты доступности GoApsny.
+ * Эталон — «Суфлёр АИС» (alkhas72/suflyor-ais); те же переменные и настроения,
+ * что у Stopgap (goapsny-stopgap, src/skin-living.css).
+ *
+ * Включается атрибутом data-skin="living" на <html> (см. src/utils/skin.ts).
+ * Без атрибута ни одно правило отсюда не действует: прежний вид не тронут.
+ * Только оформление: разметка, тексты и поведение экранов прежние.
+ */
+
+/* ── 1. Переменные и настроения ───────────────────────────────────────── */
+
+:root[data-skin='living'] {
+  --orchid: #e88cc8;
+  --lime: #eaf372;
+  --sage: #8ec0a1;
+  --ink: #161817;
+  --muted: rgba(22, 24, 23, 0.5);
+  --spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --ramp: #7a5af8;
+  --brand: #e2741c;
+
+  --stage-bg: linear-gradient(180deg, #bedec9 0%, #8fc0a1 52%, #5d9573 100%);
+  --stage-ink: #18231c;
+  --stage-glass: rgba(255, 255, 255, 0.24);
+  --stage-pill-bg: rgba(28, 40, 33, 0.86);
+  --desktop-bg: #f09bd2;
+
+  /* Прежние переменные приложения получают значения оболочки. */
+  --font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Inter', 'Segoe UI', Roboto, sans-serif;
+  --accent: var(--ink);
+  --bg-color: #ffffff;
+  --surface-color: #f3f5f3;
+  --text-color: var(--ink);
+  --text-secondary: rgba(22, 24, 23, 0.56);
+  --border-color: rgba(22, 24, 23, 0.07);
+  --chevron-pattern: none;
+  --chevron-size: auto;
+  --go-work: #3f7557;
+  --go-final: var(--ink);
+}
+
+:root[data-skin='living'][data-mood='orchid'] {
+  --stage-bg: linear-gradient(180deg, #f7cbe7 0%, #e796ca 52%, #c96ba9 100%);
+  --stage-ink: #271522;
+  --stage-glass: rgba(255, 255, 255, 0.28);
+  --stage-pill-bg: rgba(42, 20, 36, 0.84);
+  --desktop-bg: #a9d5ba;
+  --go-work: #a8528c;
+}
+
+:root[data-skin='living'][data-mood='lime'] {
+  --stage-bg: linear-gradient(180deg, #f5f9ad 0%, #e1ea77 54%, #bccb53 100%);
+  --stage-ink: #1e2210;
+  --stage-glass: rgba(255, 255, 255, 0.34);
+  --stage-pill-bg: rgba(30, 34, 16, 0.88);
+  --desktop-bg: #f09bd2;
+  --go-work: #6f7a22;
+}
+
+:root[data-skin='living'][data-mood='night'] {
+  --stage-bg: linear-gradient(180deg, #182620 0%, #101b16 55%, #09110d 100%);
+  --stage-ink: #e8f1eb;
+  --stage-glass: rgba(255, 255, 255, 0.1);
+  --stage-pill-bg: rgba(255, 255, 255, 0.14);
+  --desktop-bg: #151b18;
+  --accent: var(--lime);
+  --bg-color: #16211b;
+  --surface-color: #1f2c25;
+  --text-color: #e8f1eb;
+  --text-secondary: rgba(232, 241, 235, 0.6);
+  --border-color: rgba(255, 255, 255, 0.08);
+  --go-work: #2c4a3a;
+  --go-final: #24382d;
+}
+
+/* ── 2. Основа: сцена, типографика, движение ─────────────────────────── */
+
+[data-skin='living'] body {
+  background: var(--desktop-bg);
+  transition: background 0.5s ease;
+  -webkit-font-smoothing: antialiased;
+}
+
+[data-skin='living'] * {
+  -webkit-tap-highlight-color: transparent;
+}
+
+[data-skin='living'] .app-shell {
+  background: var(--stage-bg);
+  border: 0;
+  color: var(--stage-ink);
+  overflow: hidden;
+  transition: background 0.5s ease;
+}
+
+/* Два мягких световых пятна дышат на фоне экрана. */
+[data-skin='living'] .app-shell::before,
+[data-skin='living'] .app-shell::after {
+  content: '';
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(46px);
+  opacity: 0.55;
+  pointer-events: none;
+  animation: lvBlob 12s ease-in-out infinite alternate;
+}
+
+[data-skin='living'] .app-shell::before {
+  width: 220px;
+  height: 220px;
+  top: -70px;
+  right: -60px;
+  background: var(--lime);
+}
+
+[data-skin='living'] .app-shell::after {
+  width: 260px;
+  height: 260px;
+  bottom: -110px;
+  left: -90px;
+  background: var(--orchid);
+  animation-delay: -5s;
+}
+
+[data-skin='living'][data-mood='night'] .app-shell::before,
+[data-skin='living'][data-mood='night'] .app-shell::after {
+  opacity: 0.16;
+}
+
+@keyframes lvBlob {
+  0% { transform: translate(0, 0) scale(1); }
+  50% { transform: translate(18px, -14px) scale(1.08); }
+  100% { transform: translate(-14px, 16px) scale(0.96); }
+}
+
+@keyframes lvRise {
+  from { opacity: 0; transform: translateY(14px) scale(0.97); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes lvSheet {
+  from { transform: translateY(40px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+@keyframes lvSpark {
+  0%, 100% { transform: scale(1); background: var(--orchid); }
+  50% { transform: scale(1.35) translateY(-2px); background: var(--lime); }
+}
+
+@keyframes lvHalo {
+  0% { transform: scale(0.9); opacity: 0.55; }
+  100% { transform: scale(1.5); opacity: 0; }
+}
+
+[data-skin='living'] button {
+  transition: transform 0.22s var(--spring), background-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+[data-skin='living'] button:not(:disabled):active {
+  transform: scale(0.95);
+}
+
+@media (hover: hover) {
+  [data-skin='living'] .icon-btn:hover,
+  [data-skin='living'] .footer-cabinet-btn:hover,
+  [data-skin='living'] .mapper-fab:hover,
+  [data-skin='living'] .mapper-day-btn:hover,
+  [data-skin='living'] .primary-btn:hover,
+  [data-skin='living'] .filter-category-chip:hover,
+  [data-skin='living'] .filter-status-chip:hover {
+    transform: translateY(-2px);
+  }
+}
+
+[data-skin='living'] :focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 2px;
+}
+
+[data-skin='living'][data-mood='night'] :focus-visible {
+  outline-color: var(--lime);
+}
+
+/* ── 3. Шапка: логотип, меню, поиск ──────────────────────────────────── */
+
+[data-skin='living'] .public-map-shell {
+  position: relative;
+  z-index: 1;
+  animation: lvRise 0.5s var(--spring) both;
+}
+
+[data-skin='living'] .public-map-header {
+  background: transparent;
+  border-bottom: 0;
+}
+
+[data-skin='living'] .public-top-rail {
+  min-height: 58px;
+  padding: 4px 16px 0;
+}
+
+[data-skin='living'] .logo-container {
+  position: relative;
+  gap: 9px;
+}
+
+/* Знак GoApsny сохраняет фирменный оранжевый. */
+[data-skin='living'] .logo-container > div {
+  color: var(--brand) !important;
+  width: 34px !important;
+  height: 34px !important;
+  padding: 6px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: 0 6px 16px rgba(22, 24, 23, 0.1);
+}
+
+[data-skin='living'] .logo-container .logo-svg {
+  width: 22px;
+  height: 22px;
+}
+
+[data-skin='living'] .app-title {
+  font-size: 21px;
+  font-weight: 500;
+  letter-spacing: -0.035em;
+  color: var(--stage-ink);
+}
+
+[data-skin='living'] .logo-container::after {
+  content: '';
+  width: 7px;
+  height: 7px;
+  margin-left: -3px;
+  margin-bottom: 12px;
+  border-radius: 50%;
+  background: var(--orchid);
+  animation: lvSpark 2.6s ease-in-out infinite;
+}
+
+[data-skin='living'] .icon-btn {
+  border-radius: 999px;
+  border: 0;
+  background: var(--stage-glass);
+  color: var(--stage-ink);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+}
+
+[data-skin='living'] .public-filter-rail {
+  padding: 4px 14px 12px;
+}
+
+[data-skin='living'] .public-search-trigger {
+  min-height: 48px;
+  padding: 10px 18px;
+  border: 0;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.9);
+  color: rgba(22, 24, 23, 0.52);
+  font-size: 15px;
+  box-shadow: 0 8px 22px rgba(22, 24, 23, 0.08);
+}
+
+[data-skin='living'][data-mood='night'] .public-search-trigger {
+  background: var(--stage-glass);
+  color: rgba(232, 241, 235, 0.7);
+  box-shadow: none;
+}
+
+/* ── 4. Карта — карточка со скруглением ──────────────────────────────── */
+
+[data-skin='living'] .public-map-main {
+  margin: 0 10px;
+  border-radius: 26px;
+  overflow: hidden;
+  background: #eef0ee;
+  box-shadow: 0 18px 40px rgba(22, 24, 23, 0.16);
+  isolation: isolate;
+}
+
+[data-skin='living'] .map-view-controls {
+  top: 14px;
+  right: 14px;
+  gap: 10px;
+}
+
+[data-skin='living'] .map-view-group {
+  border: 0;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.78);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  box-shadow: 0 8px 22px rgba(22, 24, 23, 0.12);
+}
+
+[data-skin='living'][data-mood='night'] .map-view-group {
+  background: rgba(22, 33, 27, 0.78);
+}
+
+[data-skin='living'] .map-view-btn {
+  font-weight: 500;
+  color: rgba(22, 24, 23, 0.6);
+}
+
+[data-skin='living'][data-mood='night'] .map-view-btn {
+  color: rgba(232, 241, 235, 0.7);
+}
+
+[data-skin='living'] .map-view-btn + .map-view-btn {
+  border-top: 0;
+}
+
+[data-skin='living'] .map-view-btn.is-active {
+  color: var(--ink);
+  background: var(--lime);
+  border-radius: 14px;
+  box-shadow: inset 0 0 0 3px rgba(255, 255, 255, 0.78);
+}
+
+[data-skin='living'] .map-view-swatch.is-active span {
+  box-shadow: 0 0 0 2px #ffffff, 0 0 0 4px var(--ink);
+}
+
+[data-skin='living'] .map-pin-wrapper {
+  transition: transform 0.3s var(--spring);
+  filter: drop-shadow(0 6px 8px rgba(22, 24, 23, 0.22));
+}
+
+[data-skin='living'] .map-pin-button:hover .map-pin-wrapper,
+[data-skin='living'] .map-pin-wrapper.is-selected {
+  transform: scale(1.18) translateY(-3px);
+}
+
+[data-skin='living'] .maplibregl-ctrl-attrib {
+  border-radius: 999px;
+  font-size: 10px;
+}
+
+/* Кнопки картографа: главное действие — уголь с лаймовой искрой. */
+[data-skin='living'] .gps-locate-btn {
+  right: 14px;
+  bottom: 18px;
+  width: 52px;
+  height: 52px;
+  border: 0;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.94);
+  color: var(--ink);
+  box-shadow: 0 12px 26px rgba(22, 24, 23, 0.2);
+}
+
+[data-skin='living'] .gps-locate-btn.is-active {
+  background: var(--lime);
+}
+
+[data-skin='living'] .mapper-fab-row {
+  left: 14px;
+  right: 14px;
+  bottom: 18px;
+  gap: 10px;
+}
+
+[data-skin='living'] .public-map-main:has(.mapper-fab-row) .gps-locate-btn {
+  bottom: 82px;
+}
+
+/* Подпись карты и кнопки масштаба поднимаются над кнопками картографа. */
+[data-skin='living'] .public-map-main:has(.mapper-fab-row) .maplibregl-ctrl-bottom-left {
+  bottom: 76px;
+  right: 76px;
+}
+
+[data-skin='living'] .public-map-main:has(.mapper-fab-row) .maplibregl-ctrl-bottom-right {
+  bottom: 140px;
+}
+
+[data-skin='living'] .public-map-main:not(:has(.mapper-fab-row)) .maplibregl-ctrl-bottom-right {
+  bottom: 76px;
+}
+
+[data-skin='living'] .maplibregl-ctrl-group {
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: 0 8px 22px rgba(22, 24, 23, 0.14);
+}
+
+[data-skin='living'] .mapper-fab,
+[data-skin='living'] .mapper-day-btn {
+  height: 52px;
+  border: 0;
+  border-radius: 999px;
+  font-weight: 500;
+  font-size: 15px;
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+  padding: 0 16px;
+  box-shadow: 0 12px 26px rgba(22, 24, 23, 0.2);
+}
+
+[data-skin='living'] .mapper-fab {
+  background: var(--ink);
+  color: #ffffff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+}
+
+[data-skin='living'] .mapper-day-btn {
+  background: rgba(255, 255, 255, 0.94);
+  color: var(--ink);
+}
+
+/* ── 5. Нижняя полка и место ассистента ──────────────────────────────── */
+
+[data-skin='living'] .public-bottom-rail {
+  position: relative;
+  z-index: 2;
+  grid-template-columns: 1fr 1fr 76px 1.15fr 1fr;
+  gap: 6px;
+  min-height: 82px;
+  padding: 18px 12px calc(14px + env(safe-area-inset-bottom, 0px));
+  border-top: 0;
+  background: transparent;
+}
+
+[data-skin='living'] .public-bottom-rail > :nth-child(3) {
+  grid-column: 4;
+}
+
+[data-skin='living'] .public-bottom-rail > :nth-child(4) {
+  grid-column: 5;
+}
+
+[data-skin='living'] .footer-link,
+[data-skin='living'] .footer-cabinet-btn {
+  border: 0;
+  border-radius: 999px;
+  font-size: 11.5px;
+  font-weight: 500;
+  background: var(--stage-glass);
+  color: var(--stage-ink);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+}
+
+[data-skin='living'] .footer-link--disabled {
+  opacity: 0.6;
+}
+
+[data-skin='living'] .footer-cabinet-btn {
+  background: var(--stage-pill-bg);
+  color: #ffffff;
+  font-weight: 600;
+}
+
+.lv-dome {
+  display: none;
+}
+
+[data-skin='living'] .lv-dome {
+  position: absolute;
+  left: 50%;
+  bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+  z-index: 3;
+  width: 64px;
+  height: 64px;
+  margin-left: -32px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 50%;
+  cursor: pointer;
+  color: var(--ink);
+  background: radial-gradient(circle at 32% 26%, #ffffff 0%, var(--lime) 46%, #cfd95a 100%);
+  box-shadow: 0 14px 28px rgba(22, 24, 23, 0.26), inset 0 0 0 3px rgba(255, 255, 255, 0.6);
+  transform: translateY(-4px);
+}
+
+[data-skin='living'] .lv-dome::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  border: 2px solid var(--lime);
+  animation: lvHalo 2.4s ease-out infinite;
+  pointer-events: none;
+}
+
+[data-skin='living'] .lv-dome:not(:disabled):active {
+  transform: translateY(-4px) scale(0.92);
+}
+
+@media (hover: hover) {
+  [data-skin='living'] .lv-dome:hover {
+    transform: translateY(-8px) scale(1.04);
+  }
+}
+
+[data-skin='living'] .lv-dome svg {
+  position: relative;
+}
+
+/* ── 6. Шторки, меню, фильтр ─────────────────────────────────────────── */
+
+[data-skin='living'] .overlay-scrim {
+  background: rgba(22, 24, 23, 0.28);
+  backdrop-filter: blur(3px);
+  -webkit-backdrop-filter: blur(3px);
+}
+
+[data-skin='living'] .menu-panel,
+[data-skin='living'] .filter-panel {
+  border: 0;
+  border-radius: 26px;
+  box-shadow: 0 24px 60px rgba(22, 24, 23, 0.24);
+  animation: lvRise 0.42s var(--spring) both;
+}
+
+[data-skin='living'] .menu-link {
+  border: 0;
+  border-radius: 18px;
+  background: var(--surface-color);
+  font-weight: 400;
+}
+
+[data-skin='living'] .menu-link--primary {
+  background: var(--ink);
+  color: #ffffff;
+}
+
+[data-skin='living'][data-mood='night'] .menu-link--primary {
+  background: var(--lime);
+  color: var(--ink);
+}
+
+[data-skin='living'] .filter-search-input {
+  border: 0;
+  border-radius: 999px;
+  background: var(--surface-color);
+  padding-left: 18px;
+}
+
+[data-skin='living'] .filter-category-chip,
+[data-skin='living'] .filter-status-chip {
+  border: 0;
+  border-radius: 999px;
+  background: var(--surface-color);
+  font-weight: 400;
+}
+
+[data-skin='living'] .filter-category-chip.active,
+[data-skin='living'] .filter-status-chip.active {
+  background: var(--ink);
+  color: #ffffff;
+}
+
+[data-skin='living'] .filter-category-chip:nth-child(3n + 1).active {
+  background: var(--orchid);
+  color: var(--ink);
+}
+
+[data-skin='living'] .filter-category-chip:nth-child(3n + 2).active {
+  background: var(--lime);
+  color: var(--ink);
+}
+
+[data-skin='living'] .bottom-sheet {
+  border-top: 0;
+  border-radius: 28px 28px 0 0;
+  padding: 14px 20px 22px;
+  box-shadow: 0 -18px 50px rgba(22, 24, 23, 0.2);
+  animation: lvSheet 0.45s var(--spring) both;
+}
+
+[data-skin='living'] .sheet-grabber {
+  background: rgba(22, 24, 23, 0.16);
+}
+
+[data-skin='living'] .sheet-title {
+  font-size: 24px;
+  font-weight: 400;
+  letter-spacing: -0.025em;
+}
+
+[data-skin='living'] .sheet-meta {
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  opacity: 0.68;
+}
+
+[data-skin='living'] .sheet-status-line,
+[data-skin='living'] .sheet-ramp-line {
+  align-self: flex-start;
+  padding: 8px 14px;
+  border-radius: 999px;
+  background: var(--surface-color);
+}
+
+[data-skin='living'] .sheet-photo {
+  border-radius: 18px;
+}
+
+[data-skin='living'] .primary-btn,
+[data-skin='living'] .secondary-btn {
+  border: 0;
+  border-radius: 999px;
+  font-weight: 500;
+}
+
+[data-skin='living'] .primary-btn {
+  background: var(--ink);
+  color: #ffffff;
+}
+
+[data-skin='living'][data-mood='night'] .primary-btn {
+  background: var(--lime);
+  color: var(--ink);
+}
+
+[data-skin='living'] .public-toast {
+  border: 0;
+  border-radius: 999px;
+  padding: 8px 10px 8px 18px;
+  background: var(--ink);
+  color: #ffffff;
+  box-shadow: 0 14px 30px rgba(22, 24, 23, 0.26);
+  animation: lvRise 0.4s var(--spring) both;
+  bottom: 96px;
+}
+
+[data-skin='living'] .public-toast-close {
+  color: var(--lime);
+}
+
+/* ── 7. Приветствие ──────────────────────────────────────────────────── */
+
+[data-skin='living'] .welcome-screen {
+  position: relative;
+  z-index: 1;
+  gap: 14px;
+  padding: 28px 22px;
+  animation: lvRise 0.55s var(--spring) both;
+}
+
+[data-skin='living'] .welcome-kicker {
+  margin-bottom: 14px;
+  text-align: left;
+  font-size: 40px;
+  line-height: 1.04;
+  font-weight: 300;
+  letter-spacing: -0.04em;
+  color: var(--stage-ink);
+}
+
+[data-skin='living'] .welcome-legend-item {
+  min-height: 60px;
+  padding: 14px 18px;
+  border: 0;
+  border-radius: 18px;
+  background: var(--stage-glass);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  color: var(--stage-ink);
+  font-size: 17px;
+  font-weight: 400;
+  letter-spacing: -0.02em;
+}
+
+[data-skin='living'] .welcome-legend-dot {
+  width: 26px;
+  height: 26px;
+  box-shadow: 0 0 0 4px rgba(255, 255, 255, 0.5);
+}
+
+[data-skin='living'] .welcome-continue-btn {
+  margin-top: 16px;
+  min-height: 58px;
+  font-size: 16px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  background: var(--ink);
+  color: #ffffff;
+}
+
+[data-skin='living'] .welcome-continue-btn::after {
+  content: '';
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--lime)
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23161817' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M7 17 17 7M9 7h8v8'/%3E%3C/svg%3E")
+    center / 15px no-repeat;
+}
+
+/* ── 8. «Новый объект» и кабинет картографа ──────────────────────────── */
+
+[data-skin='living'] .nf-screen {
+  animation: lvRise 0.45s var(--spring) both;
+}
+
+[data-skin='living'] .nf-top {
+  height: 60px;
+  padding: 0 10px;
+  background: var(--stage-bg);
+  color: var(--stage-ink);
+  font-weight: 500;
+  font-size: 18px;
+  letter-spacing: -0.02em;
+}
+
+[data-skin='living'] .nf-top.is-final {
+  background: var(--stage-bg);
+}
+
+[data-skin='living'] .nf-top button {
+  border-radius: 50%;
+  background: var(--stage-glass);
+}
+
+[data-skin='living'] .nf-btn {
+  font-weight: 500;
+}
+
+[data-skin='living'] .nf-btn,
+[data-skin='living'] .nf-pill,
+[data-skin='living'] .nf-chips button,
+[data-skin='living'] .nf-seg button {
+  border-radius: 999px;
+}
+
+[data-skin='living'] .nf-input,
+[data-skin='living'] .nf-select,
+[data-skin='living'] .nf-drop,
+[data-skin='living'] .nf-status,
+[data-skin='living'] .cab-karma {
+  border-radius: 18px;
+}
+
+[data-skin='living'] .nf-label {
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  opacity: 0.68;
+}
+
+/* ── 9. Шторка ассистента ────────────────────────────────────────────── */
+
+.lv-assistant-scrim {
+  display: none;
+}
+
+[data-skin='living'] .lv-assistant-scrim {
+  position: absolute;
+  inset: 0;
+  z-index: 320;
+  display: flex;
+  align-items: flex-end;
+  background: rgba(22, 24, 23, 0.28);
+  backdrop-filter: blur(3px);
+  -webkit-backdrop-filter: blur(3px);
+}
+
+[data-skin='living'] .lv-assistant-sheet {
+  width: 100%;
+  padding: 12px 22px calc(26px + env(safe-area-inset-bottom, 0px));
+  border-radius: 28px 28px 0 0;
+  background: var(--bg-color);
+  color: var(--text-color);
+  box-shadow: 0 -18px 50px rgba(22, 24, 23, 0.22);
+  animation: lvSheet 0.45s var(--spring) both;
+}
+
+[data-skin='living'] .lv-assistant-grabber {
+  width: 40px;
+  height: 4px;
+  margin: 0 auto 16px;
+  border-radius: 999px;
+  background: rgba(22, 24, 23, 0.16);
+}
+
+[data-skin='living'] .lv-assistant-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+[data-skin='living'] .lv-assistant-face {
+  flex: 0 0 auto;
+  width: 46px;
+  height: 46px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  color: var(--ink);
+  background: radial-gradient(circle at 32% 26%, #ffffff 0%, var(--lime) 46%, #cfd95a 100%);
+}
+
+[data-skin='living'] .lv-assistant-kicker {
+  margin: 0;
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  opacity: 0.6;
+}
+
+[data-skin='living'] .lv-assistant-title {
+  margin: 2px 0 0;
+  font-size: 26px;
+  font-weight: 300;
+  letter-spacing: -0.035em;
+}
+
+[data-skin='living'] .lv-assistant-close {
+  margin-left: auto;
+  width: 44px;
+  height: 44px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 50%;
+  cursor: pointer;
+  background: var(--surface-color);
+  color: var(--text-color);
+}
+
+[data-skin='living'] .lv-assistant-text {
+  margin: 16px 0 14px;
+  font-size: 15px;
+  line-height: 1.45;
+  color: var(--text-secondary);
+}
+
+[data-skin='living'] .lv-assistant-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+[data-skin='living'] .lv-assistant-list li {
+  padding: 13px 16px;
+  border-radius: 18px;
+  font-size: 15px;
+  letter-spacing: -0.01em;
+  background: var(--surface-color);
+}
+
+[data-skin='living'] .lv-assistant-list li:nth-child(1) {
+  background: color-mix(in srgb, var(--sage) 34%, var(--bg-color));
+}
+
+[data-skin='living'] .lv-assistant-list li:nth-child(2) {
+  background: color-mix(in srgb, var(--orchid) 30%, var(--bg-color));
+}
+
+[data-skin='living'] .lv-assistant-list li:nth-child(3) {
+  background: color-mix(in srgb, var(--lime) 46%, var(--bg-color));
+}
+
+[data-skin='living'] .lv-assistant-note {
+  margin: 14px 0 0;
+  font-size: 12.5px;
+  color: var(--text-secondary);
+}
+
+/* ── 10. Десктоп: корпус телефона на живом фоне ──────────────────────── */
+
+.lv-stage,
+.lv-dock,
+.lv-chrome,
+.lv-home {
+  display: none;
+}
+
+@media (min-width: 541px) {
+  [data-skin='living'] body {
+    overflow: hidden;
+  }
+
+  [data-skin='living'] .lv-stage {
+    display: block;
+    position: fixed;
+    inset: 0;
+    overflow: hidden;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  [data-skin='living'] .lv-blob {
+    position: absolute;
+    border-radius: 50%;
+    filter: blur(70px);
+    opacity: 0.65;
+    animation: lvBlob 14s ease-in-out infinite alternate;
+  }
+
+  [data-skin='living'] .lv-blob-1 { width: 420px; height: 420px; background: #eaf372; top: -110px; left: -90px; }
+  [data-skin='living'] .lv-blob-2 { width: 480px; height: 480px; background: #9fd6b4; bottom: -140px; right: -100px; animation-delay: -5s; }
+  [data-skin='living'] .lv-blob-3 { width: 340px; height: 340px; background: #f7b6e0; top: 45%; left: 58%; animation-delay: -9s; }
+
+  [data-skin='living'][data-mood='night'] .lv-blob {
+    opacity: 0.18;
+  }
+
+  [data-skin='living'] .lv-dock {
+    position: fixed;
+    top: 22px;
+    left: 26px;
+    right: 26px;
+    z-index: 15;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    pointer-events: none;
+  }
+
+  [data-skin='living'] .lv-dock > * {
+    pointer-events: auto;
+  }
+
+  [data-skin='living'] .lv-brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 24px;
+    font-weight: 700;
+    letter-spacing: -0.04em;
+    color: #141414;
+  }
+
+  [data-skin='living'][data-mood='night'] .lv-brand {
+    color: #f2f5f3;
+  }
+
+  [data-skin='living'] .lv-tag {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0;
+    padding: 5px 11px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.72);
+    backdrop-filter: blur(10px);
+    color: #141414;
+  }
+
+  [data-skin='living'] .lv-dock-right {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  [data-skin='living'] .lv-moods {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 10px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.65);
+    backdrop-filter: blur(14px);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+  }
+
+  [data-skin='living'] .lv-mood {
+    width: 24px;
+    height: 24px;
+    padding: 0;
+    border-radius: 50%;
+    border: 2px solid transparent;
+    cursor: pointer;
+  }
+
+  [data-skin='living'] .lv-mood:hover {
+    transform: scale(1.18);
+  }
+
+  [data-skin='living'] .lv-mood[aria-checked='true'] {
+    border-color: #141414;
+    transform: scale(1.16);
+  }
+
+  [data-skin='living'] .lv-shell-btn {
+    padding: 9px 16px;
+    border: 0;
+    border-radius: 999px;
+    cursor: pointer;
+    background: rgba(20, 20, 20, 0.88);
+    color: #ffffff;
+    font-size: 12.5px;
+    font-weight: 600;
+  }
+
+  [data-skin='living'] .lv-shell-btn:hover {
+    transform: scale(1.04);
+  }
+
+  /* Корпус: сам #root становится телефоном. */
+  [data-skin='living']:not([data-shell='full']) #root {
+    position: relative;
+    z-index: 10;
+    flex: 0 0 auto;
+    width: 392px;
+    min-height: 0;
+    height: min(832px, calc(100dvh - 88px));
+    margin-top: 32px;
+    padding: 11px;
+    border-radius: 52px;
+    background: #111214;
+    box-shadow:
+      0 34px 80px rgba(0, 0, 0, 0.28),
+      0 8px 24px rgba(0, 0, 0, 0.14),
+      inset 0 0 0 2px rgba(255, 255, 255, 0.14);
+    /* Фиксированные слои приложения остаются внутри корпуса. */
+    transform: translateZ(0);
+  }
+
+  [data-skin='living']:not([data-shell='full']) .app-shell {
+    width: 100%;
+    max-width: none;
+    height: 100%;
+    max-height: 100%;
+    margin: 0;
+    border-radius: 42px;
+  }
+
+  [data-skin='living']:not([data-shell='full']) .public-top-rail {
+    padding-top: 40px;
+  }
+
+  [data-skin='living']:not([data-shell='full']) .welcome-screen {
+    padding-top: 56px;
+  }
+
+  [data-skin='living']:not([data-shell='full']) .nf-screen {
+    inset: 11px;
+    border-radius: 42px;
+    overflow: hidden;
+  }
+
+  [data-skin='living']:not([data-shell='full']) .nf-top {
+    height: 92px;
+    padding-top: 36px;
+  }
+
+  [data-skin='living']:not([data-shell='full']) .public-toast {
+    bottom: 110px;
+  }
+
+  [data-skin='living']:not([data-shell='full']) .lv-chrome {
+    position: fixed;
+    top: 27px;
+    left: 41px;
+    right: 41px;
+    height: 28px;
+    z-index: 500;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    color: var(--stage-ink);
+    font-size: 13px;
+    font-weight: 600;
+    pointer-events: none;
+  }
+
+  [data-skin='living'] .lv-island {
+    width: 96px;
+    height: 26px;
+    border-radius: 999px;
+    background: #0d0e10;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    padding-right: 9px;
+  }
+
+  [data-skin='living'] .lv-island::after {
+    content: '';
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: #25282c;
+  }
+
+  [data-skin='living'] .lv-chrome-icons {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  [data-skin='living']:not([data-shell='full']) .lv-home {
+    display: block;
+    position: fixed;
+    bottom: 19px;
+    left: 50%;
+    width: 122px;
+    height: 4.5px;
+    margin-left: -61px;
+    border-radius: 999px;
+    background: rgba(20, 20, 20, 0.28);
+    z-index: 500;
+    pointer-events: none;
+  }
+
+  [data-skin='living'][data-mood='night']:not([data-shell='full']) .lv-home {
+    background: rgba(255, 255, 255, 0.32);
+  }
+
+  [data-skin='living']:not([data-shell='full']) .public-bottom-rail {
+    padding-bottom: 26px;
+  }
+
+  [data-skin='living']:not([data-shell='full']) .lv-dome {
+    bottom: 24px;
+  }
+
+  /* «Во весь экран»: приложение занимает окно, сцена и корпус уходят. */
+  [data-skin='living'][data-shell='full'] .lv-stage {
+    display: none;
+  }
+
+  [data-skin='living'][data-shell='full'] .app-shell {
+    max-width: none;
+    height: 100dvh;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-skin='living'] *,
+  [data-skin='living'] *::before,
+  [data-skin='living'] *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

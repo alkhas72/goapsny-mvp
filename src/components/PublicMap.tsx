@@ -28,6 +28,8 @@ import {
 } from '../services/publicAuth';
 import { isSupabaseConfigured } from '../services/supabase';
 import type { Place } from '../types';
+import { MOOD_EVENT, currentMood, currentSkin } from '../utils/skin';
+import { AssistantDock } from './AssistantDock';
 
 function toMapPlace(place: PublicPlace): Place {
   return {
@@ -57,9 +59,19 @@ function toMapPlace(place: PublicPlace): Place {
 }
 
 export function PublicMap() {
-  const [theme] = useState<'light' | 'dark'>(() =>
-    window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark',
-  );
+  // В оболочке «живой интерфейс» светлое по умолчанию, тёмное — только настроение «Ночь».
+  const livingSkin = currentSkin() === 'living';
+  const [theme, setTheme] = useState<'light' | 'dark'>(() => {
+    if (livingSkin) return currentMood() === 'night' ? 'dark' : 'light';
+    return window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+  });
+
+  useEffect(() => {
+    if (!livingSkin) return;
+    const onMood = () => setTheme(currentMood() === 'night' ? 'dark' : 'light');
+    window.addEventListener(MOOD_EVENT, onMood);
+    return () => window.removeEventListener(MOOD_EVENT, onMood);
+  }, [livingSkin]);
   const [places, setPlaces] = useState<PublicPlace[]>([]);
   const [loadState, setLoadState] = useState<'loading' | 'ready' | 'error'>('loading');
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -418,6 +430,8 @@ export function PublicMap() {
           onSubmitted={(result) => void handlePlaceSubmitted(result)}
         />
       </main>
+
+      {livingSkin && <AssistantDock />}
 
       <MapFooter
         onCabinet={handleCabinet}
