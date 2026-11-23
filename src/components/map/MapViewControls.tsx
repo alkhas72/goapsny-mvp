@@ -1,4 +1,5 @@
-import { Moon, Sun, Sunrise, Sunset, type LucideIcon } from 'lucide-react';
+import { Layers, Moon, Sun, Sunrise, Sunset, type LucideIcon } from 'lucide-react';
+import { useState } from 'react';
 import {
   BASEMAP_PALETTES,
   LIGHT_PRESETS,
@@ -41,8 +42,22 @@ export function MapViewControls({
   onPreset,
   onThreeD,
 }: MapViewControlsProps) {
+  // Сворачивание работает только в оболочке «живой интерфейс»: там кнопка-переключатель
+  // видна, а группы прячутся, пока панель закрыта. В прежнем виде панель всегда раскрыта.
+  const [open, setOpen] = useState(false);
+
   return (
-    <div className="map-view-controls" role="toolbar" aria-label="Вид карты">
+    <div className={`map-view-controls${open ? ' is-open' : ''}`} role="toolbar" aria-label="Вид карты">
+      <button
+        type="button"
+        className="map-view-toggle"
+        aria-label={open ? 'Скрыть настройки вида карты' : 'Настройки вида карты'}
+        aria-expanded={open}
+        data-touch-target="44"
+        onClick={() => setOpen((value) => !value)}
+      >
+        <Layers size={20} strokeWidth={1.8} aria-hidden="true" />
+      </button>
       <div className="map-view-group" role="group" aria-label="Цвет карты">
         {BASEMAP_PALETTES.map((p) => (
           <button

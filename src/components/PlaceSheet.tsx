@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useRef } from 'react';
-import { X, ChevronDown, ChevronRight } from 'lucide-react';
+import { X, ChevronDown, ChevronRight, Ruler } from 'lucide-react';
 import { CATEGORIES } from '../shared/index';
 import type { PublicPlace } from '../services/places';
 import { hasPortableRamp, isPartialPlace, rampLabel } from '../services/places';
 import { RAMP_COLOR, statusColor, statusLabel } from '../utils/status';
 import { trapFocus } from '../utils/focusTrap';
+import { stopgapMeasureUrl } from '../utils/stopgapLink';
 
 export type PlaceSheetState = 'idle' | 'loading' | 'error' | 'partial';
 
@@ -15,6 +16,8 @@ interface PlaceSheetProps {
   errorMessage?: string;
   onClose: () => void;
   onRetry?: () => void;
+  /** Путь картографа: показать переход к замеру входа в Stopgap. */
+  showMeasure?: boolean;
 }
 
 function categoryLabel(slug: string): string {
@@ -35,6 +38,7 @@ export function PlaceSheet({
   errorMessage,
   onClose,
   onRetry,
+  showMeasure = false,
 }: PlaceSheetProps) {
   const sheetRef = useRef<HTMLElement | null>(null);
   const closeButtonRef = useRef<HTMLButtonElement>(null);
@@ -185,6 +189,23 @@ export function PlaceSheet({
           )}
 
           {place.comment && <p className="sheet-comment">{place.comment}</p>}
+
+          {showMeasure && place.rampType !== 'permanent' && (
+            <a
+              className="sheet-measure-link"
+              href={stopgapMeasureUrl(
+                { id: place.id, name: place.name, lat: place.lat, lng: place.lng, address: place.details.address },
+                window.location.href,
+              )}
+            >
+              <Ruler size={18} aria-hidden="true" />
+              <span>
+                Замерить вход для пандуса
+                <small>Откроется Stopgap с этим местом</small>
+              </span>
+              <ChevronRight size={18} aria-hidden="true" />
+            </a>
+          )}
         </>
       )}
     </article>

@@ -205,6 +205,7 @@ export function MapLibreMap({
   useBrowserGeolocation = false,
   onMarkerButton,
   onCenterApi,
+  initialCenter,
 }: MapViewProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
@@ -266,6 +267,10 @@ export function MapLibreMap({
       // A draft pin opens close to the entrance, not on the whole country.
       if (dragMode) {
         map.jumpTo({ center: [dragMode.lng, dragMode.lat], zoom: DRAFT_ZOOM });
+        return;
+      }
+      if (initialCenter) {
+        map.jumpTo({ center: [initialCenter.lng, initialCenter.lat], zoom: DRAFT_ZOOM });
         return;
       }
       map.fitBounds(ABKHAZIA_BOUNDS as maplibregl.LngLatBoundsLike, { animate: false });

@@ -324,6 +324,46 @@
   box-shadow: 0 0 0 2px #ffffff, 0 0 0 4px var(--ink);
 }
 
+/* Панель вида карты свёрнута в одну кнопку: карта остаётся главной на экране. */
+[data-skin='living'] .map-view-toggle {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  cursor: pointer;
+  background: rgba(255, 255, 255, 0.86);
+  color: var(--ink);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  box-shadow: 0 8px 22px rgba(22, 24, 23, 0.14);
+  transition: transform 0.3s var(--spring), background 0.2s ease;
+}
+
+[data-skin='living'] .map-view-toggle[aria-expanded='true'] {
+  background: var(--ink);
+  color: #ffffff;
+}
+
+[data-skin='living'][data-mood='night'] .map-view-toggle {
+  background: rgba(22, 33, 27, 0.86);
+  color: #e8f1eb;
+}
+
+[data-skin='living'] .map-view-toggle:active {
+  transform: scale(0.92);
+}
+
+[data-skin='living'] .map-view-controls:not(.is-open) .map-view-group {
+  display: none;
+}
+
+[data-skin='living'] .map-view-controls.is-open .map-view-group {
+  animation: lvRise 0.34s var(--spring) both;
+}
+
 [data-skin='living'] .map-pin-wrapper {
   transition: transform 0.3s var(--spring);
   filter: drop-shadow(0 6px 8px rgba(22, 24, 23, 0.22));
@@ -552,6 +592,28 @@
   font-weight: 400;
 }
 
+/* Подписи читаются целиком: капсулы берут ширину по тексту и переносятся по рядам. */
+[data-skin='living'] .filter-category-grid,
+[data-skin='living'] .filter-status-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+
+[data-skin='living'] .filter-category-chip,
+[data-skin='living'] .filter-status-chip {
+  flex: 0 0 auto;
+  padding: 8px 14px;
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+[data-skin='living'] .filter-status-row {
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border-color);
+}
+
 [data-skin='living'] .filter-category-chip.active,
 [data-skin='living'] .filter-status-chip.active {
   background: var(--ink);
@@ -750,6 +812,311 @@
   letter-spacing: 0.07em;
   text-transform: uppercase;
   opacity: 0.68;
+}
+
+/* Экран картографа — белый лист на фоне настроения, как листы эталона. */
+[data-skin='living'] .nf-screen {
+  background: var(--stage-bg);
+}
+
+[data-skin='living'] .nf-top,
+[data-skin='living'] .nf-top.is-final {
+  background: transparent;
+}
+
+[data-skin='living'] .nf-progress,
+[data-skin='living'] .nf-body,
+[data-skin='living'] .nf-foot,
+[data-skin='living'] .nf-cat-list {
+  background: var(--bg-color);
+}
+
+[data-skin='living'] .nf-progress,
+[data-skin='living'] .nf-screen:not(:has(.nf-progress)) .nf-body,
+[data-skin='living'] .nf-cat-list {
+  border-radius: 28px 28px 0 0;
+}
+
+[data-skin='living'] .nf-progress {
+  padding-top: 18px;
+}
+
+[data-skin='living'] .nf-screen:not(:has(.nf-progress)) .nf-body {
+  padding-top: 20px;
+}
+
+[data-skin='living'] .nf-bars i {
+  height: 5px;
+  border-radius: 999px;
+  background: var(--surface-color);
+}
+
+[data-skin='living'] .nf-bars i.on {
+  background: var(--ink);
+}
+
+[data-skin='living'][data-mood='night'] .nf-bars i.on {
+  background: var(--lime);
+}
+
+/* Кнопки: угольная капсула, у финального шага — лаймовый кружок. */
+[data-skin='living'] .nf-btn.is-work,
+[data-skin='living'] .nf-btn.is-final {
+  background: var(--ink);
+  color: #ffffff;
+  transition: transform 0.3s var(--spring);
+}
+
+[data-skin='living'][data-mood='night'] .nf-btn.is-work,
+[data-skin='living'][data-mood='night'] .nf-btn.is-final {
+  background: var(--lime);
+  color: var(--ink);
+}
+
+[data-skin='living'] .nf-btn:not(:disabled):active {
+  transform: scale(0.97);
+}
+
+[data-skin='living'] .nf-btn.is-final svg {
+  box-sizing: content-box;
+  padding: 4px;
+  border-radius: 50%;
+  background: var(--lime);
+  color: var(--ink);
+}
+
+[data-skin='living'][data-mood='night'] .nf-btn.is-final svg {
+  background: var(--ink);
+  color: var(--lime);
+}
+
+[data-skin='living'] .nf-btn.is-ghost {
+  background: var(--surface-color);
+}
+
+[data-skin='living'] .nf-chips button[aria-pressed='true'] {
+  border-color: transparent;
+  background: var(--orchid);
+  color: var(--ink);
+}
+
+[data-skin='living'] .nf-seg {
+  border: 0;
+  border-radius: 999px;
+  background: var(--surface-color);
+  padding: 4px;
+  gap: 4px;
+}
+
+[data-skin='living'] .nf-seg button + button {
+  border-left: 0;
+}
+
+[data-skin='living'] .nf-seg button[aria-pressed='true'] {
+  background: var(--ink);
+  color: #ffffff;
+}
+
+[data-skin='living'][data-mood='night'] .nf-seg button[aria-pressed='true'] {
+  background: var(--lime);
+  color: var(--ink);
+}
+
+[data-skin='living'] .nf-input,
+[data-skin='living'] .nf-stepper {
+  border-color: transparent;
+  background: var(--surface-color);
+}
+
+[data-skin='living'] .nf-stepper {
+  border-radius: 18px;
+}
+
+[data-skin='living'] .nf-status {
+  border-color: transparent;
+  background: var(--surface-color);
+}
+
+[data-skin='living'] .nf-photo-main,
+[data-skin='living'] .nf-map,
+[data-skin='living'] .mq-photo,
+[data-skin='living'] .mq-map {
+  border-radius: 26px;
+}
+
+[data-skin='living'] .nf-done-mark {
+  background: var(--lime);
+  color: var(--ink);
+  animation: lvRise 0.6s var(--spring) both;
+}
+
+[data-skin='living'] .nf-done h2,
+[data-skin='living'] .mq-name,
+[data-skin='living'] .cab-signin h2 {
+  font-weight: 400;
+  letter-spacing: -0.03em;
+}
+
+[data-skin='living'] .nf-done h2 {
+  font-size: 24px;
+}
+
+[data-skin='living'] .nf-karma {
+  font-weight: 300;
+  font-size: 34px;
+  letter-spacing: -0.04em;
+}
+
+[data-skin='living'] .nf-send-error {
+  border-radius: 18px;
+  background: color-mix(in srgb, var(--orchid) 26%, transparent);
+}
+
+/* Кабинет. */
+[data-skin='living'] .cab-karma {
+  padding: 18px;
+  border-radius: 26px;
+  background: linear-gradient(135deg, var(--lime) 0%, #cfe9a6 55%, var(--sage) 100%);
+  color: var(--ink);
+}
+
+[data-skin='living'] .cab-karma-top span,
+[data-skin='living'] .cab-karma .nf-hint {
+  color: rgba(22, 24, 23, 0.72);
+  font-weight: 500;
+}
+
+[data-skin='living'] .cab-karma-top b {
+  color: var(--ink);
+  font-size: 44px;
+  font-weight: 300;
+  letter-spacing: -0.05em;
+  line-height: 1;
+}
+
+[data-skin='living'] .cab-status {
+  border-radius: 999px;
+  background: var(--ink);
+  font-weight: 500;
+}
+
+[data-skin='living'] .cab-bar {
+  background: rgba(22, 24, 23, 0.14);
+}
+
+[data-skin='living'] .cab-bar i {
+  border-radius: 999px;
+  background: var(--ink);
+}
+
+[data-skin='living'] .cab-queue,
+[data-skin='living'] .cab-signin {
+  border: 0;
+  border-radius: 26px;
+}
+
+[data-skin='living'] .cab-queue {
+  padding: 16px 18px;
+  background: color-mix(in srgb, var(--orchid) 30%, #ffffff);
+  color: var(--ink);
+  transition: transform 0.3s var(--spring);
+}
+
+[data-skin='living'] .cab-queue:active {
+  transform: scale(0.98);
+}
+
+[data-skin='living'] .cab-queue b {
+  font-weight: 500;
+}
+
+[data-skin='living'] .cab-queue small {
+  color: rgba(22, 24, 23, 0.66);
+}
+
+[data-skin='living'] .cab-stats div {
+  border-radius: 18px;
+}
+
+[data-skin='living'] .cab-stats b {
+  font-size: 26px;
+  font-weight: 300;
+  letter-spacing: -0.04em;
+}
+
+[data-skin='living'] .cab-name {
+  font-weight: 500;
+}
+
+[data-skin='living'] .cab-meta small {
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: var(--surface-color);
+  font-weight: 500;
+}
+
+[data-skin='living'] .cab-meta.is-published small {
+  background: color-mix(in srgb, var(--sage) 38%, transparent);
+  color: var(--text-color);
+}
+
+[data-skin='living'] .cab-meta.is-hidden small {
+  background: color-mix(in srgb, var(--orchid) 34%, transparent);
+  color: var(--text-color);
+}
+
+/* Очередь проверки. */
+[data-skin='living'] .mq-name {
+  font-size: 26px;
+  line-height: 1.12;
+}
+
+[data-skin='living'] .mq-status {
+  align-self: flex-start;
+  padding: 7px 14px 7px 10px;
+  border-radius: 999px;
+  background: var(--surface-color);
+  font-weight: 500;
+}
+
+[data-skin='living'] .mq-facts div {
+  border-radius: 18px;
+}
+
+[data-skin='living'] .mq-facts dd {
+  font-weight: 500;
+}
+
+[data-skin='living'] .mq-note {
+  border-radius: 18px;
+  background: color-mix(in srgb, var(--lime) 55%, transparent);
+  color: var(--ink);
+}
+
+[data-skin='living'] .mq-nav button {
+  width: 36px;
+  height: 36px;
+}
+
+/* Переход к замеру в карточке места. */
+[data-skin='living'] .sheet-measure-link {
+  border: 0;
+  border-radius: 18px;
+  background: color-mix(in srgb, var(--ramp) 12%, #ffffff);
+  font-weight: 500;
+  transition: transform 0.3s var(--spring);
+}
+
+[data-skin='living'] .sheet-measure-link > svg:first-child {
+  color: var(--ramp);
+}
+
+[data-skin='living'] .sheet-measure-link:active {
+  transform: scale(0.98);
+}
+
+[data-skin='living'][data-mood='night'] .sheet-measure-link {
+  background: color-mix(in srgb, var(--ramp) 26%, var(--bg-color));
 }
 
 /* ── 9. Шторка ассистента ────────────────────────────────────────────── */

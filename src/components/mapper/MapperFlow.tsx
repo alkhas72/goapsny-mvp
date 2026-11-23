@@ -13,7 +13,13 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import type { RampType } from '../../shared/index';
 import { CATEGORIES } from '../../shared/index';
+import {
+  submitMapperPlace,
+  type SubmitMapperPlaceInput,
+  type SubmitMapperPlaceResult,
+} from '../../services/submit-mapper-place';
 import { getBrowserLocation } from '../../utils/location';
+import { prepareFacadePhoto } from '../../utils/photo';
 import { MapLibreMap } from '../map/MapLibreMap';
 import {
   EMPTY_FACTS,
@@ -25,12 +31,15 @@ import {
 } from './assistant';
 import { appendDay, type DayEntry } from './dayLog';
 import { demoEyes, type AssistantEyes } from './eyes';
+import { sendErrorText } from './sendError';
 
 interface MapperFlowProps {
   theme: 'light' | 'dark';
   /** Fallback point when the phone gives no location: the map centre. */
   getCenter: () => { lat: number; lng: number } | null;
   eyes?: AssistantEyes;
+  /** Отправка на сервер; подменяется в тестах. */
+  submit?: (input: SubmitMapperPlaceInput) => Promise<SubmitMapperPlaceResult>;
   onClose: () => void;
   onSaved: (entries: DayEntry[]) => void;
   onOpenDay: () => void;
@@ -103,6 +112,7 @@ export function MapperFlow({
   theme,
   getCenter,
   eyes = demoEyes,
+  submit = submitMapperPlace,
   onClose,
   onSaved,
   onOpenDay,
@@ -117,6 +127,8 @@ export function MapperFlow({
   const [pickCategory, setPickCategory] = useState(false);
   const [light, setLight] = useState<Light | null>(null);
   const [saved, setSaved] = useState<DayEntry[] | null>(null);
+  const [sending, setSending] = useState(false);
+  const [sendError, setSendError] = useState<string | null>(null);
   const cameraRef = useRef<HTMLInputElement | null>(null);
   const galleryRef = useRef<HTMLInputElement | null>(null);
 
@@ -175,25 +187,55 @@ export function MapperFlow({
   const canNext =
     step === 1 ? photos.length > 0 : step === 2 ? facts.name.trim().length > 0 && !!facts.category : step === 3 ? !!light : !!point;
 
-  const save = () => {
-    if (!light) return;
-    const fullCard = facts.steps != null && facts.doorWide !== 'unknown' && facts.ramp != null;
-    const entries = appendDay(
-      {
-        name: facts.name.trim() || facts.subtype || 'Без названия',
-        subtype: facts.subtype,
+  // Объект считается добавленным только после ответа сервера: карточка уходит
+  // на проверку, и лишь тогда появляется строка в «Сегодня».
+  const save = async () => {
+    if (!light || !point || !facts.category || photos.length === 0 || sending) return;
+    setSending(true);
+    setSendError(null);
+    try {
+      const photo = await prepareFacadePhoto(photos[0].file);
+      await submit({
+        name: facts.name.trim(),
+        category: facts.category,
+        lat: point.lat,
+        lng: point.lng,
+        photo,
         status: light,
-        reason: light === suggestion.status ? suggestion.reason : 'светофор поставил картограф',
-        photos: photos.length,
-      },
-      fullCard,
-    );
-    setSaved(entries);
-    onSaved(entries);
-    setStep('done');
+        stepsCount: facts.steps,
+        rampType: facts.ramp,
+        subtype: facts.subtype,
+        stepHigh: facts.stepHigh,
+        doorWide: facts.doorWide,
+      });
+      const fullCard = facts.steps != null && facts.doorWide !== 'unknown' && facts.ramp != null;
+      const entries = appendDay(
+        {
+          name: facts.name.trim() || facts.subtype || 'Без названия',
+          subtype: facts.subtype,
+          status: light,
+          reason: light === suggestion.status ? suggestion.reason : 'светофор поставил картограф',
+          // На сервер уходит одно фото входа — столько же и в счёте.
+          photos: 1,
+        },
+        fullCard,
+      );
+      setSaved(entries);
+      onSaved(entries);
+      setStep('done');
+    } catch (error) {
+      setSendError(sendErrorText(error));
+    } finally {
+      setSending(false);
+    }
   };
 
-  const back = () => (step === 1 || step === 'done' ? onClose() : setStep((step - 1) as Step));
+  const back = () => {
+    if (sending) return;
+    setSendError(null);
+    if (step === 1 || step === 'done') onClose();
+    else setStep((step - 1) as Step);
+  };
 
   if (pickCategory) {
     return createPortal(
@@ -281,6 +323,9 @@ export function MapperFlow({
                   </button>
                 )}
               </div>
+              {photos.length > 1 && (
+                <p className="nf-hint">В карточку уйдёт первое фото. Остальные пока не сохраняются.</p>
+              )}
             </>
           )}
           {photos.length === 0 && (
@@ -428,6 +473,7 @@ export function MapperFlow({
             <Check size={40} aria-hidden="true" />
           </span>
           <h2>{facts.name || 'Объект'} — на проверке</h2>
+          <p className="nf-hint">Модератор посмотрит карточку, и объект появится на карте.</p>
           <p className="nf-karma">+{saved[saved.length - 1].karma} кармы</p>
           <p className="nf-hint">Сегодня добавлено: {saved.length}</p>
           <button type="button" className="nf-btn is-work" onClick={onAnother}>
@@ -441,9 +487,21 @@ export function MapperFlow({
 
       {step !== 'done' && (step !== 1 || photos.length > 0) && (
         <footer className="nf-foot">
+          {step === 4 && sendError && (
+            <p className="nf-send-error" role="alert">
+              {sendError}
+            </p>
+          )}
           {step === 4 ? (
-            <button type="button" className="nf-btn is-final" disabled={!canNext} onClick={save}>
-              <Check size={18} aria-hidden="true" /> Сохранить объект
+            <button
+              type="button"
+              className="nf-btn is-final"
+              disabled={!canNext || sending}
+              aria-busy={sending}
+              onClick={() => void save()}
+            >
+              <Check size={18} aria-hidden="true" />
+              {sending ? 'Отправляем…' : sendError ? 'Повторить отправку' : 'Отправить на проверку'}
             </button>
           ) : (
             <button type="button" className="nf-btn is-work" disabled={!canNext} onClick={() => goTo((step + 1) as Step)}>

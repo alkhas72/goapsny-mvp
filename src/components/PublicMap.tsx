@@ -9,6 +9,7 @@ import { EmailOtpSheet } from './EmailOtpSheet';
 import { PublicAddSheet } from './PublicAddSheet';
 import { MapperDay } from './mapper/MapperDay';
 import { MapperFlow } from './mapper/MapperFlow';
+import { ModerationQueue } from './mapper/ModerationQueue';
 import { readDay, type DayEntry } from './mapper/dayLog';
 import {
   applyPlaceFilters,
@@ -23,9 +24,16 @@ import {
 import type { SubmitPublicPlaceResult } from '../services/submit-place';
 import {
   getPublicSession,
+  maskEmailDomain,
   signOutPublicUser,
   subscribePublicSession,
 } from '../services/publicAuth';
+import {
+  canModerate,
+  fetchMapperAccount,
+  fetchModerationQueue,
+  type MapperAccount,
+} from '../services/moderation';
 import { isSupabaseConfigured } from '../services/supabase';
 import type { Place } from '../types';
 import { MOOD_EVENT, currentMood, currentSkin } from '../utils/skin';
@@ -99,6 +107,11 @@ export function PublicMap() {
   const getCenterRef = useRef<(() => { lat: number; lng: number } | null) | null>(null);
   const [authEmail, setAuthEmail] = useState<string | null>(null);
   const [pendingAddAfterAuth, setPendingAddAfterAuth] = useState(false);
+  // Путь картографа: куда вести после входа и кто вошёл.
+  const [pendingMapperAfterAuth, setPendingMapperAfterAuth] = useState<'flow' | 'cabinet' | null>(null);
+  const [account, setAccount] = useState<MapperAccount | null>(null);
+  const [queueCount, setQueueCount] = useState<number | null>(null);
+  const [queueOpen, setQueueOpen] = useState(false);
   const [authSheetKey, setAuthSheetKey] = useState(0);
   const [addSheetKey, setAddSheetKey] = useState(0);
 
@@ -126,6 +139,34 @@ export function PublicMap() {
       unsubscribe();
     };
   }, []);
+
+  // Профиль нужен только пути картографа: роль решает, показывать ли очередь проверки.
+  useEffect(() => {
+    if (!mapperEnabled || !authEmail) return;
+    let cancelled = false;
+    void fetchMapperAccount()
+      .then(async (next) => {
+        if (cancelled) return;
+        setAccount(next);
+        if (!canModerate(next?.role)) {
+          setQueueCount(null);
+          return;
+        }
+        const queue = await fetchModerationQueue();
+        if (!cancelled) setQueueCount(queue.length);
+      })
+      .catch(() => {
+        // Кабинет покажет вход без кармы; путь добавления от этого не зависит.
+        if (!cancelled) setAccount(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [mapperEnabled, authEmail]);
+
+  // После выхода прежний профиль не показывается, даже пока состояние не сброшено.
+  const shownAccount = authEmail ? account : null;
+  const shownQueueCount = authEmail ? queueCount : null;
 
   const reloadPlaces = useCallback(async () => {
     const data = await fetchPublishedPlaces();
@@ -245,7 +286,27 @@ export function PublicMap() {
     setAuthOpen(true);
   }, [authEmail]);
 
+  const requestMapperSignIn = useCallback((target: 'flow' | 'cabinet') => {
+    setPendingMapperAfterAuth(target);
+    setAuthSheetKey((key) => key + 1);
+    setAuthOpen(true);
+  }, []);
+
+  const beginMapperFlow = useCallback(() => {
+    // Объект уходит на сервер от имени человека, поэтому вход нужен до первого шага:
+    // иначе картограф заполнит карточку и упрётся в отказ на последнем.
+    if (authEmail) {
+      setMapperOpen(true);
+      return;
+    }
+    requestMapperSignIn('flow');
+  }, [authEmail, requestMapperSignIn]);
+
   const handleCabinet = useCallback(() => {
+    if (mapperEnabled) {
+      setDayOpen(true);
+      return;
+    }
     // Уже вошёл — сразу открываем форму: добавить место можно один раз,
     // и человек, зашедший в кабинет, приходит именно за этим.
     if (authEmail) {
@@ -258,16 +319,23 @@ export function PublicMap() {
     setPendingAddAfterAuth(true);
     setAuthSheetKey((key) => key + 1);
     setAuthOpen(true);
-  }, [authEmail]);
+  }, [authEmail, mapperEnabled]);
 
   const handleAuthVerified = useCallback(() => {
     setAuthOpen(false);
+    if (pendingMapperAfterAuth) {
+      const target = pendingMapperAfterAuth;
+      setPendingMapperAfterAuth(null);
+      if (target === 'flow') setMapperOpen(true);
+      else setDayOpen(true);
+      return;
+    }
     if (pendingAddAfterAuth) {
       setPendingAddAfterAuth(false);
       setAddSheetKey((key) => key + 1);
       setAddOpen(true);
     }
-  }, [pendingAddAfterAuth]);
+  }, [pendingAddAfterAuth, pendingMapperAfterAuth]);
 
   const handlePlaceSubmitted = useCallback(
     async (result: SubmitPublicPlaceResult) => {
@@ -357,12 +425,12 @@ export function PublicMap() {
             getCenterRef.current = fn;
           }}
         />
-        {mapperEnabled && !mapperOpen && !dayOpen && (
+        {mapperEnabled && !mapperOpen && !dayOpen && !queueOpen && (
           <div className="mapper-fab-row">
             <button type="button" className="mapper-day-btn" onClick={() => setDayOpen(true)}>
               Сегодня · {dayEntries.length}
             </button>
-            <button type="button" className="mapper-fab" onClick={() => setMapperOpen(true)}>
+            <button type="button" className="mapper-fab" onClick={beginMapperFlow}>
               + Добавить объект
             </button>
           </div>
@@ -381,7 +449,40 @@ export function PublicMap() {
             }}
           />
         )}
-        {mapperEnabled && dayOpen && <MapperDay entries={dayEntries} onClose={() => setDayOpen(false)} />}
+        {mapperEnabled && dayOpen && (
+          <MapperDay
+            account={shownAccount}
+            accountLabel={authEmail ? maskEmailDomain(authEmail) : null}
+            queueCount={shownQueueCount}
+            onClose={() => setDayOpen(false)}
+            onSignIn={() => {
+              setDayOpen(false);
+              requestMapperSignIn('cabinet');
+            }}
+            onSignOut={() => {
+              setDayOpen(false);
+              void signOutPublicUser();
+            }}
+            onOpenQueue={() => {
+              setDayOpen(false);
+              setQueueOpen(true);
+            }}
+          />
+        )}
+        {mapperEnabled && queueOpen && (
+          <ModerationQueue
+            theme={theme}
+            onClose={() => {
+              setQueueOpen(false);
+              setDayOpen(true);
+            }}
+            onChanged={(left, published) => {
+              setQueueCount(left);
+              // Опубликованное сразу должно появиться на карте под очередью.
+              if (published) void reloadPlaces().catch(() => undefined);
+            }}
+          />
+        )}
         <MenuOverlay
           open={menuOpen}
           onClose={() => setMenuOpen(false)}
@@ -409,6 +510,7 @@ export function PublicMap() {
             closeSheet();
           }}
           onRetry={() => selectedPlaceId && void openPlaceSheet(selectedPlaceId)}
+          showMeasure={mapperEnabled}
         />
         <EmailOtpSheet
           // Префикс обязателен: оба счётчика стартуют с нуля, и без него
@@ -419,6 +521,7 @@ export function PublicMap() {
           onClose={() => {
             setAuthOpen(false);
             setPendingAddAfterAuth(false);
+            setPendingMapperAfterAuth(null);
           }}
           onVerified={handleAuthVerified}
         />
