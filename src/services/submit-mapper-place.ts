@@ -52,6 +52,23 @@ export interface SubmitMapperPlaceResult {
 export interface SubmitMapperPlaceOptions {
   supabase?: SupabaseClient;
   generateId?: () => string;
+  /**
+   * Повтор отложенной отправки с прежним идентификатором: фото могло уже
+   * лежать на сервере с прошлой попытки. Тогда идём дальше — функция в базе
+   * сама проверит, что файл на месте и принадлежит вызвавшему.
+   */
+  resume?: boolean;
+}
+
+/** Storage отвечает так, когда файл по этому пути уже есть. */
+function isAlreadyUploaded(error: unknown): boolean {
+  if (!error || typeof error !== 'object') return false;
+  const e = error as { statusCode?: unknown; error?: unknown; message?: unknown };
+  return (
+    String(e.statusCode ?? '') === '409' ||
+    e.error === 'Duplicate' ||
+    (typeof e.message === 'string' && /already exists/i.test(e.message))
+  );
 }
 
 async function removeOrphan(supabase: SupabaseClient, storagePath: string): Promise<void> {
@@ -89,7 +106,7 @@ export async function submitMapperPlace(
     .from(FACADE_STORAGE_BUCKET)
     .upload(storagePath, input.photo, { contentType: FACADE_MIME_TYPE, upsert: false });
   const uploadError = (uploadResult as { error?: unknown }).error;
-  if (uploadError) {
+  if (uploadError && !(options.resume && isAlreadyUploaded(uploadError))) {
     throw new SubmitPlaceError(
       'missing_photo',
       `Failed to upload facade photo to ${storagePath}`,

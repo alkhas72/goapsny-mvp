@@ -1,7 +1,8 @@
-import { ArrowLeft, Award, ChevronRight, ClipboardCheck, Sparkles } from 'lucide-react';
+import { ArrowLeft, Award, ChevronRight, ClipboardCheck, CloudOff, Sparkles, Trash2 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { karmaLevelFor, karmaNext } from '../../shared/index';
+import { getMapperOutbox, type MapperOutbox, type OutboxItem } from '../../services/mapper-outbox';
 import {
   canModerate,
   fetchMySubmissions,
@@ -9,6 +10,7 @@ import {
   type ModerationStatus,
   type MySubmission,
 } from '../../services/moderation';
+import { waitingNote } from './sendError';
 
 interface MapperDayProps {
   /** Кто вошёл; null — никто. */
@@ -23,6 +25,8 @@ interface MapperDayProps {
   onOpenQueue: () => void;
   /** Подменяется в тестах. */
   loadSubmissions?: (userId: string) => Promise<MySubmission[]>;
+  /** Отложенная отправка; подменяется в тестах. */
+  outbox?: Pick<MapperOutbox, 'list' | 'flush' | 'remove'>;
 }
 
 const MODERATION_LABEL: Record<ModerationStatus, string> = {
@@ -57,11 +61,66 @@ export function MapperDay({
   onSignOut,
   onOpenQueue,
   loadSubmissions = fetchMySubmissions,
+  outbox,
 }: MapperDayProps) {
   const [items, setItems] = useState<MySubmission[]>([]);
   const [state, setState] = useState<'loading' | 'ready' | 'error'>('loading');
   const [attempt, setAttempt] = useState(0);
   const accountId = account?.id ?? null;
+  // Объекты, которые сняты, но ещё лежат на устройстве.
+  const [waitingItems, setWaitingItems] = useState<OutboxItem[]>([]);
+  const [flushing, setFlushing] = useState(false);
+  const [flushNote, setFlushNote] = useState<string | null>(null);
+  const [confirmDrop, setConfirmDrop] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!accountId) return;
+    let cancelled = false;
+    (outbox ?? getMapperOutbox())
+      .list(accountId)
+      .then((list) => {
+        if (!cancelled) setWaitingItems(list);
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [accountId, outbox]);
+
+  const sendWaiting = async () => {
+    if (!accountId || flushing) return;
+    setFlushing(true);
+    setFlushNote(null);
+    try {
+      const result = await (outbox ?? getMapperOutbox()).flush(accountId);
+      setWaitingItems(result.left);
+      if (result.sent > 0) {
+        setFlushNote(`Ушло на проверку: ${result.sent}`);
+        setState('loading');
+        setAttempt((n) => n + 1);
+      } else {
+        setFlushNote('Пока не получилось. Объекты остаются на устройстве.');
+      }
+    } catch {
+      setFlushNote('Пока не получилось. Объекты остаются на устройстве.');
+    } finally {
+      setFlushing(false);
+    }
+  };
+
+  const dropWaiting = async (id: string) => {
+    if (confirmDrop !== id) {
+      setConfirmDrop(id);
+      return;
+    }
+    setConfirmDrop(null);
+    try {
+      await (outbox ?? getMapperOutbox()).remove(id);
+      setWaitingItems((list) => list.filter((item) => item.id !== id));
+    } catch {
+      setFlushNote('Не удалось удалить. Попробуйте ещё раз.');
+    }
+  };
 
   useEffect(() => {
     if (!accountId) return;
@@ -160,6 +219,59 @@ export function MapperDay({
                 <span>на карте</span>
               </div>
             </div>
+
+            {waitingItems.length > 0 && (
+              <section className="cab-outbox" aria-label="Ждут отправки">
+                <p className="nf-label">
+                  <CloudOff size={16} aria-hidden="true" /> Ждут отправки: {waitingItems.length}
+                </p>
+                <ol className="cab-list">
+                  {waitingItems.map((item) => (
+                    <li key={item.id} className={item.blocked ? 'is-blocked' : ''}>
+                      <span className={`nf-dot is-${item.input.status}`} aria-hidden="true" />
+                      <span className="cab-name">
+                        {item.input.name}
+                        <small>
+                          {when(item.createdAt)} · {waitingNote(item.reason, item.blocked)}
+                        </small>
+                      </span>
+                      <button
+                        type="button"
+                        className="cab-drop"
+                        aria-label={
+                          confirmDrop === item.id ? `Точно удалить «${item.input.name}»` : `Удалить «${item.input.name}»`
+                        }
+                        onClick={() => void dropWaiting(item.id)}
+                      >
+                        {confirmDrop === item.id ? 'Точно удалить?' : <Trash2 size={18} aria-hidden="true" />}
+                      </button>
+                    </li>
+                  ))}
+                </ol>
+                <p className="nf-hint">
+                  Объекты лежат на этом устройстве с фото и уйдут на проверку сами, когда появится связь.
+                </p>
+                {flushNote && (
+                  <p className="nf-hint cab-outbox-note" role="status">
+                    {flushNote}
+                  </p>
+                )}
+                <button
+                  type="button"
+                  className="nf-btn is-work"
+                  disabled={flushing}
+                  aria-busy={flushing}
+                  onClick={() => void sendWaiting()}
+                >
+                  {flushing ? 'Отправляем…' : 'Отправить сейчас'}
+                </button>
+              </section>
+            )}
+            {waitingItems.length === 0 && flushNote && (
+              <p className="nf-hint cab-outbox-note" role="status">
+                {flushNote}
+              </p>
+            )}
 
             <p className="nf-label">Мои объекты</p>
             {state === 'loading' && <p className="nf-hint">Загружаем…</p>}

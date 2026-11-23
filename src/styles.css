@@ -2572,3 +2572,55 @@ body {
   font-size: 12.5px;
   color: var(--text-secondary);
 }
+
+/* Отложенная отправка: объекты, которые ждут на устройстве */
+.nf-done.is-kept .nf-done-mark {
+  background: var(--status-yellow);
+  color: #1b1b1b;
+}
+.cab-outbox {
+  display: grid;
+  gap: 10px;
+  padding: 14px;
+  margin-bottom: 18px;
+  border: 1px dashed var(--border-color, rgba(127, 127, 127, 0.45));
+  border-radius: 16px;
+}
+.cab-outbox .nf-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+}
+.cab-outbox .cab-list {
+  margin: 0;
+}
+.cab-outbox li.is-blocked .cab-name small {
+  color: var(--status-red);
+}
+.cab-drop {
+  margin-left: auto;
+  min-width: 44px;
+  min-height: 44px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 12px;
+  background: transparent;
+  color: var(--text-secondary);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.cab-drop:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.cab-outbox-note {
+  font-weight: 700;
+}
+
+.mapper-day-wait {
+  font-weight: 800;
+  color: var(--status-yellow);
+}

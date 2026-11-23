@@ -1543,3 +1543,29 @@
     transition-duration: 0.01ms !important;
   }
 }
+
+/* Отложенная отправка */
+[data-skin='living'] .nf-done.is-kept .nf-done-mark {
+  background: var(--orchid);
+  color: var(--ink);
+}
+
+[data-skin='living'] .cab-outbox {
+  border: 0;
+  border-radius: 24px;
+  padding: 16px;
+  background: color-mix(in srgb, var(--lime) 34%, #fff);
+}
+
+[data-skin='living'] .cab-outbox .cab-list li {
+  border-bottom-color: color-mix(in srgb, var(--ink) 10%, transparent);
+}
+
+[data-skin='living'] .cab-drop {
+  border-radius: 999px;
+  color: var(--ink);
+}
+
+[data-skin='living'] .mapper-day-wait {
+  color: inherit;
+}

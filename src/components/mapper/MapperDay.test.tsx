@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import type { OutboxItem } from '../../services/mapper-outbox';
 import type { MySubmission } from '../../services/moderation';
 import { MapperDay } from './MapperDay';
 
@@ -86,5 +87,92 @@ describe('MapperDay', () => {
 
     expect((await screen.findByRole('alert')).textContent).toContain('Не удалось загрузить список');
     expect(screen.queryByText(/Пока пусто/)).toBeNull();
+  });
+
+  describe('ждут отправки', () => {
+    const ACCOUNT = { id: 'u1', role: 'public_user' as const, karma: 40, karmaStatus: 'explorer' as const };
+    const waiting = (over: Partial<OutboxItem> = {}): OutboxItem => ({
+      id: 'w1',
+      owner: 'u1',
+      createdAt: NOW,
+      attempts: 1,
+      lastTriedAt: NOW,
+      reason: 'offline',
+      blocked: false,
+      input: {
+        name: 'Магазин у моста',
+        category: 'shops',
+        lat: 43,
+        lng: 41,
+        photo: new Blob(['jpeg']),
+        status: 'yellow',
+        stepsCount: 1,
+        rampType: 'none',
+        subtype: null,
+        stepHigh: 'unknown',
+        doorWide: 'unknown',
+      },
+      ...over,
+    });
+
+    it('показывает объекты с устройства и отправляет их по кнопке', async () => {
+      const outbox = {
+        list: vi.fn().mockResolvedValue([waiting()]),
+        flush: vi.fn().mockResolvedValue({ sent: 1, left: [] }),
+        remove: vi.fn(),
+      };
+      const load = vi.fn().mockResolvedValue([]);
+      render(
+        <MapperDay account={ACCOUNT} accountLabel={null} queueCount={null} loadSubmissions={load} outbox={outbox} {...handlers()} />,
+      );
+
+      expect(await screen.findByText('Магазин у моста')).toBeTruthy();
+      expect(screen.getByText(/Ждут отправки: 1/)).toBeTruthy();
+      expect(screen.getByText(/нет связи/)).toBeTruthy();
+
+      await userEvent.setup().click(screen.getByRole('button', { name: 'Отправить сейчас' }));
+
+      expect((await screen.findByRole('status')).textContent).toContain('Ушло на проверку: 1');
+      expect(outbox.flush).toHaveBeenCalledWith('u1');
+      expect(screen.queryByText('Магазин у моста')).toBeNull();
+      // Список своих объектов перечитан с сервера.
+      expect(load).toHaveBeenCalledTimes(2);
+    });
+
+    it('не получилось отправить — объекты остаются, об этом сказано', async () => {
+      const outbox = {
+        list: vi.fn().mockResolvedValue([waiting()]),
+        flush: vi.fn().mockResolvedValue({ sent: 0, left: [waiting({ attempts: 2 })] }),
+        remove: vi.fn(),
+      };
+      render(
+        <MapperDay account={ACCOUNT} accountLabel={null} queueCount={null} loadSubmissions={vi.fn().mockResolvedValue([])} outbox={outbox} {...handlers()} />,
+      );
+
+      await userEvent.setup().click(await screen.findByRole('button', { name: 'Отправить сейчас' }));
+
+      expect((await screen.findByRole('status')).textContent).toContain('Пока не получилось');
+      expect(screen.getByText('Магазин у моста')).toBeTruthy();
+    });
+
+    it('удаляет объект с устройства только со второго нажатия', async () => {
+      const outbox = {
+        list: vi.fn().mockResolvedValue([waiting({ reason: 'card_invalid', blocked: true })]),
+        flush: vi.fn(),
+        remove: vi.fn().mockResolvedValue(undefined),
+      };
+      render(
+        <MapperDay account={ACCOUNT} accountLabel={null} queueCount={null} loadSubmissions={vi.fn().mockResolvedValue([])} outbox={outbox} {...handlers()} />,
+      );
+      const user = userEvent.setup();
+
+      expect(await screen.findByText(/Сервер не принял данные входа/)).toBeTruthy();
+      await user.click(screen.getByRole('button', { name: 'Удалить «Магазин у моста»' }));
+      expect(outbox.remove).not.toHaveBeenCalled();
+
+      await user.click(screen.getByRole('button', { name: 'Точно удалить «Магазин у моста»' }));
+      expect(outbox.remove).toHaveBeenCalledWith('w1');
+      expect(screen.queryByText('Магазин у моста')).toBeNull();
+    });
   });
 });

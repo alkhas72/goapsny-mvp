@@ -1,3 +1,4 @@
+import type { OutboxReason } from '../../services/mapper-outbox';
 import { SubmitPlaceError, type SubmitPlaceErrorKind } from '../../services/submit-place';
 import { FacadePhotoError } from '../../utils/photo';
 
@@ -22,4 +23,26 @@ export function sendErrorText(error: unknown): string {
   if (error instanceof FacadePhotoError) return error.message;
   if (error instanceof SubmitPlaceError) return SEND_ERROR[error.kind] ?? SEND_ERROR_DEFAULT;
   return SEND_ERROR_DEFAULT;
+}
+
+/** Почему объект ждёт отправки на устройстве и что будет дальше. */
+export function keptText(reason: OutboxReason): string {
+  if (reason === 'server_not_ready') {
+    return 'Сервер пока не принимает объекты на проверку. Объект уйдёт сам, как только начнёт.';
+  }
+  if (reason === 'auth_required') {
+    return 'Вход устарел. Войдите заново в кабинете, и объект уйдёт на проверку.';
+  }
+  if (reason === 'not_configured') {
+    return 'Сервис сейчас недоступен. Объект уйдёт на проверку, когда он вернётся.';
+  }
+  return 'Нет связи с сервером. Объект уйдёт на проверку сам, когда связь появится.';
+}
+
+/** Короткая пометка в списке «Ждут отправки». */
+export function waitingNote(reason: OutboxReason, blocked: boolean): string {
+  if (blocked) return SEND_ERROR[reason as SubmitPlaceErrorKind] ?? 'Сервер не принял объект.';
+  if (reason === 'server_not_ready') return 'сервер пока не принимает';
+  if (reason === 'auth_required') return 'нужен вход';
+  return 'нет связи';
 }

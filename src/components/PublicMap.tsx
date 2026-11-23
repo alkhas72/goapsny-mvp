@@ -34,6 +34,7 @@ import {
   fetchModerationQueue,
   type MapperAccount,
 } from '../services/moderation';
+import { getMapperOutbox } from '../services/mapper-outbox';
 import { isSupabaseConfigured } from '../services/supabase';
 import type { Place } from '../types';
 import { MOOD_EVENT, currentMood, currentSkin } from '../utils/skin';
@@ -106,6 +107,10 @@ export function PublicMap() {
   const [flowKey, setFlowKey] = useState(0);
   const getCenterRef = useRef<(() => { lat: number; lng: number } | null) | null>(null);
   const [authEmail, setAuthEmail] = useState<string | null>(null);
+  // Идентификатор вошедшего: к нему привязаны объекты, ждущие отправки на устройстве.
+  const [authUserId, setAuthUserId] = useState<string | null>(null);
+  const [waitingCount, setWaitingCount] = useState(0);
+  const [outboxNote, setOutboxNote] = useState<string | null>(null);
   const [pendingAddAfterAuth, setPendingAddAfterAuth] = useState(false);
   // Путь картографа: куда вести после входа и кто вошёл.
   const [pendingMapperAfterAuth, setPendingMapperAfterAuth] = useState<'flow' | 'cabinet' | null>(null);
@@ -129,10 +134,12 @@ export function PublicMap() {
     void getPublicSession().then((session) => {
       if (!cancelled) {
         setAuthEmail(session?.user.email ?? null);
+        setAuthUserId(session?.user.id ?? null);
       }
     });
     const unsubscribe = subscribePublicSession((session) => {
       setAuthEmail(session?.user.email ?? null);
+      setAuthUserId(session?.user.id ?? null);
     });
     return () => {
       cancelled = true;
@@ -163,6 +170,45 @@ export function PublicMap() {
       cancelled = true;
     };
   }, [mapperEnabled, authEmail]);
+
+  // Отложенные объекты уходят сами: при открытии карты и при возврате связи.
+  useEffect(() => {
+    if (!mapperEnabled || !authUserId) return;
+    let cancelled = false;
+    const flush = () => {
+      void getMapperOutbox()
+        .flush(authUserId, { auto: true })
+        .then((result) => {
+          if (cancelled) return;
+          setWaitingCount(result.left.length);
+          if (result.sent > 0) setOutboxNote(`Ушло на проверку: ${result.sent}`);
+        })
+        .catch(() => undefined);
+    };
+    flush();
+    window.addEventListener('online', flush);
+    return () => {
+      cancelled = true;
+      window.removeEventListener('online', flush);
+    };
+  }, [mapperEnabled, authUserId]);
+
+  // Счётчик на кнопке кабинета обновляется, когда человек вернулся на карту.
+  useEffect(() => {
+    if (!mapperEnabled || !authUserId || mapperOpen || dayOpen) return;
+    let cancelled = false;
+    void getMapperOutbox()
+      .list(authUserId)
+      .then((list) => {
+        if (!cancelled) setWaitingCount(list.length);
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [mapperEnabled, authUserId, mapperOpen, dayOpen]);
+
+  const shownWaiting = authUserId ? waitingCount : 0;
 
   // После выхода прежний профиль не показывается, даже пока состояние не сброшено.
   const shownAccount = authEmail ? account : null;
@@ -429,6 +475,7 @@ export function PublicMap() {
           <div className="mapper-fab-row">
             <button type="button" className="mapper-day-btn" onClick={() => setDayOpen(true)}>
               Сегодня · {dayEntries.length}
+              {shownWaiting > 0 && <span className="mapper-day-wait"> · ждут {shownWaiting}</span>}
             </button>
             <button type="button" className="mapper-fab" onClick={beginMapperFlow}>
               + Добавить объект
@@ -440,6 +487,7 @@ export function PublicMap() {
             key={`flow-${flowKey}`}
             theme={theme}
             getCenter={() => getCenterRef.current?.() ?? null}
+            ownerId={authUserId}
             onAnother={() => setFlowKey((k) => k + 1)}
             onClose={() => setMapperOpen(false)}
             onSaved={setDayEntries}
@@ -540,6 +588,15 @@ export function PublicMap() {
         onCabinet={handleCabinet}
         onDisabledLink={(label) => setCabinetNote(`${label} — ссылка появится позже`)}
       />
+
+      {outboxNote && (
+        <div className="public-toast" role="status">
+          {outboxNote}
+          <button type="button" className="public-toast-close" onClick={() => setOutboxNote(null)}>
+            Закрыть
+          </button>
+        </div>
+      )}
 
       {cabinetNote && (
         <div className="public-toast" role="status">

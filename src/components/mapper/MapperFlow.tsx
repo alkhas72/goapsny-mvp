@@ -3,6 +3,7 @@ import {
   Camera,
   Check,
   ChevronDown,
+  CloudOff,
   Image as ImageIcon,
   Minus,
   Plus,
@@ -18,6 +19,8 @@ import {
   type SubmitMapperPlaceInput,
   type SubmitMapperPlaceResult,
 } from '../../services/submit-mapper-place';
+import { canWait, getMapperOutbox, isOffline, outboxReason, type MapperOutbox, type OutboxReason } from '../../services/mapper-outbox';
+import { SubmitPlaceError } from '../../services/submit-place';
 import { getBrowserLocation } from '../../utils/location';
 import { prepareFacadePhoto } from '../../utils/photo';
 import { MapLibreMap } from '../map/MapLibreMap';
@@ -31,7 +34,7 @@ import {
 } from './assistant';
 import { appendDay, type DayEntry } from './dayLog';
 import { demoEyes, type AssistantEyes } from './eyes';
-import { sendErrorText } from './sendError';
+import { keptText, sendErrorText } from './sendError';
 
 interface MapperFlowProps {
   theme: 'light' | 'dark';
@@ -40,6 +43,13 @@ interface MapperFlowProps {
   eyes?: AssistantEyes;
   /** Отправка на сервер; подменяется в тестах. */
   submit?: (input: SubmitMapperPlaceInput) => Promise<SubmitMapperPlaceResult>;
+  /**
+   * Кто вошёл (auth.uid()). С ним объект при сбое связи остаётся на устройстве
+   * и уходит позже; без него отказ просто показывается на экране.
+   */
+  ownerId?: string | null;
+  /** Отложенная отправка; подменяется в тестах. */
+  outbox?: Pick<MapperOutbox, 'add'>;
   onClose: () => void;
   onSaved: (entries: DayEntry[]) => void;
   onOpenDay: () => void;
@@ -113,6 +123,8 @@ export function MapperFlow({
   getCenter,
   eyes = demoEyes,
   submit = submitMapperPlace,
+  ownerId = null,
+  outbox,
   onClose,
   onSaved,
   onOpenDay,
@@ -129,6 +141,8 @@ export function MapperFlow({
   const [saved, setSaved] = useState<DayEntry[] | null>(null);
   const [sending, setSending] = useState(false);
   const [sendError, setSendError] = useState<string | null>(null);
+  // Объект не ушёл, но сохранён на устройстве: причина, по которой он ждёт.
+  const [kept, setKept] = useState<OutboxReason | null>(null);
   const cameraRef = useRef<HTMLInputElement | null>(null);
   const galleryRef = useRef<HTMLInputElement | null>(null);
 
@@ -193,9 +207,10 @@ export function MapperFlow({
     if (!light || !point || !facts.category || photos.length === 0 || sending) return;
     setSending(true);
     setSendError(null);
+    let input: SubmitMapperPlaceInput | null = null;
     try {
       const photo = await prepareFacadePhoto(photos[0].file);
-      await submit({
+      input = {
         name: facts.name.trim(),
         category: facts.category,
         lat: point.lat,
@@ -207,7 +222,10 @@ export function MapperFlow({
         subtype: facts.subtype,
         stepHigh: facts.stepHigh,
         doorWide: facts.doorWide,
-      });
+      };
+      // Без сети запрос провисел бы до таймаута: сразу идём в отложенные.
+      if (ownerId && isOffline()) throw new SubmitPlaceError('unknown', 'Device is offline');
+      await submit(input);
       const fullCard = facts.steps != null && facts.doorWide !== 'unknown' && facts.ramp != null;
       const entries = appendDay(
         {
@@ -224,6 +242,18 @@ export function MapperFlow({
       onSaved(entries);
       setStep('done');
     } catch (error) {
+      // Связь, вход или сервер: карточка в порядке, держим её на устройстве.
+      if (input && ownerId && canWait(error)) {
+        const reason = outboxReason(error);
+        try {
+          await (outbox ?? getMapperOutbox()).add(ownerId, input, reason);
+          setKept(reason);
+          setStep('done');
+          return;
+        } catch {
+          // Хранилище устройства недоступно: остаётся прежний путь с повтором.
+        }
+      }
       setSendError(sendErrorText(error));
     } finally {
       setSending(false);
@@ -476,6 +506,23 @@ export function MapperFlow({
           <p className="nf-hint">Модератор посмотрит карточку, и объект появится на карте.</p>
           <p className="nf-karma">+{saved[saved.length - 1].karma} кармы</p>
           <p className="nf-hint">Сегодня добавлено: {saved.length}</p>
+          <button type="button" className="nf-btn is-work" onClick={onAnother}>
+            Ещё объект
+          </button>
+          <button type="button" className="nf-btn is-ghost" onClick={onOpenDay}>
+            Кабинет
+          </button>
+        </div>
+      )}
+
+      {step === 'done' && kept && (
+        <div className="nf-body nf-done is-kept">
+          <span className="nf-done-mark">
+            <CloudOff size={38} aria-hidden="true" />
+          </span>
+          <h2>{facts.name || 'Объект'} — сохранён на устройстве</h2>
+          <p className="nf-hint">{keptText(kept)}</p>
+          <p className="nf-hint">Ждущие отправки объекты видны в кабинете.</p>
           <button type="button" className="nf-btn is-work" onClick={onAnother}>
             Ещё объект
           </button>

@@ -1,6 +1,7 @@
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi, type Mock } from 'vitest';
 import { cleanup, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import type { MapperOutbox } from '../../services/mapper-outbox';
 import { SubmitPlaceError } from '../../services/submit-place';
 import type { SubmitMapperPlaceInput, SubmitMapperPlaceResult } from '../../services/submit-mapper-place';
 import { MapperFlow } from './MapperFlow';
@@ -31,7 +32,10 @@ const eyes: AssistantEyes = {
 
 const photo = new File(['jpeg'], 'entrance.jpg', { type: 'image/jpeg' });
 
-function setup(submit: (input: SubmitMapperPlaceInput) => Promise<SubmitMapperPlaceResult>) {
+function setup(
+  submit: (input: SubmitMapperPlaceInput) => Promise<SubmitMapperPlaceResult>,
+  keep: { ownerId?: string; outbox?: { add: Mock<MapperOutbox['add']> } } = {},
+) {
   const onSaved = vi.fn();
   const view = render(
     <MapperFlow
@@ -39,6 +43,8 @@ function setup(submit: (input: SubmitMapperPlaceInput) => Promise<SubmitMapperPl
       getCenter={() => ({ lat: 43, lng: 41 })}
       eyes={eyes}
       submit={submit}
+      ownerId={keep.ownerId}
+      outbox={keep.outbox}
       onClose={vi.fn()}
       onSaved={onSaved}
       onOpenDay={vi.fn()}
@@ -107,5 +113,62 @@ describe('MapperFlow: отправка на проверку', () => {
     await screen.findByText(/— на проверке/);
     expect(submit).toHaveBeenCalledTimes(2);
     expect(onSaved).toHaveBeenCalledTimes(1);
+  });
+
+  it('нет связи с сервером: объект остаётся на устройстве и ждёт отправки', async () => {
+    const user = userEvent.setup();
+    const submit = vi.fn().mockRejectedValue(new SubmitPlaceError('unknown', 'Failed to fetch'));
+    const add = vi.fn<MapperOutbox['add']>().mockResolvedValue({} as never);
+    const { onSaved } = setup(submit, { ownerId: 'u1', outbox: { add } });
+
+    await user.click(await walkToLastStep(user));
+
+    await screen.findByText(/— сохранён на устройстве/);
+    expect(screen.getByText(/Нет связи с сервером/)).toBeTruthy();
+    expect(add).toHaveBeenCalledTimes(1);
+    expect(add.mock.calls[0][0]).toBe('u1');
+    expect(add.mock.calls[0][1]).toMatchObject({ name: 'Аптека «Здоровье»', status: 'red' });
+    expect(add.mock.calls[0][1].photo).toBe(photo);
+    expect(add.mock.calls[0][2]).toBe('unknown');
+    // Кармы и записи «Сегодня» нет: сервер объект ещё не видел.
+    expect(onSaved).not.toHaveBeenCalled();
+    expect(screen.queryByText(/кармы/)).toBeNull();
+  });
+
+  it('сервер ещё не принимает: объект ждёт на устройстве, причина названа', async () => {
+    const user = userEvent.setup();
+    const submit = vi.fn().mockRejectedValue(new SubmitPlaceError('server_not_ready', 'no rpc', 'PGRST202'));
+    const add = vi.fn<MapperOutbox['add']>().mockResolvedValue({} as never);
+    setup(submit, { ownerId: 'u1', outbox: { add } });
+
+    await user.click(await walkToLastStep(user));
+
+    await screen.findByText(/— сохранён на устройстве/);
+    expect(screen.getByText(/Сервер пока не принимает объекты/)).toBeTruthy();
+    expect(add.mock.calls[0][2]).toBe('server_not_ready');
+  });
+
+  it('отказ по существу на устройство не откладывается: причина на экране', async () => {
+    const user = userEvent.setup();
+    const submit = vi.fn().mockRejectedValue(new SubmitPlaceError('card_invalid', 'invalid card', '22P02'));
+    const add = vi.fn<MapperOutbox['add']>();
+    setup(submit, { ownerId: 'u1', outbox: { add } });
+
+    await user.click(await walkToLastStep(user));
+
+    expect((await screen.findByRole('alert')).textContent).toContain('Сервер не принял данные входа');
+    expect(add).not.toHaveBeenCalled();
+  });
+
+  it('хранилище устройства недоступно: остаётся отказ с повтором', async () => {
+    const user = userEvent.setup();
+    const submit = vi.fn().mockRejectedValue(new SubmitPlaceError('unknown', 'Failed to fetch'));
+    const add = vi.fn<MapperOutbox['add']>().mockRejectedValue(new Error('IndexedDB is blocked'));
+    setup(submit, { ownerId: 'u1', outbox: { add } });
+
+    await user.click(await walkToLastStep(user));
+
+    expect((await screen.findByRole('alert')).textContent).toContain('Не удалось отправить');
+    expect(screen.getByRole('button', { name: /Повторить отправку/ })).toBeTruthy();
   });
 });

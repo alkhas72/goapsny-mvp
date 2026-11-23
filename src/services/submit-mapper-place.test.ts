@@ -106,6 +106,19 @@ describe('submitMapperPlace', () => {
     expect(rpc).not.toHaveBeenCalled();
   });
 
+  it('повтор отложенной отправки: фото уже на сервере — идём дальше к подаче', async () => {
+    const duplicate = { data: null, error: { statusCode: '409', error: 'Duplicate', message: 'The resource already exists' } };
+    const resumed = fakeClient({ upload: duplicate });
+    const result = await submitMapperPlace(INPUT, { ...resumed.options, resume: true });
+    expect(resumed.rpc).toHaveBeenCalledTimes(1);
+    expect(result.placeId).toBe(UUID_A);
+
+    // Первая отправка такого ответа не прощает: путь должен быть свободен.
+    const fresh = fakeClient({ upload: duplicate });
+    await expect(submitMapperPlace(INPUT, fresh.options)).rejects.toMatchObject({ kind: 'missing_photo' });
+    expect(fresh.rpc).not.toHaveBeenCalled();
+  });
+
   it('отказ сервера: фото убирается, причина названа', async () => {
     const { options, remove } = fakeClient({
       rpc: {
