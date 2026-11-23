@@ -27,7 +27,7 @@ function getPinHtml(
       ? statusColor(status as AccessibilityStatus)
       : "#A0A8B0";
   const hasPortableRamp = rampType === "portable_available" || rampType === "portable_on_request";
-  const isRampCenter = hasPortableRamp && (status === "green" || status === "yellow");
+  const isRampCenter = hasPortableRamp;
   const centerFill = isRampCenter ? RAMP_COLOR : "#FFFFFF";
   const centerStroke = isRampCenter ? 'stroke="#FFFFFF" stroke-width="2.5"' : "";
   const label = escapeAttr(`${placeName}, ${statusLabel(status as AccessibilityStatus)}`);
