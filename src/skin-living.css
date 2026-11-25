@@ -596,7 +596,7 @@
 
 /* Два главных входа в меню: карта доступности и слой замеров. */
 [data-skin='living'] .menu-layer {
-  min-height: 66px;
+  min-height: 60px;
   padding: 12px 16px;
   border-radius: 22px;
   transition: transform 0.3s var(--spring);

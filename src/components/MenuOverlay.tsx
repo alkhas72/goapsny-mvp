@@ -94,10 +94,7 @@ export function MenuOverlay({
               onClick={onAddLocation}
             >
               <MapPinPlus size={22} aria-hidden="true" />
-              <span className="menu-layer-text">
-                Добавить локацию
-                <small>Карта доступности: место, вход, фото</small>
-              </span>
+              <span className="menu-layer-text">Добавить локацию</span>
             </button>
           </li>
           <li>
@@ -108,10 +105,7 @@ export function MenuOverlay({
               onClick={onOrderRamp}
             >
               <Ruler size={22} aria-hidden="true" />
-              <span className="menu-layer-text">
-                Заказать пандус
-                <small>Слой замеров: замер входа и заявка</small>
-              </span>
+              <span className="menu-layer-text">Заказать пандус</span>
             </button>
           </li>
           {MENU_ITEMS.map((item) => (
