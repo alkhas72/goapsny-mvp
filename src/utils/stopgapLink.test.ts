@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { STOPGAP_URL, stopgapMeasurePointUrl, stopgapMeasureUrl } from './stopgapLink';
+import { STOPGAP_URL, stopgapMeasurePointUrl, stopgapMeasureUrl, zamerEmbedUrl } from './stopgapLink';
 
 const PLACE = {
   id: '11111111-1111-4111-8111-111111111111',
@@ -66,5 +66,32 @@ describe('мастер замера внутри карты', () => {
     expect(url.pathname).toBe('/zamer/');
     expect(url.searchParams.get('measure')).toBe('1');
     expect(url.searchParams.get('return')).toBe('https://map.goapsny.org/?layer=ramps');
+  });
+});
+
+describe('zamerEmbedUrl: мастер внутри карты', () => {
+  const origin = 'https://map.goapsny.org';
+
+  it('на нашем сайте: режим мастера, признак встроенности, настроение и точка', () => {
+    const url = new URL(zamerEmbedUrl({ lat: 43.0015, lng: 41.0232 }, 'orchid', `${origin}/zamer/`, origin)!);
+    expect(url.origin + url.pathname).toBe(`${origin}/zamer/`);
+    expect(url.searchParams.get('mode')).toBe('wizard');
+    expect(url.searchParams.get('embed')).toBe('1');
+    expect(url.searchParams.get('measure')).toBe('1');
+    expect(url.searchParams.get('mood')).toBe('orchid');
+    expect(url.searchParams.get('lat')).toBe('43.001500');
+    // Встроенному мастеру адрес возврата не нужен: карта остаётся под ним.
+    expect(url.searchParams.has('return')).toBe(false);
+  });
+
+  it('отдельный Stopgap (откат): встроенного показа нет', () => {
+    expect(zamerEmbedUrl({ lat: 43, lng: 41 }, 'sage', 'https://goapsny-stopgap.vercel.app/', origin)).toBeNull();
+  });
+
+  it('ссылка из карточки места на нашем сайте ведёт сразу в мастер', () => {
+    const inside = new URL(stopgapMeasureUrl(PLACE, null, `${window.location.origin}/zamer/`));
+    expect(inside.searchParams.get('mode')).toBe('wizard');
+    const outside = new URL(stopgapMeasureUrl(PLACE, null, 'https://goapsny-stopgap.vercel.app/'));
+    expect(outside.searchParams.has('mode')).toBe(false);
   });
 });

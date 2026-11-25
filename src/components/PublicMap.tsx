@@ -36,7 +36,7 @@ import { isSupabaseConfigured } from '../services/supabase';
 import type { Place } from '../types';
 import { MOOD_EVENT, currentMood, currentSkin } from '../utils/skin';
 import { readMapLayer, writeMapLayer, type MapLayer } from '../utils/mapLayer';
-import { stopgapMeasurePointUrl } from '../utils/stopgapLink';
+import { stopgapMeasurePointUrl, zamerEmbedUrl } from '../utils/stopgapLink';
 import { canUseLive } from '../services/assistantApi';
 import { BrandMark } from './BrandMark';
 import { ModuleBoundary } from '../modules/ModuleBoundary';
@@ -517,7 +517,8 @@ export function PublicMap() {
           <ModuleBoundary id="ramps" title="Заказать пандус" onDismiss={() => switchLayer('access')}>
             <RampsModule
               showCross={!selectedPlaceId}
-              onMeasureHere={handleMeasureHere}
+              wizardUrl={() => zamerEmbedUrl(getCenterRef.current?.() ?? null, livingSkin ? currentMood() : null)}
+              onMeasureOutside={handleMeasureHere}
               onLeave={() => switchLayer('access')}
             />
           </ModuleBoundary>

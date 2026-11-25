@@ -500,6 +500,8 @@ export function createIntake() {
   // ======================================================================
   function mount(root, handlers) {
     const h = handlers || {};
+    // Режим мастера (без конструктора): выход ведёт на карту, а не в конструктор
+    if (h.exitTo === "map") { T.close = "На карту"; T.closeAria = "Закрыть замер и вернуться на карту. Черновик сохранится"; T.send.toApp = "На карту"; }
     const doc = document;
     const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
     const $ = (sel, el = box) => el.querySelector(sel);
@@ -1047,7 +1049,10 @@ export function createIntake() {
     function openHow() {
       const el = $("[data-ik-how]"); if (!el.hidden) return;
       el.hidden = false; box.classList.add("ik-how-on");
-      how = HOW.mount($("[data-ik-how-sc]"), { autoplay: true });
+      const start = () => { if (!el.hidden && !how) how = HOW.mount($("[data-ik-how-sc]"), { autoplay: true }); };
+      // В режиме мастера three.js при старте не грузится: показ подгружает его сам, один раз
+      if (typeof window !== "undefined" && !window.THREE && typeof h.loadThree === "function") Promise.resolve(h.loadThree()).then(start, start);
+      else start();
       $("[data-ik-how-close]").focus({ preventScroll: true });
     }
     function closeHow() {

@@ -42,6 +42,8 @@ export function stopgapMeasureUrl(
   url.searchParams.set('lat', place.lat.toFixed(6));
   url.searchParams.set('lng', place.lng.toFixed(6));
   if (returnUrl && returnUrl.startsWith('https://')) url.searchParams.set('return', returnUrl);
+  // На нашем сайте человек попадает сразу в мастер замера, без конструктора (решение Арбитра 25.11).
+  if (typeof window !== 'undefined' && isZamerInside(base)) url.searchParams.set('mode', 'wizard');
   return url.toString();
 }
 
@@ -61,5 +63,34 @@ export function stopgapMeasurePointUrl(
     url.searchParams.set('lng', point.lng.toFixed(6));
   }
   if (returnUrl && returnUrl.startsWith('https://')) url.searchParams.set('return', returnUrl);
+  return url.toString();
+}
+
+/** Мастер замера лежит на нашем же сайте (не отдельный Stopgap по VITE_STOPGAP_URL). */
+export function isZamerInside(base: string = STOPGAP_URL, origin: string = window.location.origin): boolean {
+  try {
+    return new URL(base).origin === origin;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Адрес мастера для показа внутри карты: режим мастера без конструктора
+ * (`mode=wizard`), признак встроенности (`embed=1`) и настроение карты, чтобы
+ * фон был один. Для отдельного Stopgap (откат по VITE_STOPGAP_URL) встроенного
+ * показа нет: возвращается null, вход остаётся обычной ссылкой.
+ */
+export function zamerEmbedUrl(
+  point: { lat: number; lng: number } | null,
+  mood: string | null,
+  base: string = STOPGAP_URL,
+  origin: string = window.location.origin,
+): string | null {
+  if (!isZamerInside(base, origin)) return null;
+  const url = new URL(stopgapMeasurePointUrl(point, null, base));
+  url.searchParams.set('mode', 'wizard');
+  url.searchParams.set('embed', '1');
+  if (mood) url.searchParams.set('mood', mood);
   return url.toString();
 }
