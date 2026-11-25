@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { AssistantApiError, askAssistant, assistantErrorText, canUseLive, fetchLiveToken } from './assistantApi';
+import { AssistantApiError, assistantErrorText, canUseLive, fetchLiveToken, guideAssistant } from './assistantApi';
 
 function server(body: unknown, status = 200) {
   return vi.fn(async () => ({ ok: status < 400, status, json: async () => body })) as unknown as typeof fetch;
@@ -7,30 +7,39 @@ function server(body: unknown, status = 200) {
 const getToken = async () => 'jwt';
 
 describe('assistantApi', () => {
-  it('разговор: история и фото уходят на сервер, ответ приходит текстом', async () => {
-    const fetchImpl = server({ reply: ' Одна ступень. ' });
-    const reply = await askAssistant([{ role: 'user', text: 'Что тут?' }], 'IMG', { getToken, fetchImpl });
-    expect(reply).toBe('Одна ступень.');
+  it('помощник в шагах: слова, шаг и карточка уходят на сервер, назад приходят ответ и поля', async () => {
+    const fetchImpl = server({ reply: ' Записал. ', patch: { steps: 2 } });
+    const answer = await guideAssistant([{ role: 'user', text: 'две ступени' }], 2, { name: 'Аптека' }, { getToken, fetchImpl });
+    expect(answer).toEqual({ reply: 'Записал.', patch: { steps: 2 } });
     const [url, init] = (fetchImpl as unknown as ReturnType<typeof vi.fn>).mock.calls[0];
     expect(url).toBe('/api/assistant');
-    expect(JSON.parse(init.body)).toEqual({ mode: 'chat', messages: [{ role: 'user', text: 'Что тут?' }], image: 'IMG' });
+    expect(JSON.parse(init.body)).toEqual({
+      mode: 'guide',
+      messages: [{ role: 'user', text: 'две ступени' }],
+      step: 2,
+      card: { name: 'Аптека' },
+    });
   });
 
-  it('пустой ответ не выдаётся за ответ', async () => {
-    await expect(askAssistant([{ role: 'user', text: 'а' }], null, { getToken, fetchImpl: server({ reply: '' }) })).rejects.toBeInstanceOf(
+  it('поля без слов годятся, пустой ответ без полей за ответ не выдаётся', async () => {
+    const turn = [{ role: 'user' as const, text: 'а' }];
+    expect(await guideAssistant(turn, 1, {}, { getToken, fetchImpl: server({ reply: '', patch: { steps: 0 } }) })).toEqual({
+      reply: '',
+      patch: { steps: 0 },
+    });
+    await expect(guideAssistant(turn, 1, {}, { getToken, fetchImpl: server({ reply: '', patch: [] }) })).rejects.toBeInstanceOf(
       AssistantApiError,
     );
   });
 
   it('обрыв связи и отказ сервера различаются', async () => {
+    const turn = [{ role: 'user' as const, text: 'а' }];
     const down = vi.fn(async () => {
       throw new TypeError('Failed to fetch');
     }) as unknown as typeof fetch;
-    await expect(askAssistant([{ role: 'user', text: 'а' }], null, { getToken, fetchImpl: down })).rejects.toMatchObject({
-      code: 'network',
-    });
+    await expect(guideAssistant(turn, 1, {}, { getToken, fetchImpl: down })).rejects.toMatchObject({ code: 'network' });
     await expect(
-      askAssistant([{ role: 'user', text: 'а' }], null, { getToken, fetchImpl: server({ error: 'too_many_requests' }, 429) }),
+      guideAssistant(turn, 1, {}, { getToken, fetchImpl: server({ error: 'too_many_requests' }, 429) }),
     ).rejects.toMatchObject({ code: 'too_many_requests', status: 429 });
   });
 

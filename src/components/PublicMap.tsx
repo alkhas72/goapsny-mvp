@@ -9,7 +9,7 @@ import { PlaceSheet, type PlaceSheetState } from './PlaceSheet';
 import { EmailOtpSheet } from './EmailOtpSheet';
 import { PublicAddSheet } from './PublicAddSheet';
 import { MapperDay } from './mapper/MapperDay';
-import { MapperFlow, type MeasurePrefill } from './mapper/MapperFlow';
+import { MapperFlow } from './mapper/MapperFlow';
 import { ModerationQueue } from './mapper/ModerationQueue';
 import { readDay, type DayEntry } from './mapper/dayLog';
 import {
@@ -41,7 +41,8 @@ import type { Place } from '../types';
 import { MOOD_EVENT, currentMood, currentSkin } from '../utils/skin';
 import { readMapLayer, writeMapLayer, type MapLayer } from '../utils/mapLayer';
 import { stopgapMeasurePointUrl } from '../utils/stopgapLink';
-import { AssistantDock } from './AssistantDock';
+import { canUseLive } from '../services/assistantApi';
+import { BrandMark } from './BrandMark';
 
 function toMapPlace(place: PublicPlace): Place {
   return {
@@ -111,7 +112,6 @@ export function PublicMap() {
   const [dayEntries, setDayEntries] = useState<DayEntry[]>(() => (mapperEnabled ? readDay() : []));
   const [flowKey, setFlowKey] = useState(0);
   // Предварительный замер из разговора координатора с помощником.
-  const [measurePrefill, setMeasurePrefill] = useState<MeasurePrefill | null>(null);
   const getCenterRef = useRef<(() => { lat: number; lng: number } | null) | null>(null);
   const [authEmail, setAuthEmail] = useState<string | null>(null);
   // Идентификатор вошедшего: к нему привязаны объекты, ждущие отправки на устройстве.
@@ -531,7 +531,8 @@ export function PublicMap() {
             </div>
           </>
         )}
-        {layer === 'access' && mapperEnabled && !mapperOpen && !dayOpen && !queueOpen && (
+        {/* В живой оболочке объект добавляет центральная кнопка, а число ждущих видно у входа в кабинет. */}
+        {!livingSkin && layer === 'access' && mapperEnabled && !mapperOpen && !dayOpen && !queueOpen && (
           <div className="mapper-fab-row">
             <button type="button" className="mapper-day-btn" onClick={() => setDayOpen(true)}>
               Сегодня · {dayEntries.length}
@@ -548,15 +549,9 @@ export function PublicMap() {
             theme={theme}
             getCenter={() => getCenterRef.current?.() ?? null}
             ownerId={authUserId}
-            prefill={measurePrefill}
-            onAnother={() => {
-              setMeasurePrefill(null);
-              setFlowKey((k) => k + 1);
-            }}
-            onClose={() => {
-              setMeasurePrefill(null);
-              setMapperOpen(false);
-            }}
+            canLive={canUseLive(shownAccount?.role)}
+            onAnother={() => setFlowKey((k) => k + 1)}
+            onClose={() => setMapperOpen(false)}
             onSaved={setDayEntries}
             onOpenDay={() => {
               setMapperOpen(false);
@@ -649,28 +644,14 @@ export function PublicMap() {
         />
       </main>
 
+      {/* Одна кнопка на карте: она начинает тот же путь, что «Добавить локацию» в меню. */}
       {livingSkin && (
-        <AssistantDock
-          signedIn={Boolean(authEmail)}
-          onSignIn={() => {
-            setAuthSheetKey((key) => key + 1);
-            setAuthOpen(true);
-          }}
-          onMeasure={
-            mapperEnabled
-              ? (measure) => {
-                  setMeasurePrefill(measure);
-                  setFlowKey((k) => k + 1);
-                  setMapperOpen(true);
-                }
-              : undefined
-          }
-        />
+        <button type="button" className="lv-dome" aria-label="Добавить объект" onClick={handleMenuAddLocation}>
+          <BrandMark size={34} />
+        </button>
       )}
 
-      <MapFooter
-        onCabinet={handleCabinet}
-      />
+      <MapFooter onCabinet={handleCabinet} waiting={livingSkin && mapperEnabled ? shownWaiting : 0} />
 
       {outboxNote && (
         <div className="public-toast" role="status">

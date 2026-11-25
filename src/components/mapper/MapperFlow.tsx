@@ -12,6 +12,8 @@ import {
 } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
+import type { fetchLiveToken, guideAssistant, GuidePatch } from '../../services/assistantApi';
+import type { LiveMeasure, startLive } from '../../services/geminiLive';
 import type { RampType, ToiletAccessible } from '../../shared/index';
 import { CATEGORIES } from '../../shared/index';
 import {
@@ -42,8 +44,10 @@ import {
   type EntranceFacts,
   type YesNoUnknown,
 } from './assistant';
+import { Companion } from './Companion';
 import { appendDay, type DayEntry } from './dayLog';
 import { cloudEyes, type AssistantEyes } from './eyes';
+import { LivePanel, type LivePanelHandle } from './LivePanel';
 import { keptText, sendErrorText } from './sendError';
 
 interface MapperFlowProps {
@@ -59,31 +63,20 @@ interface MapperFlowProps {
    */
   ownerId?: string | null;
   /**
-   * Цифры, с которыми открыт мастер: предварительный замер из разговора
-   * координатора с помощником. Они важнее того, что помощник прочтёт по фото.
+   * Координатору, администратору и владельцу в этих же шагах доступен
+   * разговор с помощником через камеру и голос.
    */
-  prefill?: MeasurePrefill | null;
+  canLive?: boolean;
+  /** Швы помощника; подменяются в тестах. */
+  guide?: typeof guideAssistant;
+  liveToken?: typeof fetchLiveToken;
+  liveStart?: typeof startLive;
   /** Отложенная отправка; подменяется в тестах. */
   outbox?: Pick<MapperOutbox, 'add'>;
   onClose: () => void;
   onSaved: (entries: DayEntry[]) => void;
   onOpenDay: () => void;
   onAnother: () => void;
-}
-
-export interface MeasurePrefill {
-  steps?: number | null;
-  stepHeightCm?: number | null;
-  doorWidthCm?: number | null;
-}
-
-/** Поля замера, которые пришли заполненными. */
-function prefilled(prefill: MeasurePrefill | null | undefined): Partial<EntranceFacts> {
-  const facts: Partial<EntranceFacts> = {};
-  if (prefill?.steps != null) facts.steps = prefill.steps;
-  if (prefill?.stepHeightCm != null) facts.stepHeightCm = prefill.stepHeightCm;
-  if (prefill?.doorWidthCm != null) facts.doorWidthCm = prefill.doorWidthCm;
-  return facts;
 }
 
 type Step = 1 | 2 | 3 | 4 | 5 | 'done';
@@ -171,7 +164,10 @@ export function MapperFlow({
   eyes = DEFAULT_EYES,
   submit = submitMapperPlace,
   ownerId = null,
-  prefill = null,
+  canLive = false,
+  guide,
+  liveToken,
+  liveStart,
   outbox,
   onClose,
   onSaved,
@@ -182,10 +178,8 @@ export function MapperFlow({
   const [photos, setPhotos] = useState<{ file: File; url: string }[]>([]);
   const [point, setPoint] = useState<{ lat: number; lng: number } | null>(null);
   const [looking, setLooking] = useState(false);
-  const [aiFields, setAiFields] = useState<Set<keyof EntranceFacts>>(
-    () => new Set(Object.keys(prefilled(prefill)) as (keyof EntranceFacts)[]),
-  );
-  const [facts, setFacts] = useState<EntranceFacts>(() => ({ ...EMPTY_FACTS, ...prefilled(prefill) }));
+  const [aiFields, setAiFields] = useState<Set<keyof EntranceFacts>>(() => new Set());
+  const [facts, setFacts] = useState<EntranceFacts>(EMPTY_FACTS);
   const [pickCategory, setPickCategory] = useState(false);
   const [light, setLight] = useState<Light | null>(null);
   const [saved, setSaved] = useState<DayEntry[] | null>(null);
@@ -194,8 +188,8 @@ export function MapperFlow({
   // Объект не ушёл, но сохранён на устройстве: причина, по которой он ждёт.
   const [kept, setKept] = useState<OutboxReason | null>(null);
   // Сантиметры держим текстом, пока человек печатает; в факты идёт число.
-  const [stepText, setStepText] = useState(() => (prefill?.stepHeightCm != null ? String(prefill.stepHeightCm) : ''));
-  const [doorText, setDoorText] = useState(() => (prefill?.doorWidthCm != null ? String(prefill.doorWidthCm) : ''));
+  const [stepText, setStepText] = useState('');
+  const [doorText, setDoorText] = useState('');
   const [amenities, setAmenities] = useState<Amenities>(EMPTY_AMENITIES);
   const [toiletPhotos, setToiletPhotos] = useState<{ file: File; url: string }[]>([]);
   const [noteByAi, setNoteByAi] = useState(false);
@@ -208,6 +202,12 @@ export function MapperFlow({
   const toiletUrls = useRef<string[]>([]);
   // Последний текст описания: ответ помощника не должен затереть слова человека.
   const noteRef = useRef('');
+  const liveRef = useRef<LivePanelHandle | null>(null);
+  // Что человек назвал помощнику словами или в разговоре с камерой: это
+  // важнее того, что помощник прочтёт по фото входа.
+  const toldRef = useRef<Partial<EntranceFacts>>({});
+  // Поля, которые помощник увидел в разговоре с камерой: отметка остаётся.
+  const liveSeenRef = useRef<Set<keyof EntranceFacts>>(new Set());
   useEffect(() => {
     noteRef.current = amenities.toiletNote;
   }, [amenities.toiletNote]);
@@ -231,7 +231,85 @@ export function MapperFlow({
       (Object.keys(patch) as (keyof EntranceFacts)[]).forEach((k) => next.delete(k));
       return next;
     });
+    (Object.keys(patch) as (keyof EntranceFacts)[]).forEach((k) => liveSeenRef.current.delete(k));
+    // Человек поправил названное помощнику: дальше держим его правку.
+    const told = toldRef.current;
+    const kept = Object.fromEntries(Object.entries(patch).filter(([k]) => k in told));
+    if (Object.keys(kept).length > 0) toldRef.current = { ...told, ...kept };
   };
+
+  /** Поля входа, названные помощнику. `seen`: помощник увидел их сам, через камеру. */
+  const tell = (patch: Partial<EntranceFacts>, seen: boolean) => {
+    if (Object.keys(patch).length === 0) return;
+    toldRef.current = { ...toldRef.current, ...patch };
+    set(patch);
+    if (patch.stepHeightCm != null) setStepText(String(patch.stepHeightCm));
+    if (patch.doorWidthCm != null) setDoorText(String(patch.doorWidthCm));
+    if (!seen) return;
+    const keys = Object.keys(patch) as (keyof EntranceFacts)[];
+    keys.forEach((k) => liveSeenRef.current.add(k));
+    setAiFields((prev) => new Set([...prev, ...keys]));
+  };
+
+  /** Помощник заполнил поля со слов человека. */
+  const applyGuide = (patch: GuidePatch) => {
+    const entrance: Partial<EntranceFacts> = {};
+    if (patch.name) entrance.name = patch.name;
+    if (patch.category && CATEGORIES.some((c) => c.slug === patch.category)) {
+      entrance.category = patch.category;
+      // Тип объекта принадлежит категории: со сменой категории он сбрасывается.
+      if (patch.category !== facts.category) entrance.subtype = null;
+    }
+    const scope = entrance.category ?? facts.category;
+    if (patch.subtype && scope && (SUBTYPES[scope] ?? []).includes(patch.subtype)) entrance.subtype = patch.subtype;
+    if (patch.steps != null) entrance.steps = patch.steps;
+    if (patch.step_height_cm != null) entrance.stepHeightCm = patch.step_height_cm;
+    if (patch.door_width_cm != null) entrance.doorWidthCm = patch.door_width_cm;
+    if (patch.ramp && patch.ramp in RAMP_LABEL) entrance.ramp = patch.ramp as RampType;
+    tell(entrance, false);
+
+    const comfort: Partial<Amenities> = {};
+    if (patch.toilet) comfort.toilet = patch.toilet;
+    if (patch.toilet_accessible) comfort.toiletAccessible = patch.toilet_accessible;
+    if (patch.toilet_note) comfort.toiletNote = patch.toilet_note.slice(0, TOILET_NOTE_MAX);
+    if (patch.hand_wash) comfort.handWash = patch.hand_wash;
+    if (patch.accessible_parking) comfort.accessibleParking = patch.accessible_parking;
+    if (patch.elevator) comfort.elevator = patch.elevator;
+    // Про доступность или описание туалета говорят, когда туалет есть.
+    if ((comfort.toiletAccessible || comfort.toiletNote) && !comfort.toilet) comfort.toilet = 'yes';
+    if (Object.keys(comfort).length === 0) return;
+    if (comfort.toiletNote) setNoteByAi(false);
+    setAmenities((a) => ({ ...a, ...comfort }));
+  };
+
+  /** Цифры, которые помощник записал в разговоре с камерой. */
+  const applyLive = (measure: LiveMeasure) => {
+    const entrance: Partial<EntranceFacts> = {};
+    if (measure.steps != null) entrance.steps = measure.steps;
+    if (measure.stepHeightCm != null) entrance.stepHeightCm = measure.stepHeightCm;
+    if (measure.doorWidthCm != null) entrance.doorWidthCm = measure.doorWidthCm;
+    tell(entrance, true);
+  };
+
+  /** Что сейчас в карточке: помощник видит это и не спрашивает заново. */
+  const card = useMemo(() => {
+    const shown: Record<string, string | number> = {};
+    if (facts.name.trim()) shown.name = facts.name.trim();
+    if (facts.category) shown.category = facts.category;
+    if (facts.subtype) shown.subtype = facts.subtype;
+    if (facts.steps != null) shown.steps = facts.steps;
+    if (facts.stepHeightCm != null) shown.step_height_cm = facts.stepHeightCm;
+    if (facts.doorWidthCm != null) shown.door_width_cm = facts.doorWidthCm;
+    if (facts.ramp) shown.ramp = facts.ramp;
+    if (light) shown.status = light;
+    if (amenities.toilet !== 'unknown') shown.toilet = amenities.toilet;
+    if (amenities.toiletAccessible !== 'unknown') shown.toilet_accessible = amenities.toiletAccessible;
+    if (amenities.toiletNote.trim()) shown.toilet_note = amenities.toiletNote.trim();
+    if (amenities.handWash !== 'unknown') shown.hand_wash = amenities.handWash;
+    if (amenities.accessibleParking !== 'unknown') shown.accessible_parking = amenities.accessibleParking;
+    if (amenities.elevator !== 'unknown') shown.elevator = amenities.elevator;
+    return shown;
+  }, [facts, light, amenities]);
 
   const addPhotos = async (files: FileList | null) => {
     if (!files || files.length === 0) return;
@@ -252,19 +330,23 @@ export function MapperFlow({
     eyes
       .look(added[0].file)
       .then((draft) => {
-        // Цифры из разговора с помощником важнее прочитанного по фото.
-        const next = { ...factsFromDraft(draft), ...prefilled(prefill) };
+        // Названное помощнику словами или в разговоре важнее прочитанного по фото.
+        const told = toldRef.current;
+        const next = { ...factsFromDraft(draft), ...told };
         setFacts(next);
         setStepText(next.stepHeightCm != null ? String(next.stepHeightCm) : '');
         setDoorText(next.doorWidthCm != null ? String(next.doorWidthCm) : '');
-        const seen = new Set<keyof EntranceFacts>(Object.keys(prefilled(prefill)) as (keyof EntranceFacts)[]);
-        if (draft.name) seen.add('name');
-        if (draft.category) seen.add('category');
-        if (draft.subtype) seen.add('subtype');
-        if (draft.stepsVisible != null) seen.add('steps');
-        if (draft.ramp) seen.add('ramp');
-        if (draft.stepHeightCm != null) seen.add('stepHeightCm');
-        if (draft.doorWidthCm != null) seen.add('doorWidthCm');
+        const seen = new Set<keyof EntranceFacts>(liveSeenRef.current);
+        const mark = (key: keyof EntranceFacts, read: boolean) => {
+          if (read && !(key in told)) seen.add(key);
+        };
+        mark('name', !!draft.name);
+        mark('category', !!draft.category);
+        mark('subtype', !!draft.subtype);
+        mark('steps', draft.stepsVisible != null);
+        mark('ramp', !!draft.ramp);
+        mark('stepHeightCm', draft.stepHeightCm != null);
+        mark('doorWidthCm', draft.doorWidthCm != null);
         setAiFields(seen);
       })
       .catch(() => undefined)
@@ -806,6 +888,18 @@ export function MapperFlow({
           </button>
         </div>
       )}
+
+      {step !== 'done' && (
+        <Companion
+          step={step}
+          card={card}
+          onPatch={applyGuide}
+          canLive={canLive}
+          onLive={() => liveRef.current?.begin()}
+          guide={guide}
+        />
+      )}
+      {canLive && <LivePanel ref={liveRef} onMeasure={applyLive} liveToken={liveToken} liveStart={liveStart} />}
 
       {step !== 'done' && (step !== 1 || photos.length > 0) && (
         <footer className="nf-foot">

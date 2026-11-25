@@ -1,5 +1,7 @@
 interface MapFooterProps {
   onCabinet: () => void;
+  /** Сколько объектов ждут в кабинете: кружок с числом у входа в него. */
+  waiting?: number;
 }
 
 /** Адреса проекта: те же, что в подвале сайта goapsny.org. */
@@ -42,7 +44,7 @@ function TelegramIcon() {
   );
 }
 
-export function MapFooter({ onCabinet }: MapFooterProps) {
+export function MapFooter({ onCabinet, waiting = 0 }: MapFooterProps) {
   return (
     <footer className="public-bottom-rail" aria-label="Внешние ссылки">
       <a
@@ -65,8 +67,18 @@ export function MapFooter({ onCabinet }: MapFooterProps) {
       >
         <TelegramIcon />
       </a>
-      <button type="button" className="footer-cabinet-btn" onClick={onCabinet}>
+      <button
+        type="button"
+        className="footer-cabinet-btn"
+        aria-label={waiting > 0 ? `Кабинет, ждут: ${waiting}` : undefined}
+        onClick={onCabinet}
+      >
         Кабинет
+        {waiting > 0 && (
+          <span className="footer-badge" aria-hidden="true">
+            {waiting > 99 ? '99+' : waiting}
+          </span>
+        )}
       </button>
       <a className="footer-link" href={LINKS.site} target="_blank" rel="noopener noreferrer">
         Сайт

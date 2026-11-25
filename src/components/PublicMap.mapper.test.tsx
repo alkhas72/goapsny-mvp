@@ -118,3 +118,47 @@ describe('PublicMap: путь картографа', () => {
     expect(fetchModerationQueue).not.toHaveBeenCalled();
   });
 });
+
+describe('PublicMap, живая оболочка: одна кнопка на карте', () => {
+  beforeEach(() => {
+    window.history.replaceState(null, '', '/?mapper=1');
+    document.documentElement.dataset.skin = 'living';
+    auth.session = SESSION;
+    vi.mocked(fetchMapperAccount).mockClear();
+    vi.mocked(fetchMapperAccount).mockResolvedValue(null);
+    vi.mocked(fetchModerationQueue).mockResolvedValue([]);
+  });
+
+  afterEach(() => {
+    cleanup();
+    delete document.documentElement.dataset.skin;
+    window.history.replaceState(null, '', '/');
+  });
+
+  it('плашек «Сегодня» и «+ Добавить объект» нет, объект добавляет центральная кнопка', async () => {
+    const user = userEvent.setup();
+    render(<PublicMap />);
+
+    const add = await screen.findByRole('button', { name: 'Добавить объект' });
+    expect(add.className).toBe('lv-dome');
+    expect(screen.queryByRole('button', { name: /Сегодня/ })).toBeNull();
+    expect(screen.queryByText('+ Добавить объект')).toBeNull();
+    // Отдельного входа к помощнику на карте нет.
+    expect(screen.queryByRole('button', { name: /Ассистент/ })).toBeNull();
+
+    await vi.waitFor(() => expect(fetchMapperAccount).toHaveBeenCalled());
+    await user.click(add);
+    expect(screen.getByRole('dialog', { name: 'Новый объект' })).toBeTruthy();
+  });
+
+  it('без входа центральная кнопка сначала ведёт ко входу', async () => {
+    auth.session = null;
+    const user = userEvent.setup();
+    render(<PublicMap />);
+
+    await user.click(await screen.findByRole('button', { name: 'Добавить объект' }));
+    expect(screen.queryByRole('dialog', { name: 'Новый объект' })).toBeNull();
+    await user.click(screen.getByRole('button', { name: 'Mock verify OTP' }));
+    expect(screen.getByRole('dialog', { name: 'Новый объект' })).toBeTruthy();
+  });
+});

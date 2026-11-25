@@ -40,6 +40,15 @@ export interface LiveMeasure {
   note: string | null;
 }
 
+/** Те же цифры словами, как их видит человек. */
+export function measureText(m: LiveMeasure): string {
+  const parts: string[] = [];
+  if (m.steps != null) parts.push(`ступеней ${m.steps}`);
+  if (m.stepHeightCm != null) parts.push(`ступень ${m.stepHeightCm} см`);
+  if (m.doorWidthCm != null) parts.push(`дверь ${m.doorWidthCm} см`);
+  return parts.join(' · ');
+}
+
 const MEASURE_TOOL = {
   functionDeclarations: [
     {
@@ -204,23 +213,41 @@ export interface LiveSession {
 
 type AudioContextCtor = typeof AudioContext;
 
+function audioCtor(): AudioContextCtor | undefined {
+  return window.AudioContext ?? (window as unknown as { webkitAudioContext?: AudioContextCtor }).webkitAudioContext;
+}
+
+/**
+ * Приготовить звук прямо в обработчике нажатия. Safari на iPhone даёт звук
+ * только по действию человека, а токен разговора приходит позже.
+ */
+export function primeLiveAudio(): AudioContext | null {
+  const Ctor = audioCtor();
+  if (!Ctor) return null;
+  const context = new Ctor();
+  void context.resume().catch(() => undefined);
+  return context;
+}
+
 /**
  * Открыть разговор. Вызывать из обработчика нажатия: браузер даёт микрофон,
- * камеру и звук только по действию человека.
+ * камеру и звук только по действию человека. `primed` это звук, приготовленный
+ * в самом нажатии через primeLiveAudio.
  */
 export async function startLive(
   token: string,
   model: string,
   video: HTMLVideoElement,
   handlers: LiveHandlers,
+  primed?: AudioContext | null,
 ): Promise<LiveSession> {
-  const Ctor: AudioContextCtor | undefined =
-    window.AudioContext ?? (window as unknown as { webkitAudioContext?: AudioContextCtor }).webkitAudioContext;
-  if (!Ctor || !navigator.mediaDevices?.getUserMedia) {
+  const Ctor = audioCtor();
+  if ((!Ctor && !primed) || !navigator.mediaDevices?.getUserMedia) {
+    void primed?.close().catch(() => undefined);
     throw new Error('Этот браузер не даёт микрофон и камеру.');
   }
-  const audioContext = new Ctor();
-  void audioContext.resume();
+  const audioContext = primed ?? new (Ctor as AudioContextCtor)();
+  void audioContext.resume().catch(() => undefined);
 
   let stream: MediaStream;
   try {
@@ -229,7 +256,7 @@ export async function startLive(
       video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 } },
     });
   } catch {
-    void audioContext.close();
+    void audioContext.close().catch(() => undefined);
     throw new Error('Нет доступа к микрофону и камере. Разрешите их в настройках браузера.');
   }
   video.srcObject = stream;

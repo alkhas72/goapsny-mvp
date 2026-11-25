@@ -945,6 +945,48 @@
   opacity: 0.68;
 }
 
+/* Помощник в шагах: та же полоса, круглые кнопки эталона. */
+[data-skin='living'] .nf-companion {
+  border-top: 0;
+  box-shadow: 0 -10px 22px rgba(22, 24, 23, 0.06);
+}
+
+[data-skin='living'] .nf-companion-input {
+  border: 0;
+  height: 48px;
+  border-radius: 999px;
+}
+
+[data-skin='living'] .nf-companion-bar button {
+  flex-basis: 48px;
+  width: 48px;
+  height: 48px;
+}
+
+[data-skin='living'] .nf-companion-bar button.is-send,
+[data-skin='living'] .nf-companion-bar button.is-on {
+  background: var(--ink);
+  color: #ffffff;
+}
+
+[data-skin='living'] .nf-companion-bar button.is-live {
+  background: var(--lime);
+  color: var(--ink);
+}
+
+[data-skin='living'][data-mood='night'] .nf-companion-bar button.is-send,
+[data-skin='living'][data-mood='night'] .nf-companion-bar button.is-on {
+  background: var(--lime);
+  color: var(--ink);
+}
+
+[data-skin='living'] .footer-badge {
+  top: -5px;
+  right: -3px;
+  background: #e8623a;
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.9);
+}
+
 /* Экран картографа — белый лист на фоне настроения, как листы эталона. */
 [data-skin='living'] .nf-screen {
   background: var(--stage-bg);
@@ -957,6 +999,7 @@
 
 [data-skin='living'] .nf-progress,
 [data-skin='living'] .nf-body,
+[data-skin='living'] .nf-companion,
 [data-skin='living'] .nf-foot,
 [data-skin='living'] .nf-cat-list {
   background: var(--bg-color);
@@ -1248,347 +1291,6 @@
 
 [data-skin='living'][data-mood='night'] .sheet-measure-link {
   background: color-mix(in srgb, var(--ramp) 26%, var(--bg-color));
-}
-
-/* ── 9. Шторка ассистента ────────────────────────────────────────────── */
-
-.lv-assistant-scrim {
-  display: none;
-}
-
-[data-skin='living'] .lv-assistant-scrim {
-  position: absolute;
-  inset: 0;
-  z-index: 320;
-  display: flex;
-  align-items: flex-end;
-  background: rgba(22, 24, 23, 0.28);
-  backdrop-filter: blur(3px);
-  -webkit-backdrop-filter: blur(3px);
-}
-
-[data-skin='living'] .lv-assistant-sheet {
-  width: 100%;
-  padding: 12px 22px calc(26px + env(safe-area-inset-bottom, 0px));
-  border-radius: 28px 28px 0 0;
-  background: var(--bg-color);
-  color: var(--text-color);
-  box-shadow: 0 -18px 50px rgba(22, 24, 23, 0.22);
-  animation: lvSheet 0.45s var(--spring) both;
-}
-
-[data-skin='living'] .lv-assistant-grabber {
-  width: 40px;
-  height: 4px;
-  margin: 0 auto 16px;
-  border-radius: 999px;
-  background: rgba(22, 24, 23, 0.16);
-}
-
-[data-skin='living'] .lv-assistant-head {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-[data-skin='living'] .lv-assistant-face {
-  flex: 0 0 auto;
-  width: 46px;
-  height: 46px;
-  display: grid;
-  place-items: center;
-  border-radius: 50%;
-  color: var(--ink);
-  background: radial-gradient(circle at 32% 26%, #ffffff 0%, var(--lime) 46%, #cfd95a 100%);
-}
-
-[data-skin='living'] .lv-assistant-kicker {
-  margin: 0;
-  font-size: 10.5px;
-  font-weight: 600;
-  letter-spacing: 0.07em;
-  text-transform: uppercase;
-  opacity: 0.6;
-}
-
-[data-skin='living'] .lv-assistant-title {
-  margin: 2px 0 0;
-  font-size: 26px;
-  font-weight: 300;
-  letter-spacing: -0.035em;
-}
-
-[data-skin='living'] .lv-assistant-close {
-  margin-left: auto;
-  width: 44px;
-  height: 44px;
-  display: grid;
-  place-items: center;
-  border: 0;
-  border-radius: 50%;
-  cursor: pointer;
-  background: var(--surface-color);
-  color: var(--text-color);
-}
-
-[data-skin='living'] .lv-assistant-text {
-  margin: 16px 0 14px;
-  font-size: 15px;
-  line-height: 1.45;
-  color: var(--text-secondary);
-}
-
-[data-skin='living'] .lv-assistant-list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-[data-skin='living'] .lv-assistant-list li {
-  padding: 13px 16px;
-  border-radius: 18px;
-  font-size: 15px;
-  letter-spacing: -0.01em;
-  background: var(--surface-color);
-}
-
-[data-skin='living'] .lv-assistant-list li:nth-child(1) {
-  background: color-mix(in srgb, var(--sage) 34%, var(--bg-color));
-}
-
-[data-skin='living'] .lv-assistant-list li:nth-child(2) {
-  background: color-mix(in srgb, var(--orchid) 30%, var(--bg-color));
-}
-
-[data-skin='living'] .lv-assistant-list li:nth-child(3) {
-  background: color-mix(in srgb, var(--lime) 46%, var(--bg-color));
-}
-
-[data-skin='living'] .lv-assistant-note {
-  margin: 14px 0 0;
-  font-size: 12.5px;
-  color: var(--text-secondary);
-}
-
-/* Разговор с помощником: лента реплик, строка ввода, разговор с камерой. */
-[data-skin='living'] .lv-assistant-sheet {
-  max-height: 88%;
-  display: flex;
-  flex-direction: column;
-}
-
-[data-skin='living'] .lv-chat {
-  flex: 1 1 auto;
-  min-height: 120px;
-  max-height: 46vh;
-  overflow-y: auto;
-  margin: 14px 0 10px;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-[data-skin='living'] .lv-bubble {
-  max-width: 86%;
-  padding: 11px 15px;
-  border-radius: 20px;
-  font-size: 15px;
-  line-height: 1.4;
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
-  background: var(--surface-color);
-}
-
-[data-skin='living'] .lv-bubble.is-user {
-  align-self: flex-end;
-  border-bottom-right-radius: 6px;
-  background: color-mix(in srgb, var(--lime) 50%, var(--bg-color));
-  color: var(--ink);
-}
-
-[data-skin='living'] .lv-bubble.is-assistant {
-  align-self: flex-start;
-  border-bottom-left-radius: 6px;
-  background: color-mix(in srgb, var(--sage) 30%, var(--bg-color));
-}
-
-[data-skin='living'] .lv-bubble.is-busy {
-  opacity: 0.6;
-}
-
-[data-skin='living'] .lv-bubble img,
-[data-skin='living'] .lv-chat-photo img {
-  display: block;
-  width: 96px;
-  height: 96px;
-  margin-bottom: 6px;
-  border-radius: 14px;
-  object-fit: cover;
-}
-
-[data-skin='living'] .lv-chat-photo {
-  position: relative;
-  width: 96px;
-  margin: 0 0 8px;
-}
-
-[data-skin='living'] .lv-chat-photo img {
-  margin: 0;
-}
-
-[data-skin='living'] .lv-chat-photo button {
-  position: absolute;
-  top: -6px;
-  right: -6px;
-  width: 26px;
-  height: 26px;
-  display: grid;
-  place-items: center;
-  border: 0;
-  border-radius: 50%;
-  cursor: pointer;
-  background: var(--text-color);
-  color: var(--bg-color);
-}
-
-[data-skin='living'] .lv-composer {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 5px;
-  border-radius: 999px;
-  background: var(--surface-color);
-}
-
-[data-skin='living'] .lv-composer-input {
-  flex: 1 1 auto;
-  min-width: 0;
-  height: 44px;
-  border: 0;
-  background: transparent;
-  color: var(--text-color);
-  font: 16px/1.2 var(--font-family);
-  outline: none;
-}
-
-[data-skin='living'] .lv-composer button {
-  flex: 0 0 auto;
-  width: 44px;
-  height: 44px;
-  display: grid;
-  place-items: center;
-  border: 0;
-  border-radius: 50%;
-  cursor: pointer;
-  background: transparent;
-  color: var(--text-color);
-}
-
-[data-skin='living'] .lv-composer button[aria-pressed='true'] {
-  background: var(--status-red);
-  color: #ffffff;
-}
-
-[data-skin='living'] .lv-composer button.is-send {
-  background: var(--ink);
-  color: var(--lime);
-}
-
-[data-skin='living'] .lv-composer button.is-send:disabled {
-  opacity: 0.35;
-  cursor: default;
-}
-
-[data-skin='living'] .lv-assistant-wide {
-  width: 100%;
-  min-height: 48px;
-  margin: 0 0 10px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  border: 0;
-  border-radius: 999px;
-  cursor: pointer;
-  font: 600 15px/1 var(--font-family);
-  background: var(--ink);
-  color: var(--lime);
-}
-
-[data-skin='living'] .lv-assistant-wide.is-quiet {
-  background: var(--surface-color);
-  color: var(--text-color);
-}
-
-[data-skin='living'] .lv-assistant-error {
-  margin: 10px 0 0;
-  font-size: 13.5px;
-  line-height: 1.4;
-  color: var(--status-red);
-}
-
-/* Видео стоит в разметке всегда, но видно только во время разговора с камерой. */
-[data-skin='living'] .lv-live {
-  display: none;
-}
-
-[data-skin='living'] .lv-live.is-on {
-  display: flex;
-  flex-direction: column;
-  min-height: 0;
-  margin-top: 14px;
-}
-
-[data-skin='living'] .lv-live-video {
-  width: 100%;
-  aspect-ratio: 4 / 3;
-  border-radius: 22px;
-  object-fit: cover;
-  background: #161817;
-}
-
-[data-skin='living'] .lv-live-state {
-  margin: 10px 0 6px;
-  font-size: 10.5px;
-  font-weight: 600;
-  letter-spacing: 0.07em;
-  text-transform: uppercase;
-  opacity: 0.68;
-}
-
-[data-skin='living'] .lv-live-lines {
-  max-height: 20vh;
-  overflow-y: auto;
-  margin-bottom: 10px;
-}
-
-[data-skin='living'] .lv-live-lines p {
-  margin: 0 0 6px;
-  font-size: 14.5px;
-  line-height: 1.4;
-}
-
-[data-skin='living'] .lv-live-lines p.is-you {
-  color: var(--text-secondary);
-}
-
-[data-skin='living'] .lv-live-measure p {
-  margin: 0 0 10px;
-  padding: 12px 16px;
-  border-radius: 18px;
-  font-size: 15px;
-  background: color-mix(in srgb, var(--orchid) 30%, var(--bg-color));
-}
-
-[data-skin='living'] .lv-live-measure b {
-  display: block;
-  margin-bottom: 2px;
-  font-size: 10.5px;
-  letter-spacing: 0.07em;
-  text-transform: uppercase;
 }
 
 /* ── 10. Десктоп: корпус телефона на живом фоне ──────────────────────── */

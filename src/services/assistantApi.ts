@@ -94,15 +94,47 @@ export interface ChatTurn {
   text: string;
 }
 
-/** Ответ помощника на разговор; фото прикладывается к последней реплике. */
-export async function askAssistant(
+/** Что помощник просит изменить в карточке; ключей, которых нет, он не касался. */
+export interface GuidePatch {
+  name?: string;
+  category?: string;
+  subtype?: string;
+  steps?: number;
+  step_height_cm?: number;
+  door_width_cm?: number;
+  ramp?: string;
+  toilet?: 'yes' | 'no';
+  toilet_accessible?: 'yes' | 'partial' | 'no';
+  toilet_note?: string;
+  hand_wash?: 'yes' | 'no';
+  accessible_parking?: 'yes' | 'no';
+  elevator?: 'yes' | 'no';
+}
+
+export interface GuideAnswer {
+  reply: string;
+  patch: GuidePatch;
+}
+
+/**
+ * Помощник внутри шагов «Новый объект»: отвечает и заполняет поля со слов
+ * человека. `card` — что сейчас в карточке, `step` — на каком шаге человек.
+ */
+export async function guideAssistant(
   messages: ChatTurn[],
-  image: string | null,
+  step: number,
+  card: Record<string, string | number>,
   options: AssistantApiOptions = {},
-): Promise<string> {
-  const data = await postAssistant<{ reply?: unknown }>('/api/assistant', { mode: 'chat', messages, image }, options);
-  if (typeof data.reply !== 'string' || !data.reply.trim()) throw new AssistantApiError('failed');
-  return data.reply.trim();
+): Promise<GuideAnswer> {
+  const data = await postAssistant<{ reply?: unknown; patch?: unknown }>(
+    '/api/assistant',
+    { mode: 'guide', messages, step, card },
+    options,
+  );
+  const patch = data.patch && typeof data.patch === 'object' && !Array.isArray(data.patch) ? (data.patch as GuidePatch) : {};
+  const reply = typeof data.reply === 'string' ? data.reply.trim() : '';
+  if (!reply && Object.keys(patch).length === 0) throw new AssistantApiError('failed');
+  return { reply, patch };
 }
 
 export interface LiveToken {
