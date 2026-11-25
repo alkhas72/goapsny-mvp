@@ -32,7 +32,7 @@ export function WelcomeLegend({ onContinue }: WelcomeLegendProps) {
         ))}
       </ul>
       <button type="button" className="primary-btn welcome-continue-btn" onClick={onContinue}>
-        Go, поехали!
+        Go
       </button>
     </div>
   );

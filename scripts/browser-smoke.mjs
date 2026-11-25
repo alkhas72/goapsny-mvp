@@ -29,7 +29,7 @@ function record(name, pass, detail = '') {
 }
 
 async function dismissWelcome(page) {
-  const continueBtn = page.getByRole('button', { name: /поехали/i });
+  const continueBtn = page.getByRole('button', { name: 'Go', exact: true });
   if (await continueBtn.isVisible().catch(() => false)) {
     await continueBtn.click();
   }
