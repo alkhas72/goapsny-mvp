@@ -1627,7 +1627,8 @@
   [data-skin='living'][data-shell='full'] .lv-dock {
     top: 13px;
     left: auto;
-    right: 74px;
+    /* Правее стоят две круглые кнопки шапки: поиск и меню. */
+    right: 126px;
   }
 
   [data-skin='living'][data-shell='full'] .lv-moods {
@@ -1691,4 +1692,10 @@
 
 :root[data-skin='living'][data-mood='night'] .ai-mark {
   color: var(--lime);
+}
+
+/* Открытая шторка или окно поверх карты: круглые кнопки низа не лежат на её содержимом. */
+[data-skin='living'] .public-map-shell:has(.overlay-scrim, .bottom-sheet) > .lv-dome,
+[data-skin='living'] .public-map-shell:has(.overlay-scrim, .bottom-sheet) > .public-bottom-rail {
+  visibility: hidden;
 }
