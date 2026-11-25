@@ -1,6 +1,9 @@
 import { useEffect, useRef, type RefObject } from 'react';
 import { X } from 'lucide-react';
 import { trapFocus } from '../utils/focusTrap';
+import { currentSkin } from '../utils/skin';
+import { MOOD_META, useMood } from '../utils/useMood';
+import { MoodPicker } from './MoodPicker';
 
 interface MenuOverlayProps {
   open: boolean;
@@ -14,6 +17,19 @@ const MENU_ITEMS = [
   { id: 'news', label: 'Новости' },
   { id: 'ramp', label: 'Заказать пандус' },
 ] as const;
+
+/** Строка меню «Фон»: выбор цвета оболочки прямо в приложении (только в новом виде). */
+function MenuMoodRow() {
+  const [mood] = useMood();
+  return (
+    <div className="menu-mood-row">
+      <span className="menu-mood-label">
+        Фон <span className="menu-mood-name">{MOOD_META[mood].label}</span>
+      </span>
+      <MoodPicker className="menu-moods" itemClassName="menu-mood" />
+    </div>
+  );
+}
 
 export function MenuOverlay({ open, onClose, onAddLocation, returnFocusRef }: MenuOverlayProps) {
   const panelRef = useRef<HTMLElement | null>(null);
@@ -70,6 +86,11 @@ export function MenuOverlay({ open, onClose, onAddLocation, returnFocusRef }: Me
               Добавить локацию
             </button>
           </li>
+          {currentSkin() === 'living' && (
+            <li>
+              <MenuMoodRow />
+            </li>
+          )}
           <li>
             <span className="menu-muted">Вход для волонтёров — Telegram</span>
           </li>

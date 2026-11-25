@@ -1,13 +1,7 @@
 import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { MOODS, currentMood, isFullShell, setFullShell, setMood, type Mood } from '../utils/skin';
-
-const MOOD_META: Record<Mood, { label: string; color: string }> = {
-  sage: { label: 'Мята', color: '#8ec0a1' },
-  orchid: { label: 'Орхидея', color: '#e88cc8' },
-  lime: { label: 'Лайм', color: '#eaf372' },
-  night: { label: 'Ночь', color: '#182620' },
-};
+import { isFullShell, setFullShell } from '../utils/skin';
+import { MoodPicker } from './MoodPicker';
 
 function clock(): string {
   return new Date().toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
@@ -19,7 +13,6 @@ function clock(): string {
  * На телефоне всё это скрыто стилями: приложение занимает экран целиком.
  */
 export function SkinChrome() {
-  const [mood, setMoodState] = useState<Mood>(() => currentMood());
   const [full, setFull] = useState(() => isFullShell());
   const [time, setTime] = useState(() => clock());
 
@@ -27,11 +20,6 @@ export function SkinChrome() {
     const timer = window.setInterval(() => setTime(clock()), 20_000);
     return () => window.clearInterval(timer);
   }, []);
-
-  const chooseMood = (next: Mood) => {
-    setMood(next);
-    setMoodState(next);
-  };
 
   const toggleShell = () => {
     setFullShell(!full);
@@ -52,21 +40,7 @@ export function SkinChrome() {
               GoApsny <span className="lv-tag">Карта доступности</span>
             </div>
             <div className="lv-dock-right">
-              <div className="lv-moods" role="radiogroup" aria-label="Настроение оформления">
-                {MOODS.map((item) => (
-                  <button
-                    key={item}
-                    type="button"
-                    role="radio"
-                    aria-checked={item === mood}
-                    aria-label={MOOD_META[item].label}
-                    title={MOOD_META[item].label}
-                    className="lv-mood"
-                    style={{ background: MOOD_META[item].color }}
-                    onClick={() => chooseMood(item)}
-                  />
-                ))}
-              </div>
+              <MoodPicker className="lv-moods" itemClassName="lv-mood" />
               <button type="button" className="lv-shell-btn" onClick={toggleShell}>
                 {full ? 'В корпус телефона' : 'Во весь экран'}
               </button>
