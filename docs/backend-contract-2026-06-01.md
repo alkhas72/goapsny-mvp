@@ -74,3 +74,14 @@ Edge Functions are still local files until deployed. Deploying them requires a S
 ## Karma
 
 Server-side triggers award `+10` for a place, `+5` for a photo, and `+10` for a full-card bonus.
+
+## Дополнение 2026-11-25: классификатор мест по OpenStreetMap
+
+Согласовано с Алхасом 25.11.2026 (решение на карточке в треде проекта «Свести GoApsny и Stopgap в одно приложение»).
+
+- Групп мест 11: `toilets` выключена (`categories.is_active = false`), `other` выключена с 14.07.2026. Строка «12 Wheelmap categories» выше описывает состояние на 01.06.2026.
+- Второй уровень: таблица `public.place_types` (`slug`, `category`, `name_ru`, `osm_key`, `osm_value`). Каждый тип равен тегу OpenStreetMap. Читают все, пишут admin и owner.
+- Тип карточки по-прежнему приходит названием в `submit_mapper_place(p_subtype)` и лежит в `places.details.mapper.subtype`. Параметры RPC не менялись.
+- `places.osm_tags`: при известном типе идёт тег типа (например, `amenity=pharmacy`) вместо общего тега группы.
+- Общественный туалет: тип `amenity=toilets` в группе `government`. Туалет в заведении остаётся полями `toilet_exists`, `toilet_accessible`.
+- Фронт: `src/shared/placeTypes.ts`, серверная копия `api/_lib/catalog.js`. Миграция `20261125180000_place_types_osm.sql`, проверка `supabase/tests/place_types_osm.sql`, откат `supabase/rollback/2026-11-25_place_types_down.sql`.
