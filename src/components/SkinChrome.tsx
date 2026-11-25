@@ -67,6 +67,7 @@ export function SkinChrome() {
         </span>
       </div>
       <div className="lv-home" aria-hidden="true" />
+      <div className="lv-edge" aria-hidden="true" />
     </>
   );
 }

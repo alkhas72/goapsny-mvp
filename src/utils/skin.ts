@@ -59,9 +59,27 @@ export function currentMood(): Mood {
   return isMood(mood) ? mood : 'sage';
 }
 
+/** Цвет верха приложения по настроениям (как `--stage-top` в skin-living.css). */
+const MOOD_TOP_COLOR: Record<Mood, string> = {
+  sage: '#bedec9',
+  orchid: '#f7cbe7',
+  lime: '#f5f9ad',
+  night: '#182620',
+};
+
+/**
+ * На телефоне строка браузера берёт цвет из `theme-color`: ставим цвет верха
+ * приложения. На широком экране за приложением сцена, там метку не трогаем.
+ */
+function syncThemeColor(mood: Mood): void {
+  if (!window.matchMedia?.('(max-width: 540px)').matches) return;
+  document.querySelector('meta[name="theme-color"]')?.setAttribute('content', MOOD_TOP_COLOR[mood]);
+}
+
 export function setMood(mood: Mood): void {
   document.documentElement.dataset.mood = mood;
   write(MOOD_KEY, mood);
+  syncThemeColor(mood);
   window.dispatchEvent(new Event(MOOD_EVENT));
 }
 
@@ -87,7 +105,9 @@ export function initSkin(): Skin {
     return skin;
   }
   document.documentElement.dataset.skin = 'living';
-  document.documentElement.dataset.mood = resolveMood(window.location.search, read(MOOD_KEY));
+  const mood = resolveMood(window.location.search, read(MOOD_KEY));
+  document.documentElement.dataset.mood = mood;
+  syncThemeColor(mood);
   if (read(SHELL_KEY) === 'full') document.documentElement.dataset.shell = 'full';
   return skin;
 }

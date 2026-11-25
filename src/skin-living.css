@@ -21,6 +21,8 @@
   --brand: #e2741c;
 
   --stage-bg: linear-gradient(180deg, #bedec9 0%, #8fc0a1 52%, #5d9573 100%);
+  --stage-top: #bedec9;
+  --stage-bottom: #5d9573;
   --stage-ink: #18231c;
   --stage-glass: rgba(255, 255, 255, 0.24);
   --stage-pill-bg: rgba(28, 40, 33, 0.86);
@@ -42,6 +44,8 @@
 
 :root[data-skin='living'][data-mood='orchid'] {
   --stage-bg: linear-gradient(180deg, #f7cbe7 0%, #e796ca 52%, #c96ba9 100%);
+  --stage-top: #f7cbe7;
+  --stage-bottom: #c96ba9;
   --stage-ink: #271522;
   --stage-glass: rgba(255, 255, 255, 0.28);
   --stage-pill-bg: rgba(42, 20, 36, 0.84);
@@ -51,6 +55,8 @@
 
 :root[data-skin='living'][data-mood='lime'] {
   --stage-bg: linear-gradient(180deg, #f5f9ad 0%, #e1ea77 54%, #bccb53 100%);
+  --stage-top: #f5f9ad;
+  --stage-bottom: #bccb53;
   --stage-ink: #1e2210;
   --stage-glass: rgba(255, 255, 255, 0.34);
   --stage-pill-bg: rgba(30, 34, 16, 0.88);
@@ -60,6 +66,8 @@
 
 :root[data-skin='living'][data-mood='night'] {
   --stage-bg: linear-gradient(180deg, #182620 0%, #101b16 55%, #09110d 100%);
+  --stage-top: #182620;
+  --stage-bottom: #09110d;
   --stage-ink: #e8f1eb;
   --stage-glass: rgba(255, 255, 255, 0.1);
   --stage-pill-bg: rgba(255, 255, 255, 0.14);
@@ -146,7 +154,7 @@
 
 @keyframes lvSpark {
   0%, 100% { transform: scale(1); background: var(--orchid); }
-  50% { transform: scale(1.35) translateY(-2px); background: var(--lime); }
+  50% { transform: scale(1.45); background: var(--lime); }
 }
 
 @keyframes lvHalo {
@@ -234,12 +242,16 @@
   color: var(--stage-ink);
 }
 
-[data-skin='living'] .logo-container::after {
+/* Мерцающая точка живёт в колесе знака: центр колеса на 32% ширины и
+   71,7% высоты фигуры, просвет колеса около 43% высоты. */
+[data-skin='living'] .logo-container > div::after {
   content: '';
-  width: 7px;
-  height: 7px;
-  margin-left: -3px;
-  margin-bottom: 12px;
+  position: absolute;
+  left: 32%;
+  top: 71.7%;
+  height: 21%;
+  aspect-ratio: 1;
+  translate: -50% -50%;
   border-radius: 50%;
   background: var(--orchid);
   animation: lvSpark 2.6s ease-in-out infinite;
@@ -1323,8 +1335,33 @@
 .lv-stage,
 .lv-dock,
 .lv-chrome,
-.lv-home {
+.lv-home,
+.lv-edge {
   display: none;
+}
+
+/* На телефоне сцены за приложением нет: приложение занимает весь экран.
+   Браузер красит свои полосы (строку состояния сверху и панель адреса снизу)
+   в цвет страницы, поэтому страница берёт цвет верха приложения, а не цвет
+   сцены. Нижняя полоска в цвет низа приложения нужна Safari на iPhone: по
+   закреплённому у края элементу он подбирает цвет своей нижней панели. */
+@media (max-width: 540px) {
+  :root[data-skin='living'],
+  [data-skin='living'] body {
+    background: var(--stage-top);
+  }
+
+  [data-skin='living'] .lv-edge {
+    display: block;
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 4px;
+    z-index: 1;
+    background-color: var(--stage-bottom);
+    transition: background-color 0.5s ease;
+  }
 }
 
 @media (min-width: 541px) {
