@@ -1,26 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
+import { BrandMark } from './BrandMark';
 
 /** Имя ассистента в интерфейсе. Вопрос «Нуца или без имени» у Алхаса открыт. */
 export const ASSISTANT_NAME = 'Нуца';
-
-function SparkIcon({ size = 26 }: { size?: number }) {
-  return (
-    <svg
-      width={size}
-      height={size}
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-    >
-      <path d="M12 3.5c.6 3.9 2.6 5.9 6.5 6.5-3.9.6-5.9 2.6-6.5 6.5-.6-3.9-2.6-5.9-6.5-6.5 3.9-.6 5.9-2.6 6.5-6.5Z" />
-      <path d="M18.5 15.5v4M16.5 17.5h4" />
-    </svg>
-  );
-}
 
 /**
  * Место цифрового ассистента: кнопка-купол внизу экрана и шторка разговора.
@@ -58,7 +40,7 @@ export function AssistantDock() {
         aria-expanded={open}
         onClick={() => setOpen(true)}
       >
-        <SparkIcon />
+        <BrandMark size={36} />
       </button>
       {open && (
         <div className="lv-assistant-scrim" onClick={() => setOpen(false)}>
@@ -72,7 +54,7 @@ export function AssistantDock() {
             <div className="lv-assistant-grabber" aria-hidden="true" />
             <div className="lv-assistant-head">
               <span className="lv-assistant-face">
-                <SparkIcon size={22} />
+                <BrandMark size={26} />
               </span>
               <div>
                 <p className="lv-assistant-kicker">Цифровой ассистент</p>

@@ -206,20 +206,17 @@
   gap: 9px;
 }
 
-/* Знак GoApsny сохраняет фирменный оранжевый. */
+/* Фирменный знак стоит прямо на фоне, без плашки, тёмным цветом текста. */
 [data-skin='living'] .logo-container > div {
-  color: var(--brand) !important;
-  width: 34px !important;
-  height: 34px !important;
-  padding: 6px;
-  border-radius: 12px;
-  background: rgba(255, 255, 255, 0.92);
-  box-shadow: 0 6px 16px rgba(22, 24, 23, 0.1);
+  color: var(--stage-ink) !important;
+  width: 36px !important;
+  height: 36px !important;
 }
 
 [data-skin='living'] .logo-container .logo-svg {
-  width: 22px;
-  height: 22px;
+  display: block;
+  width: 36px;
+  height: 36px;
 }
 
 [data-skin='living'] .app-title {
