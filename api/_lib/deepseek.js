@@ -46,10 +46,19 @@ async function once({ messages, json, maxTokens, fetchImpl, env }) {
       ...(json ? { response_format: { type: 'json_object' } } : {}),
     }),
   });
-  if (!response.ok) return { ok: false, status: response.status, text: '' };
   const data = await response.json().catch(() => null);
+  if (!response.ok) {
+    // Текст отказа сервиса: ключа в нём нет.
+    const detail = typeof data?.error?.message === 'string' ? data.error.message.slice(0, 300) : '';
+    return { ok: false, status: response.status, text: '', detail };
+  }
   const text = data?.choices?.[0]?.message?.content;
-  return { ok: true, status: response.status, text: typeof text === 'string' ? text.trim() : '' };
+  return { ok: true, status: response.status, text: typeof text === 'string' ? text.trim() : '', detail: '' };
+}
+
+/** Один заход к модели без повторов: { ok, status, text, detail }. Для самопроверки. */
+export function tryDeepSeek({ messages, json = false, maxTokens = 500, fetchImpl = fetch, env = process.env }) {
+  return once({ messages, json, maxTokens, fetchImpl, env });
 }
 
 /**

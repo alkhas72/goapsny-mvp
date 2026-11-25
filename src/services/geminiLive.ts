@@ -58,12 +58,17 @@ const MEASURE_TOOL = {
   ],
 };
 
-/** Первое сообщение разговора: модель, голосовой ответ, указание, функция, расшифровки. */
+/**
+ * Первое сообщение разговора: модель, голосовой ответ, указание, функция,
+ * расшифровки. Та же настройка зашита сервером в короткий токен
+ * (api/_lib/live.js), и по справочнику Google действует именно она; копии
+ * сверяет tests/api/live-setup.test.ts.
+ */
 export function setupMessage(model: string, instruction: string = LIVE_INSTRUCTION): unknown {
   return {
     setup: {
       model: `models/${model}`,
-      responseModalities: ['AUDIO'],
+      generationConfig: { responseModalities: ['AUDIO'] },
       systemInstruction: { parts: [{ text: instruction }] },
       tools: [MEASURE_TOOL],
       inputAudioTranscription: {},

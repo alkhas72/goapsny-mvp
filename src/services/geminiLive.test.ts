@@ -13,7 +13,7 @@ describe('Gemini Live: сообщения', () => {
   it('первое сообщение: модель, голосовой ответ, указание, функция замера, расшифровки', () => {
     const { setup } = setupMessage('gemini-3.8-live', 'Говори коротко') as { setup: Record<string, unknown> };
     expect(setup.model).toBe('models/gemini-3.8-live');
-    expect(setup.responseModalities).toEqual(['AUDIO']);
+    expect(setup.generationConfig).toEqual({ responseModalities: ['AUDIO'] });
     expect(setup.systemInstruction).toEqual({ parts: [{ text: 'Говори коротко' }] });
     expect(setup.inputAudioTranscription).toEqual({});
     expect(setup.outputAudioTranscription).toEqual({});

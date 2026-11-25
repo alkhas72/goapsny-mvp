@@ -135,7 +135,15 @@ export function send(res, status, body) {
  */
 export function handler(work, status = null) {
   return async function vercelHandler(req, res) {
-    if (req.method === 'GET' && status) return send(res, 200, status());
+    if (req.method === 'GET' && status) {
+      try {
+        return send(res, 200, await status(req));
+      } catch (error) {
+        if (error instanceof ApiError) return send(res, error.status, { error: error.code });
+        console.error('[assistant]', error instanceof Error ? error.message : 'unknown error');
+        return send(res, 500, { error: 'internal' });
+      }
+    }
     if (req.method !== 'POST') {
       res.setHeader('Allow', 'POST');
       return send(res, 405, { error: 'method_not_allowed' });

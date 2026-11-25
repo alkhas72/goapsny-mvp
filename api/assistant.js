@@ -10,7 +10,9 @@
 
 import { ApiError, authenticate, handler, jpegBase64, jsonBody, rateLimit } from './_lib/core.js';
 import { CATEGORY_SLUGS, DOOR_WIDTH_RANGE, RAMP_TYPES, STEP_HEIGHT_RANGE, SUBTYPES } from './_lib/catalog.js';
-import { askDeepSeek, extractJson, userContent } from './_lib/deepseek.js';
+import { askDeepSeek, extractJson, tryDeepSeek, userContent } from './_lib/deepseek.js';
+import { createLiveToken } from './_lib/live.js';
+import { PROBE_JPEG } from './_lib/probe-image.js';
 
 const LOOK_PROMPT = [
   'Ты помощник карты доступности GoApsny (Абхазия). На фото вход в здание.',
@@ -136,7 +138,49 @@ export function connection(env = process.env) {
   return { deepseek: Boolean(env.DEEPSEEK_API_KEY), gemini: Boolean(env.GEMINI_API_KEY) };
 }
 
+/**
+ * Самопроверка на превью-сборке: GET /api/assistant?check=1. Шлёт модели
+ * учебную картинку входа тем же запросом, что и шаг «Данные», и просит у
+ * Google короткий токен (он тут же выбрасывается). В ответе только итог и
+ * текст отказа сервиса. На боевой сборке не работает: вызов без входа не
+ * должен тратить деньги.
+ */
+export async function selfCheck({ fetchImpl = fetch, env = process.env, now = () => Date.now() } = {}) {
+  const result = connection(env);
+  if (env.DEEPSEEK_API_KEY) {
+    const messages = [
+      { role: 'system', content: LOOK_PROMPT },
+      { role: 'user', content: userContent('Опиши вход по фото. Ответ: объект json.', PROBE_JPEG) },
+    ];
+    const strict = await tryDeepSeek({ messages, json: true, maxTokens: 400, fetchImpl, env });
+    const plain = strict.ok && strict.text ? null : await tryDeepSeek({ messages, json: false, maxTokens: 400, fetchImpl, env });
+    const answer = plain ?? strict;
+    result.look = {
+      jsonMode: { ok: strict.ok, status: strict.status, empty: strict.ok && !strict.text, detail: strict.detail },
+      ...(plain ? { plain: { ok: plain.ok, status: plain.status, empty: plain.ok && !plain.text, detail: plain.detail } } : {}),
+      draft: answer.ok && answer.text ? normalizeDraft(extractJson(answer.text)) : null,
+    };
+  }
+  if (env.GEMINI_API_KEY) {
+    const issued = await createLiveToken({ fetchImpl, env, now });
+    result.live = { ok: issued.ok, status: issued.status, model: issued.model, detail: issued.detail };
+  }
+  return result;
+}
+
+function wantsCheck(req) {
+  try {
+    return new URL(req.url ?? '', 'http://local').searchParams.get('check') === '1';
+  } catch {
+    return false;
+  }
+}
+
 export default handler(
   (req) => assistant(req),
-  () => connection(),
+  (req) => {
+    if (process.env.VERCEL_ENV !== 'preview' || !wantsCheck(req)) return connection();
+    rateLimit('self-check', 6);
+    return selfCheck();
+  },
 );

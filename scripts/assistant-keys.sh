@@ -8,8 +8,10 @@
 # Что нужно: Node (npx) и вход в Vercel; если входа нет, откроется браузер.
 # Ключи кладёт только Арбитр. Запускать на своём Mac, из папки репозитория.
 #
-# Флаги `vercel env add` проверены 25.11.2026 на Vercel CLI 66.6.0; сам этот
-# файл целиком с настоящими ключами ещё не запускался.
+# Запущен Арбитром 25.11.2026 на Vercel CLI 66.6.0: оба ключа записаны. Проверка
+# ключа Gemini тогда не прошла из-за имени поля в запросе (liveConnectConstraints,
+# сервис ждёт bidiGenerateContentSetup); имя исправлено, с настоящим ключом
+# исправленная проверка из этого файла ещё не запускалась.
 set -euo pipefail
 
 PROJECT="${VERCEL_PROJECT:-goapsny-mvp}"
@@ -87,7 +89,7 @@ echo "Длина ключа: ${#GM}. Проверяю выдачей корот�
 soon="$(date -u -v+1M '+%Y-%m-%dT%H:%M:%SZ' 2>/dev/null || date -u -d '+1 minute' '+%Y-%m-%dT%H:%M:%SZ')"
 later="$(date -u -v+30M '+%Y-%m-%dT%H:%M:%SZ' 2>/dev/null || date -u -d '+30 minutes' '+%Y-%m-%dT%H:%M:%SZ')"
 code="$(probe "x-goog-api-key: ${GM}" "https://generativelanguage.googleapis.com/v1beta/auth_tokens" \
-  "{\"uses\":1,\"expireTime\":\"${later}\",\"newSessionExpireTime\":\"${soon}\",\"liveConnectConstraints\":{\"model\":\"models/${GEMINI_LIVE_MODEL}\"}}")"
+  "{\"uses\":1,\"expireTime\":\"${later}\",\"newSessionExpireTime\":\"${soon}\",\"bidiGenerateContentSetup\":{\"model\":\"models/${GEMINI_LIVE_MODEL}\"}}")"
 if [ "$code" = "200" ] && grep -q '"name"' "$BODY"; then
   echo "Google выдал короткий токен: ключ рабочий."
   put GEMINI_API_KEY "$GM"

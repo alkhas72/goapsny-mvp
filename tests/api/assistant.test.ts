@@ -1,8 +1,9 @@
 // @vitest-environment node
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { assistant, chatMessages, connection, normalizeDraft } from '../../api/assistant.js';
+import { assistant, chatMessages, connection, normalizeDraft, selfCheck } from '../../api/assistant.js';
 import { ApiError, jpegBase64, publicSupabase, rateLimit, resetRateLimit } from '../../api/_lib/core.js';
 import { DEEPSEEK_URL, extractJson } from '../../api/_lib/deepseek.js';
+import { liveSetup } from '../../api/_lib/live.js';
 import { TOKEN_URL, liveToken } from '../../api/live-token.js';
 
 const UID = '11111111-1111-4111-8111-111111111111';
@@ -264,8 +265,9 @@ describe('токен Gemini Live для координатора', () => {
       uses: 1,
       expireTime: '2026-11-25T06:30:00.000Z',
       newSessionExpireTime: '2026-11-25T06:01:00.000Z',
-      liveConnectConstraints: { model: 'models/gemini-3.8-live' },
+      bidiGenerateContentSetup: liveSetup('gemini-3.8-live'),
     });
+    expect(String(call.init.body)).not.toContain('liveConnectConstraints');
   });
 
   it('администратор и владелец тоже могут', async () => {
@@ -284,6 +286,51 @@ describe('токен Gemini Live для координатора', () => {
     expect(await code(liveToken(request({}), { fetchImpl: rejected.fetchImpl, env: ENV, now: () => NOW }))).toBe(
       '503:live_key_rejected',
     );
+    // Отказ по форме запроса не выдаётся за негодный ключ.
+    const malformed = fakeFetch({ role: 'coordinator', model: [{ ok: false, status: 400 }] });
+    expect(await code(liveToken(request({}), { fetchImpl: malformed.fetchImpl, env: ENV, now: () => NOW }))).toBe(
+      '502:live_failed',
+    );
+  });
+});
+
+describe('самопроверка на превью', () => {
+  const NOW = Date.parse('2026-11-25T06:00:00Z');
+
+  it('шлёт учебную картинку и просит токен, в ответе нет ни ключей, ни токена', async () => {
+    const { fetchImpl, calls } = fakeFetch({
+      model: [answer('{"name":"Аптека","category":"health","steps":2,"step_height_cm":15}'), { json: { name: 'auth_tokens/secret' } }],
+    });
+    const result = await selfCheck({ fetchImpl, env: ENV, now: () => NOW });
+    expect(result).toMatchObject({
+      deepseek: true,
+      gemini: true,
+      look: { jsonMode: { ok: true, status: 200, empty: false }, draft: { name: 'Аптека', category: 'health', steps: 2 } },
+      live: { ok: true, status: 200, model: 'gemini-3.8-live' },
+    });
+    expect(calls.map((c) => c.url)).toEqual([DEEPSEEK_URL, TOKEN_URL]);
+    const text = JSON.stringify(result);
+    expect(text).not.toContain('ds-key');
+    expect(text).not.toContain('g-key');
+    expect(text).not.toContain('auth_tokens/secret');
+  });
+
+  it('отказ сервиса виден текстом, а пустой ответ в режиме JSON ведёт ко второму заходу', async () => {
+    const { fetchImpl } = fakeFetch({
+      model: [
+        answer('   '),
+        answer('Вижу вход. {"steps":1}'),
+        { ok: false, status: 400, json: { error: { message: 'Unknown name "x": Cannot find field.' } } },
+      ],
+    });
+    const result = (await selfCheck({ fetchImpl, env: ENV, now: () => NOW })) as unknown as {
+      look: { jsonMode: unknown; plain: unknown; draft: { steps: number } };
+      live: unknown;
+    };
+    expect(result.look.jsonMode).toMatchObject({ ok: true, empty: true });
+    expect(result.look.plain).toMatchObject({ ok: true, empty: false });
+    expect(result.look.draft.steps).toBe(1);
+    expect(result.live).toMatchObject({ ok: false, status: 400, detail: 'Unknown name "x": Cannot find field.' });
   });
 });
 
