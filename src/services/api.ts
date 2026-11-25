@@ -318,7 +318,7 @@ export const api = {
     name: string;
     category: string;
     stepsCount: number | null;
-    rampType: "none" | "permanent" | "portable_on_request" | "portable_available";
+    rampType: "none" | "permanent" | "portable_on_request" | "portable_available" | "lift";
     status: "green" | "yellow" | "red" | "";
   }> {
     const client = getSessionClient();

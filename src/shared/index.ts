@@ -89,8 +89,10 @@ export const LEGACY_CATEGORY_SLUGS = ['other'] as const;
 export const CATEGORY_SLUGS = CATEGORIES.map((c) => c.slug);
 
 // ---- Core entities (match Codex migration 0001) ----
-export type Role = 'owner' | 'admin' | 'operator' | 'tester' | 'public_user' | 'banned';
-export type RampType = 'none' | 'permanent' | 'portable_on_request' | 'portable_available';
+/** `coordinator` — координатор района (миграция 20261125090000): собирает наравне с оператором. */
+export type Role = 'owner' | 'admin' | 'operator' | 'coordinator' | 'tester' | 'public_user' | 'banned';
+/** `lift` — подъёмник у входа (платформа); лифт между этажами отмечается отдельно. */
+export type RampType = 'none' | 'permanent' | 'portable_on_request' | 'portable_available' | 'lift';
 export type YesNoUnknown = 'yes' | 'no' | 'unknown';
 export type ToiletAccessible = 'yes' | 'no' | 'partial' | 'unknown';
 export type PhotoKind = 'facade' | 'steps' | 'ramp' | 'toilet' | 'interior';

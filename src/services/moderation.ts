@@ -36,12 +36,19 @@ export interface MapperFacts {
   subtype: string | null;
   stepHigh: YesNoUnknown;
   doorWide: YesNoUnknown;
+  /** Что волонтёр написал о туалете; пусто — ничего. */
+  toiletNote: string | null;
+  handWash: YesNoUnknown;
+  accessibleParking: YesNoUnknown;
+  elevator: YesNoUnknown;
 }
 
 export interface ModerationCard {
   place: PublicPlace;
   facts: MapperFacts;
   photoUrl: string | null;
+  /** Фото туалета, если волонтёр их снял (до двух). */
+  toiletPhotoUrls: string[];
 }
 
 export type ModerationDecision = 'published' | 'hidden';
@@ -66,10 +73,15 @@ export function mapperFactsFromDetails(details: unknown): MapperFacts {
       ? ((details as { mapper?: unknown }).mapper as Record<string, unknown> | null)
       : null;
   const subtype = mapper && typeof mapper.subtype === 'string' ? mapper.subtype.trim() : '';
+  const toiletNote = mapper && typeof mapper.toilet_note === 'string' ? mapper.toilet_note.trim() : '';
   return {
     subtype: subtype || null,
     stepHigh: yesNoUnknown(mapper?.step_high),
     doorWide: yesNoUnknown(mapper?.door_wide),
+    toiletNote: toiletNote || null,
+    handWash: yesNoUnknown(mapper?.hand_wash),
+    accessibleParking: yesNoUnknown(mapper?.accessible_parking),
+    elevator: yesNoUnknown(mapper?.elevator),
   };
 }
 
@@ -144,30 +156,40 @@ export async function fetchModerationQueue(
       'place_id',
       placeRows.map((row) => row.id),
     )
-    .eq('kind', 'facade');
+    .in('kind', ['facade', 'toilet']);
   if (photosError) throw fail('Не удалось загрузить фото очереди', photosError);
 
   const pathByPlace = new Map<string, string>();
-  for (const photo of (photos ?? []) as { place_id: string; storage_path: string }[]) {
-    if (!pathByPlace.has(photo.place_id)) pathByPlace.set(photo.place_id, photo.storage_path);
+  const toiletByPlace = new Map<string, string[]>();
+  for (const photo of (photos ?? []) as { place_id: string; storage_path: string; kind?: string }[]) {
+    if (photo.kind === 'toilet') {
+      toiletByPlace.set(photo.place_id, [...(toiletByPlace.get(photo.place_id) ?? []), photo.storage_path]);
+    } else if (!pathByPlace.has(photo.place_id)) {
+      pathByPlace.set(photo.place_id, photo.storage_path);
+    }
   }
+
+  const sign = async (path: string): Promise<string | null> => {
+    try {
+      const { data: signed } = await supabase.storage.from('place-photos').createSignedUrl(path, 600);
+      return signed?.signedUrl ?? null;
+    } catch {
+      return null;
+    }
+  };
 
   return Promise.all(
     placeRows.map(async (row) => {
       const path = pathByPlace.get(row.id);
-      let photoUrl: string | null = null;
-      if (path) {
-        try {
-          const { data: signed } = await supabase.storage.from('place-photos').createSignedUrl(path, 600);
-          photoUrl = signed?.signedUrl ?? null;
-        } catch {
-          photoUrl = null;
-        }
-      }
+      const photoUrl = path ? await sign(path) : null;
+      // toilet.jpg раньше toilet-2.jpg: порядок, в котором их снимали.
+      const toiletPaths = (toiletByPlace.get(row.id) ?? []).sort((a, b) => a.length - b.length);
+      const toiletPhotoUrls = (await Promise.all(toiletPaths.map(sign))).filter((u): u is string => !!u);
       return {
         place: mapPlaceRow(row, photoUrl ?? undefined),
         facts: mapperFactsFromDetails(row.details),
         photoUrl,
+        toiletPhotoUrls,
       };
     }),
   );

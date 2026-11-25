@@ -1946,6 +1946,25 @@ body {
   cursor: pointer;
 }
 
+/* Фото туалета: превью с крестиком в углу. */
+.nf-thumb {
+  position: relative;
+  width: 56px;
+  height: 56px;
+}
+
+.nf-thumbs .nf-thumb button {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  width: 24px;
+  height: 24px;
+  border: 0;
+  border-radius: 50%;
+  background: var(--text-color);
+  color: var(--bg-color);
+}
+
 .nf-two {
   display: flex;
   gap: 10px;
@@ -2028,6 +2047,32 @@ body {
   margin: 8px 0 0;
   font-size: 13px;
   color: var(--text-secondary);
+}
+
+.nf-label.is-sub {
+  margin-top: 4px;
+}
+
+/* Состояние замера: «предварительно» рядом с заголовком блока. */
+.nf-tag {
+  font-style: normal;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 20px;
+  background: color-mix(in srgb, var(--status-yellow, #E8A400) 18%, transparent);
+  color: var(--text-color);
+}
+
+.nf-input[aria-invalid='true'] {
+  border-color: var(--status-red, #D92D20);
+}
+
+textarea.nf-input.nf-textarea {
+  min-height: 84px;
+  padding: 10px 12px;
+  line-height: 1.35;
+  resize: vertical;
 }
 
 .ai-mark {
@@ -2550,6 +2595,25 @@ select.nf-input,
   align-items: center;
   gap: 8px;
   font-weight: 700;
+}
+
+.mq-note {
+  margin: 8px 0 0;
+  font-size: 14px;
+  color: var(--text-color);
+}
+
+.mq-extra-photos {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.mq-extra-photos img {
+  width: 96px;
+  height: 96px;
+  border-radius: 12px;
+  object-fit: cover;
 }
 
 .mq-facts {

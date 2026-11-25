@@ -24,12 +24,16 @@ export const SELECTED_ZOOM = 16;
 /** Default zoom target in draft-pin (add-place) mode. */
 export const DRAFT_ZOOM = 17;
 
-/** HTML attribution; OSM/MapLibre/AIS canon requires clickable links. */
+/**
+ * HTML attribution; OSM/MapLibre canon requires clickable links. The last
+ * item names the project itself (Arbitrator 25.11: «GoApsny», not the
+ * association).
+ */
 export const MAP_ATTRIBUTION =
   '<a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">© OpenStreetMap contributors</a> · ' +
   '<a href="https://maplibre.org" target="_blank" rel="noopener noreferrer">MapLibre</a> · ' +
   '<a href="https://protomaps.com" target="_blank" rel="noopener noreferrer">Protomaps</a> · ' +
-  'АИС «Инва-Содействие»';
+  'GoApsny';
 
 /**
  * Abkhazia bounding box (WGS84). Order: [[west, south], [east, north]]

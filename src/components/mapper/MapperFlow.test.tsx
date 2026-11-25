@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi, type Mock } from 'vitest';
-import { cleanup, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { MapperOutbox } from '../../services/mapper-outbox';
 import { SubmitPlaceError } from '../../services/submit-place';
@@ -27,6 +27,8 @@ const eyes: AssistantEyes = {
     subtype: 'Аптека',
     stepsVisible: 2,
     ramp: 'none',
+    stepHeightCm: null,
+    doorWidthCm: null,
   }),
 };
 
@@ -69,7 +71,17 @@ async function walkToLastStep(user: ReturnType<typeof userEvent.setup>) {
   await waitFor(() => expect((screen.getByLabelText(/Название/) as HTMLInputElement).value).toBe('Аптека «Здоровье»'));
   await user.click(screen.getByRole('button', { name: 'Далее' }));
   await user.click(screen.getByRole('button', { name: 'Далее' }));
+  // Шаг «Туалет и удобства» можно пропустить целиком.
+  await user.click(screen.getByRole('button', { name: 'Пропустить' }));
   return screen.findByRole('button', { name: /Отправить на проверку/ });
+}
+
+/** До шага «Данные»: фото снято, помощник заполнил поля. */
+async function walkToData(user: ReturnType<typeof userEvent.setup>) {
+  const camera = document.querySelector('input[capture]') as HTMLInputElement;
+  await user.upload(camera, photo);
+  await user.click(await screen.findByRole('button', { name: 'Далее' }));
+  await waitFor(() => expect((screen.getByLabelText(/Название/) as HTMLInputElement).value).toBe('Аптека «Здоровье»'));
 }
 
 describe('MapperFlow: отправка на проверку', () => {
@@ -98,9 +110,162 @@ describe('MapperFlow: отправка на проверку', () => {
       subtype: 'Аптека',
       stepHigh: 'unknown',
       doorWide: 'unknown',
+      stepHeightCm: null,
+      doorWidthCm: null,
+      toilet: 'unknown',
+      toiletPhotos: [],
+      handWash: 'unknown',
+      accessibleParking: 'unknown',
+      elevator: 'unknown',
     });
     await expectSamePhoto(submit.mock.calls[0][0].photo);
     expect(onSaved).toHaveBeenCalledTimes(1);
+  });
+
+  it('сантиметры вводятся цифрой и уходят как предварительный замер от человека', async () => {
+    const user = userEvent.setup();
+    const submit = vi.fn().mockResolvedValue({ placeId: 'p1', storagePath: 'p1/facade.jpg', place: {}, toiletPhotosSaved: 0 });
+    setup(submit);
+
+    await walkToData(user);
+    expect(screen.getByText('предварительно')).toBeTruthy();
+    // Прежних вопросов «выше 5 см» и «шире 80 см» больше нет.
+    expect(screen.queryByText(/Ступень выше 5 см/)).toBeNull();
+    expect(screen.queryByText(/Дверь шире 80 см/)).toBeNull();
+    await user.type(screen.getByLabelText(/Высота ступени, см/), '12');
+    await user.type(screen.getByLabelText(/Ширина двери, см/), '85');
+    await user.click(screen.getByRole('button', { name: 'Далее' }));
+    await user.click(screen.getByRole('button', { name: 'Далее' }));
+    await user.click(screen.getByRole('button', { name: 'Пропустить' }));
+    await user.click(await screen.findByRole('button', { name: /Отправить на проверку/ }));
+
+    await screen.findByText(/на проверке/);
+    expect(submit.mock.calls[0][0]).toMatchObject({
+      stepHeightCm: 12,
+      doorWidthCm: 85,
+      stepHeightSource: 'person',
+      doorWidthSource: 'person',
+      stepHigh: 'yes',
+      doorWide: 'yes',
+    });
+  });
+
+  it('число вне допустимого не уходит на сервер', async () => {
+    const user = userEvent.setup();
+    const submit = vi.fn().mockResolvedValue({ placeId: 'p1', storagePath: 'p1/facade.jpg', place: {}, toiletPhotosSaved: 0 });
+    setup(submit);
+
+    await walkToData(user);
+    const door = screen.getByLabelText(/Ширина двери, см/);
+    await user.type(door, '9');
+    expect(door.getAttribute('aria-invalid')).toBe('true');
+    await user.click(screen.getByRole('button', { name: 'Далее' }));
+    await user.click(screen.getByRole('button', { name: 'Далее' }));
+    await user.click(screen.getByRole('button', { name: 'Пропустить' }));
+    await user.click(await screen.findByRole('button', { name: /Отправить на проверку/ }));
+
+    await screen.findByText(/на проверке/);
+    expect(submit.mock.calls[0][0]).toMatchObject({ doorWidthCm: null, doorWide: 'unknown' });
+  });
+
+  it('в поле «Пандус» есть подъёмник', async () => {
+    const user = userEvent.setup();
+    setup(vi.fn());
+    await walkToData(user);
+    const ramp = screen.getAllByRole('combobox')[0] as HTMLSelectElement;
+    expect([...ramp.options].map((o) => o.textContent)).toContain('Подъёмник');
+  });
+
+  it('шаг «Туалет и удобства»: туалет с фото и описанием, отметки одним нажатием', async () => {
+    const user = userEvent.setup();
+    const submit = vi.fn().mockResolvedValue({ placeId: 'p1', storagePath: 'p1/facade.jpg', place: {}, toiletPhotosSaved: 1 });
+    setup(submit);
+
+    await walkToData(user);
+    await user.click(screen.getByRole('button', { name: 'Далее' }));
+    await user.click(screen.getByRole('button', { name: 'Далее' }));
+
+    expect(screen.getByText(/Шаг 4 из 5/)).toBeTruthy();
+    // Пока туалет не отмечен, фото и описание не спрашиваем.
+    expect(screen.queryByLabelText(/Описание/)).toBeNull();
+    await user.click(within(screen.getByRole('group', { name: 'Туалет' })).getByRole('button', { name: 'Есть' }));
+    await user.click(
+      within(screen.getByRole('group', { name: 'Доступен на коляске' })).getByRole('button', { name: 'Частично' }),
+    );
+    const toiletInput = document.querySelectorAll('input[type="file"]')[2] as HTMLInputElement;
+    await user.upload(toiletInput, new File(['wc'], 'wc.jpg', { type: 'image/jpeg' }));
+    await screen.findByAltText('Фото туалета 1');
+    await user.type(screen.getByLabelText(/Описание/), 'Узкая дверь');
+    await user.click(within(screen.getByRole('group', { name: 'Можно помыть руки' })).getByRole('button', { name: 'Да' }));
+    await user.click(
+      within(screen.getByRole('group', { name: 'Парковка для людей с инвалидностью' })).getByRole('button', { name: 'Нет' }),
+    );
+    // Лифт отметили и сняли отметку: ответа нет.
+    const elevator = within(screen.getByRole('group', { name: 'Лифт между этажами' }));
+    await user.click(elevator.getByRole('button', { name: 'Да' }));
+    await user.click(elevator.getByRole('button', { name: 'Да' }));
+
+    await user.click(screen.getByRole('button', { name: 'Далее' }));
+    await user.click(await screen.findByRole('button', { name: /Отправить на проверку/ }));
+    await screen.findByText(/на проверке/);
+
+    const sent = submit.mock.calls[0][0] as SubmitMapperPlaceInput;
+    expect(sent).toMatchObject({
+      toilet: 'yes',
+      toiletAccessible: 'partial',
+      toiletNote: 'Узкая дверь',
+      handWash: 'yes',
+      accessibleParking: 'no',
+      elevator: 'unknown',
+    });
+    expect(sent.toiletPhotos).toHaveLength(1);
+    expect(await sent.toiletPhotos![0].text()).toBe('wc');
+    expect(screen.queryByText(/Фото туалета не сохранились/)).toBeNull();
+  });
+
+  it('фото туалета сервер не взял: об этом сказано на экране', async () => {
+    const user = userEvent.setup();
+    const submit = vi.fn().mockResolvedValue({ placeId: 'p1', storagePath: 'p1/facade.jpg', place: {}, toiletPhotosSaved: 0 });
+    setup(submit);
+
+    await walkToData(user);
+    await user.click(screen.getByRole('button', { name: 'Далее' }));
+    await user.click(screen.getByRole('button', { name: 'Далее' }));
+    await user.click(within(screen.getByRole('group', { name: 'Туалет' })).getByRole('button', { name: 'Есть' }));
+    const toiletInput = document.querySelectorAll('input[type="file"]')[2] as HTMLInputElement;
+    await user.upload(toiletInput, new File(['wc'], 'wc.jpg', { type: 'image/jpeg' }));
+    await screen.findByAltText('Фото туалета 1');
+    await user.click(screen.getByRole('button', { name: 'Далее' }));
+    await user.click(await screen.findByRole('button', { name: /Отправить на проверку/ }));
+
+    await screen.findByText(/на проверке/);
+    expect(screen.getByText(/Фото туалета не сохранились/)).toBeTruthy();
+  });
+
+  it('помощник описывает фото туалета, если человек ещё ничего не написал', async () => {
+    const user = userEvent.setup();
+    const describing: AssistantEyes = { ...eyes, describeToilet: async () => 'Широкая дверь, есть поручни' };
+    render(
+      <MapperFlow
+        theme="light"
+        getCenter={() => ({ lat: 43, lng: 41 })}
+        eyes={describing}
+        submit={vi.fn()}
+        onClose={vi.fn()}
+        onSaved={vi.fn()}
+        onOpenDay={vi.fn()}
+        onAnother={vi.fn()}
+      />,
+    );
+    await walkToData(user);
+    await user.click(screen.getByRole('button', { name: 'Далее' }));
+    await user.click(screen.getByRole('button', { name: 'Далее' }));
+    await user.click(within(screen.getByRole('group', { name: 'Туалет' })).getByRole('button', { name: 'Есть' }));
+    const toiletInput = document.querySelectorAll('input[type="file"]')[2] as HTMLInputElement;
+    await user.upload(toiletInput, new File(['wc'], 'wc.jpg', { type: 'image/jpeg' }));
+    await waitFor(() =>
+      expect((screen.getByLabelText(/Описание/) as HTMLTextAreaElement).value).toBe('Широкая дверь, есть поручни'),
+    );
   });
 
   it('отказ сервера: причина на экране, успеха нет, можно повторить', async () => {

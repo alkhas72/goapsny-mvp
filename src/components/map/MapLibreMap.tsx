@@ -248,6 +248,13 @@ export function MapLibreMap({
       new maplibregl.AttributionControl({ compact: true, customAttribution: MAP_ATTRIBUTION }),
       'bottom-left',
     );
+    // MapLibre раскрывает подпись при загрузке и сворачивает после первого
+    // движения карты. Держим её свёрнутой сразу: кнопка «i» остаётся, текст
+    // открывается по нажатию.
+    map
+      .getContainer()
+      .querySelector('.maplibregl-ctrl-attrib.maplibregl-compact-show')
+      ?.classList.remove('maplibregl-compact-show');
 
     if (onClearSelection) {
       map.on('click', onClearSelection);

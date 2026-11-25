@@ -35,9 +35,17 @@ const RAMP_TEXT: Record<RampType, string> = {
   permanent: 'постоянный',
   portable_available: 'приставной, на месте',
   portable_on_request: 'приставной, по просьбе',
+  lift: 'подъёмник у входа',
 };
 
 const ANSWER: Record<YesNoUnknown, string> = { yes: 'да', no: 'нет', unknown: 'не проверено' };
+
+const TOILET_ACCESS: Record<string, string> = {
+  yes: 'доступен на коляске',
+  partial: 'доступен частично',
+  no: 'на коляске не попасть',
+  unknown: '',
+};
 
 function toMapPlace(card: ModerationCard): Place {
   const p = card.place;
@@ -224,15 +232,65 @@ export function ModerationQueue({
                 <dt>Пандус</dt>
                 <dd>{RAMP_TEXT[card.place.rampType]}</dd>
               </div>
-              <div>
-                <dt>Ступень выше 5 см</dt>
-                <dd>{ANSWER[card.facts.stepHigh]}</dd>
-              </div>
-              <div>
-                <dt>Дверь шире 80 см</dt>
-                <dd>{ANSWER[card.facts.doorWide]}</dd>
-              </div>
+              {card.place.stepHeightCm != null ? (
+                <div>
+                  <dt>Высота ступени</dt>
+                  <dd>{card.place.stepHeightCm} см, предварительно</dd>
+                </div>
+              ) : (
+                <div>
+                  <dt>Ступень выше 5 см</dt>
+                  <dd>{ANSWER[card.facts.stepHigh]}</dd>
+                </div>
+              )}
+              {card.place.doorWidthCm != null ? (
+                <div>
+                  <dt>Ширина двери</dt>
+                  <dd>{card.place.doorWidthCm} см, предварительно</dd>
+                </div>
+              ) : (
+                <div>
+                  <dt>Дверь шире 80 см</dt>
+                  <dd>{ANSWER[card.facts.doorWide]}</dd>
+                </div>
+              )}
+              {card.place.toiletExists !== 'unknown' && (
+                <div>
+                  <dt>Туалет</dt>
+                  <dd>
+                    {card.place.toiletExists === 'no'
+                      ? 'нет'
+                      : `есть${TOILET_ACCESS[card.place.toiletAccessible] ? `, ${TOILET_ACCESS[card.place.toiletAccessible]}` : ''}`}
+                  </dd>
+                </div>
+              )}
+              {card.facts.handWash !== 'unknown' && (
+                <div>
+                  <dt>Можно помыть руки</dt>
+                  <dd>{ANSWER[card.facts.handWash]}</dd>
+                </div>
+              )}
+              {card.facts.accessibleParking !== 'unknown' && (
+                <div>
+                  <dt>Парковка для людей с инвалидностью</dt>
+                  <dd>{ANSWER[card.facts.accessibleParking]}</dd>
+                </div>
+              )}
+              {card.facts.elevator !== 'unknown' && (
+                <div>
+                  <dt>Лифт между этажами</dt>
+                  <dd>{ANSWER[card.facts.elevator]}</dd>
+                </div>
+              )}
             </dl>
+            {card.facts.toiletNote && <p className="mq-note">Туалет: {card.facts.toiletNote}</p>}
+            {card.toiletPhotoUrls.length > 0 && (
+              <div className="mq-extra-photos">
+                {card.toiletPhotoUrls.map((url, i) => (
+                  <img key={url} src={url} alt={`Фото туалета ${i + 1}: ${card.place.name}`} />
+                ))}
+              </div>
+            )}
             {showMap && (
               <div className="mq-map">
                 <MapLibreMap

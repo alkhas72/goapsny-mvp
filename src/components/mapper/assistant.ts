@@ -1,7 +1,6 @@
 /**
  * Mapper assistant — the logic behind the add flow.
  *
- * The assistant is impersonal in public products for now (Arbitrator 28.09).
  * It looks at the entrance photo, fills in what it can see; the mapper checks
  * and measures the rest. The traffic light is suggested with a reason, after the AIS
  * methodology (Wheelmap-compatible, stricter): green — step-free entrance;
@@ -11,10 +10,27 @@
  * The 5 cm border is the Arbitrator's decision of 25.11: AIS builds portable
  * ramps starting from a 5 cm step, so the mark colour follows the same border
  * (Wheelmap and OSM draw it at 7 cm).
+ *
+ * 25.11 the Arbitrator replaced the «higher than 5 cm / wider than 80 cm»
+ * questions with numbers: the step height and the door width go in as
+ * centimetres. A measure has two states: preliminary (read from the photo or
+ * typed by the volunteer) and final (the auditor's measure in the ramp layer).
+ * Everything the mapper path sends is preliminary.
  */
-import type { AccessibilityStatus, RampType } from '../../shared/index';
+import type { AccessibilityStatus, RampType, ToiletAccessible } from '../../shared/index';
 
 export type YesNoUnknown = 'yes' | 'no' | 'unknown';
+
+/** A step up to this height counts as low; AIS ramps start above it. */
+export const STEP_BORDER_CM = 5;
+/** A door at least this wide lets a wheelchair through. */
+export const DOOR_BORDER_CM = 80;
+/** What the server accepts (migration 20261125090000). */
+export const STEP_HEIGHT_RANGE = [0, 100] as const;
+export const DOOR_WIDTH_RANGE = [30, 500] as const;
+
+/** Who gave the number: read from the photo, or typed by a person. */
+export type MeasureSource = 'photo' | 'person';
 
 /** What the assistant read from the entrance photo. Null — not visible. */
 export interface EntranceDraft {
@@ -23,6 +39,9 @@ export interface EntranceDraft {
   subtype: string | null;
   stepsVisible: number | null;
   ramp: RampType | null;
+  /** Rough centimetres read from the photo; the mapper corrects them. */
+  stepHeightCm: number | null;
+  doorWidthCm: number | null;
 }
 
 /** Facts the mapper confirmed; the place card is built from these. */
@@ -31,9 +50,11 @@ export interface EntranceFacts {
   subtype: string | null;
   name: string;
   steps: number | null;
-  stepHigh: YesNoUnknown;
+  /** Height of the highest step, cm. Null — not measured. */
+  stepHeightCm: number | null;
   ramp: RampType | null;
-  doorWide: YesNoUnknown;
+  /** Clear width of the door, cm. Null — not measured. */
+  doorWidthCm: number | null;
 }
 
 export const EMPTY_FACTS: EntranceFacts = {
@@ -41,10 +62,69 @@ export const EMPTY_FACTS: EntranceFacts = {
   subtype: null,
   name: '',
   steps: null,
-  stepHigh: 'unknown',
+  stepHeightCm: null,
   ramp: null,
-  doorWide: 'unknown',
+  doorWidthCm: null,
 };
+
+/** «Is there a step higher than 5 cm» — derived from the number. */
+export function stepHighOf(cm: number | null): YesNoUnknown {
+  if (cm == null) return 'unknown';
+  return cm > STEP_BORDER_CM ? 'yes' : 'no';
+}
+
+/** «Is the door wide enough» — derived from the number. */
+export function doorWideOf(cm: number | null): YesNoUnknown {
+  if (cm == null) return 'unknown';
+  return cm >= DOOR_BORDER_CM ? 'yes' : 'no';
+}
+
+/** Typed centimetres → a whole number inside the range, or null. */
+export function parseCm(text: string, range: readonly [number, number]): number | null {
+  const cleaned = text.replace(',', '.').trim();
+  if (!cleaned) return null;
+  const n = Math.round(Number(cleaned));
+  if (!Number.isFinite(n) || n < range[0] || n > range[1]) return null;
+  return n;
+}
+
+/**
+ * The toilet step and the three marks. Everything here is optional: an
+ * untouched answer stays `unknown` and is not sent as a fact.
+ */
+export interface Amenities {
+  toilet: YesNoUnknown;
+  toiletAccessible: ToiletAccessible;
+  toiletNote: string;
+  /** A place to wash hands. */
+  handWash: YesNoUnknown;
+  /** Parking for people with disabilities; ordinary parking is not asked. */
+  accessibleParking: YesNoUnknown;
+  /** An elevator between floors; a platform lift at the entrance is a ramp type. */
+  elevator: YesNoUnknown;
+}
+
+export const EMPTY_AMENITIES: Amenities = {
+  toilet: 'unknown',
+  toiletAccessible: 'unknown',
+  toiletNote: '',
+  handWash: 'unknown',
+  accessibleParking: 'unknown',
+  elevator: 'unknown',
+};
+
+export const MAX_TOILET_PHOTOS = 2;
+export const TOILET_NOTE_MAX = 500;
+
+export function amenitiesTouched(a: Amenities, photos: number): boolean {
+  return (
+    photos > 0 ||
+    a.toilet !== 'unknown' ||
+    a.handWash !== 'unknown' ||
+    a.accessibleParking !== 'unknown' ||
+    a.elevator !== 'unknown'
+  );
+}
 
 export interface StatusSuggestion {
   status: Exclude<AccessibilityStatus, 'gray'>;
@@ -65,17 +145,22 @@ function stepsWord(n: number): string {
 export function suggestStatus(facts: EntranceFacts): StatusSuggestion {
   const unchecked: string[] = [];
   if (facts.steps == null) unchecked.push('ступени');
-  if (facts.doorWide === 'unknown') unchecked.push('ширина двери');
+  if (facts.doorWidthCm == null) unchecked.push('ширина двери');
 
   const steps = facts.steps ?? 0;
   const permanentRamp = facts.ramp === 'permanent';
+  const lift = facts.ramp === 'lift';
   const portableRamp = facts.ramp === 'portable_available' || facts.ramp === 'portable_on_request';
 
-  if (facts.doorWide === 'no') {
-    return { status: 'red', reason: 'дверь уже 80 см — коляска не проходит', unchecked };
+  if (facts.doorWidthCm != null && facts.doorWidthCm < DOOR_BORDER_CM) {
+    return {
+      status: 'red',
+      reason: `дверь ${facts.doorWidthCm} см, уже ${DOOR_BORDER_CM} см — коляска не проходит`,
+      unchecked,
+    };
   }
-  if (steps === 0 || permanentRamp) {
-    const reason = steps === 0 ? 'вход без ступеней' : 'есть постоянный пандус';
+  if (steps === 0 || permanentRamp || lift) {
+    const reason = steps === 0 ? 'вход без ступеней' : lift ? 'есть подъёмник у входа' : 'есть постоянный пандус';
     return { status: 'green', reason, unchecked };
   }
   if (portableRamp) {
@@ -86,10 +171,10 @@ export function suggestStatus(facts: EntranceFacts): StatusSuggestion {
       unchecked,
     };
   }
-  if (steps === 1 && facts.stepHigh === 'no') {
-    return { status: 'yellow', reason: 'одна низкая ступень, до 5 см', unchecked };
+  if (steps === 1 && facts.stepHeightCm != null && facts.stepHeightCm <= STEP_BORDER_CM) {
+    return { status: 'yellow', reason: `одна низкая ступень, ${facts.stepHeightCm} см`, unchecked };
   }
-  if (steps === 1 && facts.stepHigh === 'unknown') unchecked.push('высота ступени');
+  if (facts.stepHeightCm == null) unchecked.push('высота ступени');
   return {
     status: 'red',
     reason: `${steps} ${stepsWord(steps)} без пандуса`,
@@ -106,6 +191,8 @@ export function factsFromDraft(draft: EntranceDraft): EntranceFacts {
     name: draft.name ?? '',
     steps: draft.stepsVisible,
     ramp: draft.ramp,
+    stepHeightCm: draft.stepHeightCm,
+    doorWidthCm: draft.doorWidthCm,
   };
 }
 

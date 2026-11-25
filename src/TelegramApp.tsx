@@ -366,7 +366,8 @@ export function TelegramApp() {
                       <span className="detail-card-value">
                         {selectedPlace.rampType === "none" ? "Нет" : 
                          selectedPlace.rampType === "permanent" ? "Стационарный" : 
-                         selectedPlace.rampType === "portable_available" ? "Приставной" : "По запросу"}
+                         selectedPlace.rampType === "portable_available" ? "Приставной" :
+                         selectedPlace.rampType === "lift" ? "Подъёмник" : "По запросу"}
                       </span>
                     </div>
                   </div>

@@ -169,4 +169,117 @@ describe('submitMapperPlace', () => {
     await expect(submitMapperPlace(INPUT, options)).rejects.toMatchObject({ kind: 'unknown' });
     expect(remove).toHaveBeenCalled();
   });
+
+  describe('сантиметры, туалет и отметки (миграция 25.11)', () => {
+    const TOILET_A = new Blob(['a'], { type: 'image/jpeg' });
+    const TOILET_B = new Blob(['b'], { type: 'image/jpeg' });
+    const FULL: SubmitMapperPlaceInput = {
+      ...INPUT,
+      stepHigh: 'yes',
+      doorWide: 'yes',
+      stepHeightCm: 12,
+      doorWidthCm: 85,
+      stepHeightSource: 'photo',
+      doorWidthSource: 'person',
+      toilet: 'yes',
+      toiletAccessible: 'partial',
+      toiletPhotos: [TOILET_A, TOILET_B],
+      toiletNote: '  Узкая дверь, поручней нет  ',
+      handWash: 'yes',
+      accessibleParking: 'no',
+      elevator: 'unknown',
+    };
+
+    it('шлёт сантиметры с источником, фото туалета по своим путям и отметки', async () => {
+      const { options, upload, rpc, remove } = fakeClient();
+      const result = await submitMapperPlace(FULL, options);
+
+      expect(upload.mock.calls.map((c) => c[0])).toEqual([
+        `${UUID_A}/facade.jpg`,
+        `${UUID_A}/toilet.jpg`,
+        `${UUID_A}/toilet-2.jpg`,
+      ]);
+      expect(rpc).toHaveBeenCalledTimes(1);
+      expect(rpc.mock.calls[0][1]).toMatchObject({
+        p_step_high: 'yes',
+        p_door_wide: 'yes',
+        p_step_height_cm: 12,
+        p_door_width_cm: 85,
+        p_step_height_source: 'photo',
+        p_door_width_source: 'person',
+        p_toilet: 'yes',
+        p_toilet_accessible: 'partial',
+        p_toilet_photos: 2,
+        p_toilet_note: 'Узкая дверь, поручней нет',
+        p_hand_wash: 'yes',
+        p_accessible_parking: 'no',
+        p_elevator: 'unknown',
+      });
+      expect(remove).not.toHaveBeenCalled();
+      expect(result.toiletPhotosSaved).toBe(2);
+    });
+
+    it('без туалета фото и описание не уходят', async () => {
+      const { options, upload, rpc } = fakeClient();
+      await submitMapperPlace({ ...FULL, toilet: 'no' }, options);
+      expect(upload).toHaveBeenCalledTimes(1);
+      expect(rpc.mock.calls[0][1]).toMatchObject({
+        p_toilet: 'no',
+        p_toilet_accessible: 'unknown',
+        p_toilet_photos: 0,
+        p_toilet_note: null,
+      });
+    });
+
+    it('фото туалета не легло — карточка уходит без него', async () => {
+      const { options, upload, rpc } = fakeClient();
+      upload
+        .mockResolvedValueOnce({ data: {}, error: null })
+        .mockResolvedValueOnce({ data: null, error: { statusCode: '403', message: 'new row violates row-level security policy' } });
+      const result = await submitMapperPlace(FULL, options);
+      // Второе фото после отказа первого уже не шлём.
+      expect(upload).toHaveBeenCalledTimes(2);
+      expect(rpc.mock.calls[0][1]).toMatchObject({ p_toilet: 'yes', p_toilet_photos: 0 });
+      expect(result.toiletPhotosSaved).toBe(0);
+    });
+
+    it('база ещё без миграции: карточка уходит прежним набором, фото туалета снимаются', async () => {
+      const { options, rpc, remove } = fakeClient();
+      rpc
+        .mockResolvedValueOnce({ data: null, error: { code: 'PGRST202', message: 'Could not find the function' } })
+        .mockResolvedValueOnce({ data: ROW, error: null });
+      const result = await submitMapperPlace(FULL, options);
+
+      expect(rpc).toHaveBeenCalledTimes(2);
+      const second = rpc.mock.calls[1][1] as Record<string, unknown>;
+      expect(Object.keys(second).sort()).toEqual(
+        [
+          'p_category',
+          'p_door_wide',
+          'p_lat',
+          'p_lng',
+          'p_name',
+          'p_place_id',
+          'p_ramp_type',
+          'p_status',
+          'p_step_high',
+          'p_steps_count',
+          'p_storage_path',
+          'p_subtype',
+        ].sort(),
+      );
+      expect(second).toMatchObject({ p_step_high: 'yes', p_door_wide: 'yes' });
+      expect(remove).toHaveBeenCalledWith([`${UUID_A}/toilet.jpg`, `${UUID_A}/toilet-2.jpg`]);
+      expect(result.toiletPhotosSaved).toBe(0);
+      expect(result.placeId).toBe(UUID_A);
+    });
+
+    it('отказ сервера убирает и фасад, и фото туалета', async () => {
+      const { options, remove } = fakeClient({
+        rpc: { data: null, error: { code: '22P02', message: 'submit_mapper_place: invalid card: step height' } },
+      });
+      await expect(submitMapperPlace(FULL, options)).rejects.toMatchObject({ kind: 'card_invalid' });
+      expect(remove).toHaveBeenCalledWith([`${UUID_A}/facade.jpg`, `${UUID_A}/toilet.jpg`, `${UUID_A}/toilet-2.jpg`]);
+    });
+  });
 });

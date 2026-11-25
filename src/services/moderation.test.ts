@@ -67,6 +67,8 @@ const PENDING_ROW = {
   updated_at: '2026-11-23T08:00:00Z',
 };
 
+const NO_AMENITIES = { toiletNote: null, handWash: 'unknown', accessibleParking: 'unknown', elevator: 'unknown' };
+
 describe('canModerate', () => {
   it('проверяют только admin и owner', () => {
     expect(canModerate('admin')).toBe(true);
@@ -83,7 +85,17 @@ describe('mapperFactsFromDetails', () => {
       subtype: 'Аптека',
       stepHigh: 'yes',
       doorWide: 'no',
+      ...NO_AMENITIES,
     });
+  });
+
+  it('читает туалет и отметки', () => {
+    expect(
+      mapperFactsFromDetails({
+        schema_version: 1,
+        mapper: { toilet_note: ' Узкая дверь ', hand_wash: 'yes', accessible_parking: 'no', elevator: 'yes' },
+      }),
+    ).toMatchObject({ toiletNote: 'Узкая дверь', handWash: 'yes', accessibleParking: 'no', elevator: 'yes' });
   });
 
   it('пустое и мусор превращаются в «не знаю»', () => {
@@ -91,11 +103,13 @@ describe('mapperFactsFromDetails', () => {
       subtype: null,
       stepHigh: 'unknown',
       doorWide: 'unknown',
+      ...NO_AMENITIES,
     });
-    expect(mapperFactsFromDetails({ mapper: { step_high: 'maybe', subtype: 7 } })).toEqual({
+    expect(mapperFactsFromDetails({ mapper: { step_high: 'maybe', subtype: 7, hand_wash: 1 } })).toEqual({
       subtype: null,
       stepHigh: 'unknown',
       doorWide: 'unknown',
+      ...NO_AMENITIES,
     });
     expect(mapperFactsFromDetails(null).doorWide).toBe('unknown');
   });
@@ -156,7 +170,14 @@ describe('fetchModerationQueue', () => {
     const { supabase, calls } = client(
       {
         places: { data: [PENDING_ROW], error: null },
-        photos: { data: [{ place_id: 'p1', storage_path: 'p1/facade.jpg' }], error: null },
+        photos: {
+          data: [
+            { place_id: 'p1', storage_path: 'p1/toilet-2.jpg', kind: 'toilet' },
+            { place_id: 'p1', storage_path: 'p1/facade.jpg', kind: 'facade' },
+            { place_id: 'p1', storage_path: 'p1/toilet.jpg', kind: 'toilet' },
+          ],
+          error: null,
+        },
       },
       { storage: { from: vi.fn(() => ({ createSignedUrl })) } },
     );
@@ -166,9 +187,13 @@ describe('fetchModerationQueue', () => {
     expect(queue).toHaveLength(1);
     expect(queue[0].place.name).toBe('Аптека');
     expect(queue[0].place.moderationStatus).toBe('pending');
-    expect(queue[0].facts).toEqual({ subtype: 'Аптека', stepHigh: 'yes', doorWide: 'no' });
+    expect(queue[0].facts).toEqual({ subtype: 'Аптека', stepHigh: 'yes', doorWide: 'no', ...NO_AMENITIES });
     expect(queue[0].photoUrl).toBe('https://signed/p1');
     expect(createSignedUrl).toHaveBeenCalledWith('p1/facade.jpg', 600);
+    // Фото туалета идут в порядке съёмки и не подменяют фото входа.
+    expect(queue[0].toiletPhotoUrls).toHaveLength(2);
+    expect(createSignedUrl.mock.calls.map((c) => c[0])).toEqual(['p1/facade.jpg', 'p1/toilet.jpg', 'p1/toilet-2.jpg']);
+    expect(calls.photos).toContainEqual(['in', 'kind', ['facade', 'toilet']]);
     expect(calls.places).toContainEqual(['eq', 'moderation_status', 'pending']);
     expect(calls.places).toContainEqual(['order', 'created_at', { ascending: true }]);
   });

@@ -1,5 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import type { AccessibilityStatus, RampType, YesNoUnknown } from '../shared/index';
+import type { AccessibilityStatus, RampType, ToiletAccessible, YesNoUnknown } from '../shared/index';
 import { mapPlaceRow, type PublicPlace } from './places';
 import {
   FACADE_MIME_TYPE,
@@ -16,13 +16,26 @@ import { isSupabaseConfigured } from './supabase';
 /**
  * Путь картографа: полная карточка уходит на проверку.
  *
- * Вызывает `public.submit_mapper_place` (миграция
- * `supabase/migrations/20261123120000_mapper_pending_submission.sql`).
+ * Вызывает `public.submit_mapper_place`. Первая версия функции — миграция
+ * `20261123120000_mapper_pending_submission.sql` (12 параметров); миграция
+ * `20261125090000_mapper_measures_amenities_coordinator.sql` добавила
+ * сантиметры, туалет с фото и отметки, прежний набор параметров работает.
  * Сервер сам ставит moderation_status='pending', source, created_by и дату
  * осмотра; клиент передаёт только то, что картограф видел у входа.
  * Публикует карточку модератор — см. `services/moderation.ts`.
  */
 export const SUBMIT_MAPPER_PLACE_RPC = 'submit_mapper_place';
+
+/** Сколько фото туалета держит карточка (ограничение пути в базе). */
+export const TOILET_PHOTOS_MAX = 2;
+
+/** Пути фото туалета: сервер выводит их сам из числа фото, клиент обязан совпасть. */
+export function toiletStoragePath(placeId: string, index: number): string {
+  return index === 0 ? `${placeId}/toilet.jpg` : `${placeId}/toilet-${index + 1}.jpg`;
+}
+
+/** Кто дал число: прочитано по фото или введено человеком. */
+export type MeasureSource = 'photo' | 'person';
 
 export interface SubmitMapperPlaceInput {
   name: string;
@@ -40,6 +53,23 @@ export interface SubmitMapperPlaceInput {
   stepHigh: YesNoUnknown;
   /** Дверь шире 80 см. */
   doorWide: YesNoUnknown;
+
+  // Всё ниже необязательно: карточки, отложенные на устройстве до 25.11,
+  // этих полей не несут и уходят прежним набором параметров.
+  /** Высота ступени, см (0–100). Замер предварительный. */
+  stepHeightCm?: number | null;
+  /** Ширина двери, см (30–500). Замер предварительный. */
+  doorWidthCm?: number | null;
+  stepHeightSource?: MeasureSource | null;
+  doorWidthSource?: MeasureSource | null;
+  toilet?: YesNoUnknown;
+  toiletAccessible?: ToiletAccessible;
+  /** До двух фото туалета, уже приведённые к JPEG. */
+  toiletPhotos?: Blob[];
+  toiletNote?: string | null;
+  handWash?: YesNoUnknown;
+  accessibleParking?: YesNoUnknown;
+  elevator?: YesNoUnknown;
 }
 
 export interface SubmitMapperPlaceResult {
@@ -47,6 +77,8 @@ export interface SubmitMapperPlaceResult {
   storagePath: string;
   /** Строка, подтверждённая сервером: без неё успех не показывается. */
   place: PublicPlace;
+  /** Сколько фото туалета легло в карточку (может быть меньше снятых). */
+  toiletPhotosSaved: number;
 }
 
 export interface SubmitMapperPlaceOptions {
@@ -71,12 +103,36 @@ function isAlreadyUploaded(error: unknown): boolean {
   );
 }
 
-async function removeOrphan(supabase: SupabaseClient, storagePath: string): Promise<void> {
+async function removeOrphans(supabase: SupabaseClient, storagePaths: string[]): Promise<void> {
+  if (storagePaths.length === 0) return;
   try {
-    await supabase.storage.from(FACADE_STORAGE_BUCKET).remove([storagePath]);
+    await supabase.storage.from(FACADE_STORAGE_BUCKET).remove(storagePaths);
   } catch {
-    // Осиротевший фасад не должен подменять причину отказа.
+    // Осиротевшие фото не должны подменять причину отказа.
   }
+}
+
+function known(value: YesNoUnknown | undefined): boolean {
+  return value === 'yes' || value === 'no';
+}
+
+/** Несёт ли карточка то, что понимает только функция после миграции 25.11. */
+function hasExtendedFacts(input: SubmitMapperPlaceInput, toiletPhotos: number): boolean {
+  return (
+    input.stepHeightCm != null ||
+    input.doorWidthCm != null ||
+    known(input.toilet) ||
+    toiletPhotos > 0 ||
+    !!input.toiletNote?.trim() ||
+    known(input.handWash) ||
+    known(input.accessibleParking) ||
+    known(input.elevator)
+  );
+}
+
+/** PostgREST отвечает так, когда функции с таким набором параметров в базе нет. */
+function isUnknownSignature(error: unknown): boolean {
+  return !!error && typeof error === 'object' && (error as { code?: unknown }).code === 'PGRST202';
 }
 
 export async function submitMapperPlace(
@@ -120,7 +176,22 @@ export async function submitMapperPlace(
     );
   }
 
-  const rpcResult = await supabase.rpc(SUBMIT_MAPPER_PLACE_RPC, {
+  // Фото туалета кладём по одному и по порядку: сервер ждёт toilet.jpg, затем
+  // toilet-2.jpg. Не легло одно — остальные не шлём: карточка важнее.
+  const wantsToilet = input.toilet === 'yes' ? (input.toiletPhotos ?? []).slice(0, TOILET_PHOTOS_MAX) : [];
+  const toiletPaths: string[] = [];
+  for (const [index, blob] of wantsToilet.entries()) {
+    if (blob.size === 0) break;
+    const path = toiletStoragePath(placeId, index);
+    const result = await supabase.storage
+      .from(FACADE_STORAGE_BUCKET)
+      .upload(path, blob, { contentType: FACADE_MIME_TYPE, upsert: false });
+    const error = (result as { error?: unknown }).error;
+    if (error && !(options.resume && isAlreadyUploaded(error))) break;
+    toiletPaths.push(path);
+  }
+
+  const legacyParams = {
     p_place_id: placeId,
     p_name: input.name,
     p_category: input.category,
@@ -133,19 +204,50 @@ export async function submitMapperPlace(
     p_subtype: input.subtype,
     p_step_high: input.stepHigh,
     p_door_wide: input.doorWide,
-  });
+  };
+
+  let toiletPhotosSaved = toiletPaths.length;
+  let rpcResult: unknown;
+  if (hasExtendedFacts(input, toiletPaths.length)) {
+    const note = input.toiletNote?.trim() || null;
+    rpcResult = await supabase.rpc(SUBMIT_MAPPER_PLACE_RPC, {
+      ...legacyParams,
+      p_step_height_cm: input.stepHeightCm ?? null,
+      p_door_width_cm: input.doorWidthCm ?? null,
+      p_step_height_source: input.stepHeightCm != null ? (input.stepHeightSource ?? 'person') : null,
+      p_door_width_source: input.doorWidthCm != null ? (input.doorWidthSource ?? 'person') : null,
+      p_toilet: input.toilet ?? 'unknown',
+      p_toilet_accessible: input.toilet === 'yes' ? (input.toiletAccessible ?? 'unknown') : 'unknown',
+      p_toilet_photos: toiletPaths.length,
+      p_toilet_note: input.toilet === 'yes' ? note : null,
+      p_hand_wash: input.handWash ?? 'unknown',
+      p_accessible_parking: input.accessibleParking ?? 'unknown',
+      p_elevator: input.elevator ?? 'unknown',
+    });
+    // База ещё не знает новых параметров (миграция 25.11 не применена):
+    // карточка уходит прежним набором, чтобы объект не потерялся. Фото
+    // туалета такая функция не привяжет, поэтому их снимаем.
+    if (isUnknownSignature((rpcResult as { error?: unknown }).error)) {
+      await removeOrphans(supabase, [...toiletPaths]);
+      toiletPaths.length = 0;
+      toiletPhotosSaved = 0;
+      rpcResult = await supabase.rpc(SUBMIT_MAPPER_PLACE_RPC, legacyParams);
+    }
+  } else {
+    rpcResult = await supabase.rpc(SUBMIT_MAPPER_PLACE_RPC, legacyParams);
+  }
 
   const rpcError = (rpcResult as { error?: unknown }).error;
   if (rpcError) {
-    await removeOrphan(supabase, storagePath);
+    await removeOrphans(supabase, [storagePath, ...toiletPaths]);
     throw classifySubmitError(rpcError);
   }
 
   const row = parseRpcPlaceRow((rpcResult as { data?: unknown }).data, placeId);
   if (!row) {
-    await removeOrphan(supabase, storagePath);
+    await removeOrphans(supabase, [storagePath, ...toiletPaths]);
     throw new SubmitPlaceError('unknown', 'RPC completed without a place row');
   }
 
-  return { placeId, storagePath, place: mapPlaceRow(row) };
+  return { placeId, storagePath, place: mapPlaceRow(row), toiletPhotosSaved };
 }

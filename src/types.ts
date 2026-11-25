@@ -1,4 +1,4 @@
-export type Role = "owner" | "admin" | "operator" | "tester" | "public_user" | "banned";
+export type Role = "owner" | "admin" | "operator" | "coordinator" | "tester" | "public_user" | "banned";
 export type Tab = "map" | "add" | "profile" | "admin";
 export type AccessibilityStatus = "green" | "yellow" | "red" | "gray";
 export type ModerationStatus = "published" | "pending" | "hidden";
@@ -24,7 +24,7 @@ export interface Place {
   status: AccessibilityStatus;
   stepsCount: number | null;
   stepHeightCm: number | null;
-  rampType: "none" | "permanent" | "portable_on_request" | "portable_available";
+  rampType: "none" | "permanent" | "portable_on_request" | "portable_available" | "lift";
   doorWidthCm: number | null;
   entranceNotes: string | null;
   toiletExists: "yes" | "no" | "unknown";
@@ -60,7 +60,7 @@ export interface AddDraft {
   status: AccessibilityStatus | "";
   stepsCount: string;
   stepHeightCm: string;
-  rampType: "none" | "permanent" | "portable_on_request" | "portable_available";
+  rampType: "none" | "permanent" | "portable_on_request" | "portable_available" | "lift";
   doorWidthCm: string;
   entranceNotes: string;
   toiletExists: "yes" | "no" | "unknown";

@@ -32,8 +32,17 @@ function card(id: string, name: string): ModerationCard {
   } as PlaceRow;
   return {
     place: mapPlaceRow(row),
-    facts: { subtype: 'Аптека', stepHigh: 'yes', doorWide: 'unknown' },
+    facts: {
+      subtype: 'Аптека',
+      stepHigh: 'yes',
+      doorWide: 'unknown',
+      toiletNote: null,
+      handWash: 'unknown',
+      accessibleParking: 'unknown',
+      elevator: 'unknown',
+    },
     photoUrl: `https://signed/${id}`,
+    toiletPhotoUrls: [],
   };
 }
 

@@ -14,6 +14,8 @@ import { maskSensitive, nativeFaceDetector, type SensitiveDetector } from './pri
 
 export interface AssistantEyes {
   look(photo: File): Promise<EntranceDraft>;
+  /** Короткое описание туалета по фото; null — сказать нечего. */
+  describeToilet?(photo: File): Promise<string | null>;
 }
 
 const MAX_SIDE = 1280;
@@ -54,6 +56,8 @@ export const demoEyes: AssistantEyes = {
       subtype: 'Аптека',
       stepsVisible: 2,
       ramp: 'none',
+      stepHeightCm: 15,
+      doorWidthCm: 90,
     };
   },
 };
