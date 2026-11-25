@@ -40,7 +40,7 @@ export function AssistantDock() {
         aria-expanded={open}
         onClick={() => setOpen(true)}
       >
-        <BrandMark size={36} />
+        <BrandMark size={34} />
       </button>
       {open && (
         <div className="lv-assistant-scrim" onClick={() => setOpen(false)}>
@@ -54,7 +54,7 @@ export function AssistantDock() {
             <div className="lv-assistant-grabber" aria-hidden="true" />
             <div className="lv-assistant-head">
               <span className="lv-assistant-face">
-                <BrandMark size={26} />
+                <BrandMark size={25} />
               </span>
               <div>
                 <p className="lv-assistant-kicker">Цифровой ассистент</p>

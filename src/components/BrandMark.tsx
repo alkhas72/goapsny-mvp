@@ -2,8 +2,11 @@
  * Фирменный знак АИС «человек на коляске» (динамичная фигура, авторский вариант).
  * Контур взят из знака на abhazia.org (favicon.svg): только фигура, без плашки.
  * Цвет наследуется от текста (`currentColor`), фон прозрачный.
+ * Рамка рисунка обрезана точно по фигуре: высота знака равна высоте фигуры,
+ * ширина следует за пропорцией (0,894 от высоты).
  */
 interface BrandMarkProps {
+  /** Высота знака в пикселях; ширина получается из пропорции фигуры. */
   size?: number;
   className?: string;
 }
@@ -11,8 +14,7 @@ interface BrandMarkProps {
 export function BrandMark({ size, className }: BrandMarkProps) {
   return (
     <svg
-      viewBox="45 41 224 224"
-      width={size}
+      viewBox="58 48.1 188.4 210.8"
       height={size}
       className={className}
       aria-hidden="true"
