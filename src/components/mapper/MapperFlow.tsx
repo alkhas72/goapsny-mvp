@@ -22,7 +22,7 @@ import {
 import { canWait, getMapperOutbox, isOffline, outboxReason, type MapperOutbox, type OutboxReason } from '../../services/mapper-outbox';
 import { SubmitPlaceError } from '../../services/submit-place';
 import { getBrowserLocation } from '../../utils/location';
-import { prepareFacadePhoto } from '../../utils/photo';
+import { holdPhotoInMemory, prepareFacadePhoto } from '../../utils/photo';
 import { MapLibreMap } from '../map/MapLibreMap';
 import {
   EMPTY_FACTS,
@@ -164,12 +164,15 @@ export function MapperFlow({
     });
   };
 
-  const addPhotos = (files: FileList | null) => {
+  const addPhotos = async (files: FileList | null) => {
     if (!files || files.length === 0) return;
     const first = photos.length === 0;
-    const added = Array.from(files)
-      .slice(0, MAX_PHOTOS - photos.length)
-      .map((file) => ({ file, url: URL.createObjectURL(file) }));
+    const picked = Array.from(files).slice(0, MAX_PHOTOS - photos.length);
+    // Снимок сразу читаем в память: к шагу 4 временный файл камеры на iPhone
+    // может уже не читаться. Не прочитался сейчас: оставляем как есть,
+    // понятный отказ даст подготовка фото перед отправкой.
+    const held = await Promise.all(picked.map((file) => holdPhotoInMemory(file).catch(() => file)));
+    const added = held.map((file) => ({ file, url: URL.createObjectURL(file) }));
     setPhotos((p) => [...p, ...added]);
     if (!first) return;
     // The point is fixed when the entrance is photographed.
@@ -325,12 +328,17 @@ export function MapperFlow({
       )}
 
       <input ref={cameraRef} type="file" accept="image/*" capture="environment" hidden onChange={(e) => {
-        addPhotos(e.target.files);
-        e.target.value = '';
+        const input = e.target;
+        // Поле очищаем после чтения: до него файл должен оставаться живым.
+        void addPhotos(input.files).finally(() => {
+          input.value = '';
+        });
       }} />
       <input ref={galleryRef} type="file" accept="image/*" multiple hidden onChange={(e) => {
-        addPhotos(e.target.files);
-        e.target.value = '';
+        const input = e.target;
+        void addPhotos(input.files).finally(() => {
+          input.value = '';
+        });
       }} />
 
       {step === 1 && (
@@ -443,8 +451,8 @@ export function MapperFlow({
 
           {(facts.steps ?? 0) > 0 && (
             <>
-              <span className="nf-label">Ступень выше 7 см</span>
-              <Seg label="Ступень выше 7 см" value={facts.stepHigh} onChange={(v) => set({ stepHigh: v })} />
+              <span className="nf-label">Ступень выше 5 см</span>
+              <Seg label="Ступень выше 5 см" value={facts.stepHigh} onChange={(v) => set({ stepHigh: v })} />
             </>
           )}
           <span className="nf-label">Дверь шире 80 см</span>

@@ -32,6 +32,14 @@ const eyes: AssistantEyes = {
 
 const photo = new File(['jpeg'], 'entrance.jpg', { type: 'image/jpeg' });
 
+/** Снимок уходит копией в памяти (см. holdPhotoInMemory): байты, имя и тип те же. */
+async function expectSamePhoto(sent: Blob) {
+  expect(sent).not.toBe(photo);
+  expect((sent as File).name).toBe('entrance.jpg');
+  expect(sent.type).toBe('image/jpeg');
+  expect(await sent.text()).toBe('jpeg');
+}
+
 function setup(
   submit: (input: SubmitMapperPlaceInput) => Promise<SubmitMapperPlaceResult>,
   keep: { ownerId?: string; outbox?: { add: Mock<MapperOutbox['add']> } } = {},
@@ -91,7 +99,7 @@ describe('MapperFlow: отправка на проверку', () => {
       stepHigh: 'unknown',
       doorWide: 'unknown',
     });
-    expect(submit.mock.calls[0][0].photo).toBe(photo);
+    await expectSamePhoto(submit.mock.calls[0][0].photo);
     expect(onSaved).toHaveBeenCalledTimes(1);
   });
 
@@ -115,7 +123,7 @@ describe('MapperFlow: отправка на проверку', () => {
     expect(onSaved).toHaveBeenCalledTimes(1);
   });
 
-  it('нет связи с сервером: объект остаётся на устройстве и ждёт отправки', async () => {
+  it('сервер не ответил: объект остаётся на устройстве и ждёт отправки', async () => {
     const user = userEvent.setup();
     const submit = vi.fn().mockRejectedValue(new SubmitPlaceError('unknown', 'Failed to fetch'));
     const add = vi.fn<MapperOutbox['add']>().mockResolvedValue({} as never);
@@ -124,11 +132,11 @@ describe('MapperFlow: отправка на проверку', () => {
     await user.click(await walkToLastStep(user));
 
     await screen.findByText(/— сохранён на устройстве/);
-    expect(screen.getByText(/Нет связи с сервером/)).toBeTruthy();
+    expect(screen.getByText(/Сервер не ответил/)).toBeTruthy();
     expect(add).toHaveBeenCalledTimes(1);
     expect(add.mock.calls[0][0]).toBe('u1');
     expect(add.mock.calls[0][1]).toMatchObject({ name: 'Аптека «Здоровье»', status: 'red' });
-    expect(add.mock.calls[0][1].photo).toBe(photo);
+    await expectSamePhoto(add.mock.calls[0][1].photo);
     expect(add.mock.calls[0][2]).toBe('unknown');
     // Кармы и записи «Сегодня» нет: сервер объект ещё не видел.
     expect(onSaved).not.toHaveBeenCalled();
@@ -146,6 +154,20 @@ describe('MapperFlow: отправка на проверку', () => {
     await screen.findByText(/— сохранён на устройстве/);
     expect(screen.getByText(/Сервер пока не принимает объекты/)).toBeTruthy();
     expect(add.mock.calls[0][2]).toBe('server_not_ready');
+  });
+
+  it('связь есть, но фото не дошло: экран не говорит «нет связи»', async () => {
+    const user = userEvent.setup();
+    const submit = vi.fn().mockRejectedValue(new SubmitPlaceError('missing_photo', 'upload failed'));
+    const add = vi.fn<MapperOutbox['add']>().mockResolvedValue({} as never);
+    setup(submit, { ownerId: 'u1', outbox: { add } });
+
+    await user.click(await walkToLastStep(user));
+
+    await screen.findByText(/— сохранён на устройстве/);
+    expect(screen.getByText(/Фото не дошло до сервера/)).toBeTruthy();
+    expect(screen.queryByText(/Нет связи/)).toBeNull();
+    expect(add.mock.calls[0][2]).toBe('missing_photo');
   });
 
   it('отказ по существу на устройство не откладывается: причина на экране', async () => {

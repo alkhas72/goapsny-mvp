@@ -113,7 +113,9 @@ describe('PublicAddSheet', () => {
     const [input] = submitPublicPlace.mock.calls[0];
     expect(input).toMatchObject({ name: 'Кафе у моря', category: 'food', lat: 43.01, lng: 41.02 });
     expect(input.photo).toBeInstanceOf(Blob);
-    expect(input.photo).toBe(file);
+    // Снимок уходит копией в памяти (holdPhotoInMemory): байты и тип те же.
+    expect(input.photo.type).toBe('image/jpeg');
+    expect([...new Uint8Array(await input.photo.arrayBuffer())]).toEqual([0xff, 0xd8, 0xff]);
   });
 
   it('maps a hardened SubmitPlaceError kind to deterministic Russian copy', async () => {

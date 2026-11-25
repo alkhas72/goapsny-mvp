@@ -15,7 +15,7 @@ describe('suggestStatus', () => {
   it('yellow for one low step', () => {
     expect(suggestStatus(facts({ steps: 1, stepHigh: 'no', ramp: 'none', doorWide: 'yes' }))).toMatchObject({
       status: 'yellow',
-      reason: 'одна низкая ступень, до 7 см',
+      reason: 'одна низкая ступень, до 5 см',
     });
   });
 

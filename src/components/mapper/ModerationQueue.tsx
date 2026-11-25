@@ -225,7 +225,7 @@ export function ModerationQueue({
                 <dd>{RAMP_TEXT[card.place.rampType]}</dd>
               </div>
               <div>
-                <dt>Ступень выше 7 см</dt>
+                <dt>Ступень выше 5 см</dt>
                 <dd>{ANSWER[card.facts.stepHigh]}</dd>
               </div>
               <div>

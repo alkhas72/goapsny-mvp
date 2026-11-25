@@ -36,7 +36,7 @@ export interface SubmitMapperPlaceInput {
   stepsCount: number | null;
   rampType: RampType | null;
   subtype: string | null;
-  /** Есть ли ступень выше 7 см. */
+  /** Есть ли ступень выше 5 см (граница по решению Алхаса 25.11, до того 7 см). */
   stepHigh: YesNoUnknown;
   /** Дверь шире 80 см. */
   doorWide: YesNoUnknown;
@@ -101,6 +101,11 @@ export async function submitMapperPlace(
     throw new SubmitPlaceError('unknown', `Generated place_id is not a valid UUID: ${placeId}`);
   }
   const storagePath = facadeStoragePath(placeId);
+
+  // Пустое фото сервер не примет никогда: повторять такую отправку незачем.
+  if (input.photo.size === 0) {
+    throw new SubmitPlaceError('photo_unreadable', 'Facade photo has no bytes');
+  }
 
   const uploadResult = await supabase.storage
     .from(FACADE_STORAGE_BUCKET)

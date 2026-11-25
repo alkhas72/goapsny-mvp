@@ -67,7 +67,7 @@ export async function prepareFacadePhoto(file: File): Promise<File> {
   const invalid = validateFacadePhoto(file);
   if (invalid) throw new FacadePhotoError(invalid);
 
-  if (!needsConversion(file)) return file;
+  if (!needsConversion(file)) return holdPhotoInMemory(file);
 
   const bitmap = await decode(file);
   const { width, height } = fit(bitmap.width, bitmap.height);
@@ -102,6 +102,32 @@ export async function prepareFacadePhoto(file: File): Promise<File> {
   }
 
   return new File([blob], 'facade.jpg', { type: FACADE_TARGET_MIME });
+}
+
+/**
+ * Копия снимка в памяти вкладки.
+ *
+ * Файл из камеры или галереи телефона браузер держит ссылкой на свой
+ * временный файл. Пока человек проходит шаги (и тем более уходит в другое
+ * приложение), Safari на iPhone может этот файл потерять: размер у объекта
+ * остаётся прежним, а на сервер уходит пустое тело (25.11: Storage ответил
+ * «No content provided», content-length 0). Байты, прочитанные сразу, от
+ * временного файла уже не зависят.
+ */
+export async function holdPhotoInMemory(file: File): Promise<File> {
+  const unreadable = () =>
+    new FacadePhotoError({
+      kind: 'decode_failed',
+      message: 'Фото не прочиталось. Вернитесь на шаг 1 и снимите вход ещё раз.',
+    });
+  let bytes: ArrayBuffer;
+  try {
+    bytes = await file.arrayBuffer();
+  } catch {
+    throw unreadable();
+  }
+  if (bytes.byteLength === 0) throw unreadable();
+  return new File([bytes], file.name, { type: file.type, lastModified: file.lastModified });
 }
 
 async function decode(file: File): Promise<ImageBitmap | HTMLImageElement> {

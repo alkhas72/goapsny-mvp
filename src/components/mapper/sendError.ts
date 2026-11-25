@@ -10,6 +10,7 @@ const SEND_ERROR: Partial<Record<SubmitPlaceErrorKind, string>> = {
   profile_required: 'Профиль не найден. Напишите администратору.',
   role_required: 'У этого профиля нет права добавлять объекты.',
   missing_photo: 'Не удалось загрузить фото. Проверьте связь и повторите.',
+  photo_unreadable: 'Фото не сохранилось. Удалите объект и добавьте его заново.',
   facade_object_missing: 'Фото не дошло до сервера. Повторите отправку.',
   name_required: 'Вернитесь на шаг 2 и укажите название.',
   category_invalid: 'Вернитесь на шаг 2 и выберите категорию.',
@@ -36,7 +37,13 @@ export function keptText(reason: OutboxReason): string {
   if (reason === 'not_configured') {
     return 'Сервис сейчас недоступен. Объект уйдёт на проверку, когда он вернётся.';
   }
-  return 'Нет связи с сервером. Объект уйдёт на проверку сам, когда связь появится.';
+  if (reason === 'offline') {
+    return 'Нет связи с сервером. Объект уйдёт на проверку сам, когда связь появится.';
+  }
+  if (reason === 'missing_photo' || reason === 'facade_object_missing') {
+    return 'Фото не дошло до сервера. Объект уйдёт на проверку при следующей попытке.';
+  }
+  return 'Сервер не ответил. Объект уйдёт на проверку при следующей попытке.';
 }
 
 /** Короткая пометка в списке «Ждут отправки». */
@@ -44,5 +51,7 @@ export function waitingNote(reason: OutboxReason, blocked: boolean): string {
   if (blocked) return SEND_ERROR[reason as SubmitPlaceErrorKind] ?? 'Сервер не принял объект.';
   if (reason === 'server_not_ready') return 'сервер пока не принимает';
   if (reason === 'auth_required') return 'нужен вход';
-  return 'нет связи';
+  if (reason === 'missing_photo' || reason === 'facade_object_missing') return 'фото не дошло';
+  if (reason === 'offline') return 'нет связи';
+  return 'сервер не ответил';
 }

@@ -77,6 +77,8 @@ export type SubmitPlaceErrorKind =
   | 'not_configured'
   /** The facade upload failed before the RPC could run. */
   | 'missing_photo'
+  /** The facade photo held on the device has no bytes: nothing to upload. */
+  | 'photo_unreadable'
   /** `42501` — no auth session. */
   | 'auth_required'
   /** `42501` — authenticated but no `profiles` row. */

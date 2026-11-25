@@ -90,6 +90,17 @@ describe('submitMapperPlace', () => {
     expect(result.place.status).toBe('yellow');
   });
 
+  it('пустое фото на сервер не идёт: отказ сразу, без загрузки и без карточки', async () => {
+    const { options, upload, rpc } = fakeClient();
+    const empty = new Blob([], { type: 'image/jpeg' });
+
+    await expect(submitMapperPlace({ ...INPUT, photo: empty }, options)).rejects.toMatchObject({
+      kind: 'photo_unreadable',
+    });
+    expect(upload).not.toHaveBeenCalled();
+    expect(rpc).not.toHaveBeenCalled();
+  });
+
   it('неизвестный пандус уходит как «нет», пустой тип — как null', async () => {
     const { options, rpc } = fakeClient();
     await submitMapperPlace({ ...INPUT, rampType: null, subtype: null, stepsCount: null }, options);

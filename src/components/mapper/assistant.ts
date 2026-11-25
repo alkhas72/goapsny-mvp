@@ -5,8 +5,12 @@
  * It looks at the entrance photo, fills in what it can see; the mapper checks
  * and measures the rest. The traffic light is suggested with a reason, after the AIS
  * methodology (Wheelmap-compatible, stricter): green — step-free entrance;
- * yellow — one low step (≤ 7 cm) or a portable ramp; red — steps without a
+ * yellow — one low step (≤ 5 cm) or a portable ramp; red — steps without a
  * ramp, a high step or a door narrower than 80 cm.
+ *
+ * The 5 cm border is the Arbitrator's decision of 25.11: AIS builds portable
+ * ramps starting from a 5 cm step, so the mark colour follows the same border
+ * (Wheelmap and OSM draw it at 7 cm).
  */
 import type { AccessibilityStatus, RampType } from '../../shared/index';
 
@@ -83,7 +87,7 @@ export function suggestStatus(facts: EntranceFacts): StatusSuggestion {
     };
   }
   if (steps === 1 && facts.stepHigh === 'no') {
-    return { status: 'yellow', reason: 'одна низкая ступень, до 7 см', unchecked };
+    return { status: 'yellow', reason: 'одна низкая ступень, до 5 см', unchecked };
   }
   if (steps === 1 && facts.stepHigh === 'unknown') unchecked.push('высота ступени');
   return {

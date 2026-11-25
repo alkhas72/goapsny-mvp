@@ -3,6 +3,7 @@ import {
   FACADE_MAX_BYTES,
   FACADE_TARGET_MIME,
   fit,
+  holdPhotoInMemory,
   prepareFacadePhoto,
   validateFacadePhoto,
 } from './photo';
@@ -43,14 +44,43 @@ describe('validateFacadePhoto', () => {
 });
 
 describe('prepareFacadePhoto', () => {
-  it('отдаёт готовый JPEG в пределах лимита без обработки', async () => {
+  it('готовый JPEG в пределах лимита не пересжимает, но отдаёт копией в памяти', async () => {
     const original = fakeFile('ok.jpg', FACADE_TARGET_MIME, 2_000_000);
-    await expect(prepareFacadePhoto(original)).resolves.toBe(original);
+    const prepared = await prepareFacadePhoto(original);
+    // Копия не зависит от временного файла браузера, байты те же.
+    expect(prepared).not.toBe(original);
+    expect(prepared.type).toBe(FACADE_TARGET_MIME);
+    expect(prepared.name).toBe('ok.jpg');
+    expect(await prepared.text()).toBe('x');
+  });
+
+  it('снимок, который браузер уже не может прочитать, не уходит на сервер пустым', async () => {
+    const lost = new File([], 'IMG_0042.jpg', { type: FACADE_TARGET_MIME });
+    // Так выглядит потерянный временный файл на iPhone: размер заявлен, байтов нет.
+    Object.defineProperty(lost, 'size', { value: 2_000_000 });
+    await expect(prepareFacadePhoto(lost)).rejects.toThrow(/не прочиталось/i);
   });
 
   it('бросает понятную ошибку на не-изображении', async () => {
     await expect(prepareFacadePhoto(fakeFile('doc.pdf', 'application/pdf', 100))).rejects.toThrow(
       /не фотография/i,
+    );
+  });
+});
+
+describe('holdPhotoInMemory', () => {
+  it('отдаёт копию с теми же байтами, именем и типом', async () => {
+    const original = new File(['facade'], 'IMG_0042.heic', { type: 'image/heic' });
+    const held = await holdPhotoInMemory(original);
+    expect(held).not.toBe(original);
+    expect(held.name).toBe('IMG_0042.heic');
+    expect(held.type).toBe('image/heic');
+    expect(await held.text()).toBe('facade');
+  });
+
+  it('пустой файл считает непрочитанным', async () => {
+    await expect(holdPhotoInMemory(new File([], 'empty.jpg', { type: FACADE_TARGET_MIME }))).rejects.toThrow(
+      /не прочиталось/i,
     );
   });
 });

@@ -19,6 +19,7 @@ import { MapLibreMap } from './map/MapLibreMap';
 const SUBMIT_ERROR_MESSAGES: Record<SubmitPlaceErrorKind, string> = {
   not_configured: 'Сервис недоступен. Попробуйте позже.',
   missing_photo: 'Не удалось загрузить фото. Попробуйте ещё раз.',
+  photo_unreadable: 'Фото не прочиталось. Снимите вход ещё раз.',
   auth_required: 'Войдите, чтобы добавить место.',
   profile_required: 'Профиль не найден. Обратитесь к администратору.',
   role_required: 'Нет прав для добавления места.',
