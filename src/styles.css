@@ -1327,6 +1327,12 @@ body {
   z-index: 150;
 }
 
+.footer-icon {
+  width: 22px;
+  height: 22px;
+  display: block;
+}
+
 .footer-link,
 .footer-cabinet-btn {
   min-height: 44px;

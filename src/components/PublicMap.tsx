@@ -586,7 +586,6 @@ export function PublicMap() {
 
       <MapFooter
         onCabinet={handleCabinet}
-        onDisabledLink={(label) => setCabinetNote(`${label} — ссылка появится позже`)}
       />
 
       {outboxNote && (
