@@ -1943,3 +1943,13 @@
 [data-skin='living'] .mapper-day-wait {
   color: inherit;
 }
+
+/* Ночью --go-final тёмный: отметки «заполнено по фото» читаются светлым. */
+:root[data-skin='living'][data-mood='night'] .nf-pill {
+  background: rgba(234, 243, 114, 0.14);
+  color: var(--lime);
+}
+
+:root[data-skin='living'][data-mood='night'] .ai-mark {
+  color: var(--lime);
+}
