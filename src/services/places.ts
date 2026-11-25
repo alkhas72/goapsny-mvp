@@ -313,6 +313,8 @@ export function rampLabel(rampType: RampType): string {
       return 'Приставной пандус';
     case 'portable_on_request':
       return 'Пандус по запросу';
+    case 'lift':
+      return 'Подъёмник у входа';
     default:
       return 'Без пандуса';
   }

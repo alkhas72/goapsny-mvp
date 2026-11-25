@@ -29,7 +29,7 @@ function record(name, pass, detail = '') {
 }
 
 async function dismissWelcome(page) {
-  const continueBtn = page.getByRole('button', { name: /поехали/i });
+  const continueBtn = page.getByRole('button', { name: 'Go', exact: true });
   if (await continueBtn.isVisible().catch(() => false)) {
     await continueBtn.click();
   }
@@ -38,7 +38,7 @@ async function dismissWelcome(page) {
 async function waitForPublicShell(page, timeoutMs = 15000) {
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
-    const welcome = await page.getByText('Добро пожаловать в GoApsny').isVisible().catch(() => false);
+    const welcome = await page.getByText('Карта доступности Абхазии').isVisible().catch(() => false);
     const menu = await page.getByRole('button', { name: 'Меню' }).isVisible().catch(() => false);
     const error = await page.getByRole('alert').isVisible().catch(() => false);
     if (welcome || menu || error) return { welcome, menu, error };

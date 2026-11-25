@@ -2,10 +2,19 @@ import type { Session } from '@supabase/supabase-js';
 import { getSupabaseClient, isSupabaseConfigured } from './supabase';
 
 export const OTP_RESEND_COOLDOWN_MS = 60_000;
-export const OTP_CODE_LENGTH = 8;
+/**
+ * Длина кода из письма: шесть цифр (слово Алхаса 25.11, было восемь).
+ * Задаётся настройкой Supabase Auth «Email OTP Length», см. supabase/config.toml.
+ */
+export const OTP_CODE_LENGTH = 6;
+/**
+ * Пока настройка боевого проекта не переключена, письмо несёт прежний код
+ * из восьми цифр. Поле принимает оба, чтобы вход не ломался в день перехода.
+ */
+export const OTP_CODE_MAX_LENGTH = 8;
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const OTP_PATTERN = new RegExp(`^\\d{${OTP_CODE_LENGTH}}$`);
+const OTP_PATTERN = new RegExp(`^(\\d{${OTP_CODE_LENGTH}}|\\d{${OTP_CODE_MAX_LENGTH}})$`);
 
 export function normalizeEmail(email: string): string {
   return email.trim().toLowerCase();

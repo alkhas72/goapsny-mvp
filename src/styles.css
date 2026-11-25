@@ -252,6 +252,12 @@ body {
   background-color: var(--surface-color);
 }
 
+/* maplibre-gl.css loads later and sets .maplibregl-map { position: relative },
+   which collapses the wrapper to zero height. Keep it filling the main area. */
+.map-wrapper.maplibregl-map {
+  position: absolute;
+}
+
 .dark-labels-layer {
   filter: brightness(1.7);
 }
@@ -375,6 +381,65 @@ body {
   border-style: dashed;
 }
 
+
+/* Map look: palette → 3D → light, a column on the right like Mapbox. */
+.map-view-controls {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  pointer-events: auto;
+}
+
+.map-view-group {
+  display: flex;
+  flex-direction: column;
+  background-color: var(--bg-color);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+  overflow: hidden;
+}
+
+.map-view-btn {
+  width: 44px;
+  height: 44px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  background: transparent;
+  color: var(--text-secondary);
+  font: 700 14px/1 var(--font-family);
+  cursor: pointer;
+}
+
+.map-view-btn + .map-view-btn {
+  border-top: 1px solid var(--border-color);
+}
+
+.map-view-btn.is-active {
+  color: var(--accent);
+  background-color: color-mix(in srgb, var(--accent) 12%, transparent);
+}
+
+.map-view-btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+.map-view-swatch span {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 1px solid rgba(0, 0, 0, 0.15);
+}
+
+.map-view-swatch.is-active span {
+  box-shadow: 0 0 0 2px var(--bg-color), 0 0 0 4px var(--accent);
+}
 
 @keyframes pulse {
   0% { transform: scale(1); opacity: 1; }
@@ -1116,11 +1181,27 @@ body {
   padding: 24px;
 }
 
-.welcome-kicker {
+.welcome-head {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
   text-align: center;
+}
+
+.welcome-title {
+  margin: 0;
+  color: var(--text-color);
+  font-size: 34px;
+  line-height: 1.1;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.welcome-subtitle {
   margin: 0;
   color: var(--text-secondary);
   font-size: 15px;
+  line-height: 1.35;
 }
 
 .welcome-legend-list {
@@ -1173,7 +1254,7 @@ body {
 
 .public-top-rail {
   display: grid;
-  grid-template-columns: 1fr auto;
+  grid-template-columns: 1fr auto auto;
   align-items: center;
   gap: 8px;
   min-height: 56px;
@@ -1201,31 +1282,20 @@ body {
   font-weight: 700;
 }
 
-.public-filter-rail {
+.public-search-btn {
   position: relative;
-  padding: 0 12px 10px;
 }
 
-.public-search-trigger {
-  width: 100%;
-  min-height: 44px;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 10px 12px;
-  border-radius: 10px;
-  border: 1px solid var(--border-color);
-  background: var(--surface-color);
-  color: var(--text-secondary);
-  cursor: pointer;
-}
-
-.public-search-input {
+/* Поиск или фильтр что-то отбирают. */
+.public-search-dot {
   position: absolute;
-  opacity: 0;
-  pointer-events: none;
-  width: 1px;
-  height: 1px;
+  top: 8px;
+  right: 8px;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 0 2px var(--bg-color);
 }
 
 .public-map-main {
@@ -1244,6 +1314,12 @@ body {
   border-top: 1px solid var(--border-color);
   background: var(--bg-color);
   z-index: 150;
+}
+
+.footer-icon {
+  width: 22px;
+  height: 22px;
+  display: block;
 }
 
 .footer-link,
@@ -1267,6 +1343,29 @@ body {
   color: var(--text-color);
   font-weight: 700;
   border-width: 2px;
+}
+
+.footer-cabinet-btn {
+  position: relative;
+}
+
+/* Сколько объектов ждут в кабинете. */
+.footer-badge {
+  position: absolute;
+  top: -6px;
+  right: -4px;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 5px;
+  display: grid;
+  place-items: center;
+  border-radius: 10px;
+  background: var(--status-red);
+  color: #FFFFFF;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1;
+  box-shadow: 0 0 0 2px var(--bg-color);
 }
 
 .overlay-scrim {
@@ -1682,4 +1781,1237 @@ body {
   border-radius: 10px;
   background: color-mix(in srgb, var(--status-yellow) 18%, transparent);
   border: 1px solid var(--status-yellow);
+}
+
+/* ---- «Новый объект» и кабинет — прототип по канону GoApsny (AISP-328) ---- */
+:root {
+  --go-work: #4BA4DD;   /* рабочее действие: прогресс, «Далее» */
+  --go-final: #E2741C;  /* финал: «Сохранить», шапка кабинета */
+}
+
+.mapper-fab-row {
+  position: absolute;
+  left: 12px;
+  right: 76px;
+  bottom: 24px;
+  z-index: 12;
+  display: flex;
+  gap: 8px;
+}
+
+.mapper-fab,
+.mapper-day-btn {
+  height: 48px;
+  border-radius: 24px;
+  border: 1px solid var(--border-color);
+  font: 700 15px/1 var(--font-family);
+  padding: 0 18px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+  cursor: pointer;
+}
+
+.mapper-fab {
+  flex: 1;
+  background: var(--go-final);
+  border-color: var(--go-final);
+  color: #FFFFFF;
+}
+
+.mapper-day-btn {
+  background: var(--bg-color);
+  color: var(--text-color);
+}
+
+.nf-screen {
+  position: fixed;
+  inset: 0;
+  /* Above the app header (200), bottom rail (150) and sheets (250–300). */
+  z-index: 350;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-color);
+  color: var(--text-color);
+}
+
+.nf-top {
+  flex: 0 0 auto;
+  height: 52px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0 4px;
+  background: var(--go-work);
+  color: #FFFFFF;
+  font-weight: 700;
+  font-size: 17px;
+}
+
+.nf-top.is-final {
+  background: var(--go-final);
+}
+
+.nf-top span {
+  flex: 1;
+}
+
+.nf-top button {
+  width: 44px;
+  height: 44px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+
+.nf-progress {
+  padding: 12px 16px 0;
+}
+
+.nf-bars {
+  display: flex;
+  gap: 6px;
+}
+
+.nf-bars i {
+  flex: 1;
+  height: 5px;
+  border-radius: 3px;
+  background: var(--border-color);
+}
+
+.nf-bars i.on {
+  background: var(--go-work);
+}
+
+.nf-progress p {
+  margin: 10px 0 0;
+  font-size: 14px;
+  color: var(--text-secondary);
+}
+
+.nf-progress b {
+  color: var(--text-color);
+}
+
+.nf-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 14px 16px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.nf-body > * {
+  flex-shrink: 0; /* scroll the form, never squash its rows */
+}
+
+.nf-photo-step {
+  gap: 12px;
+}
+
+.nf-drop {
+  flex: 1;
+  min-height: 260px;
+  border: 2px dashed var(--border-color);
+  border-radius: 18px;
+  background: transparent;
+  color: var(--text-secondary);
+  font: 600 17px/1.3 var(--font-family);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  cursor: pointer;
+}
+
+.nf-body > .nf-photo-main {
+  flex: 1 1 0;
+  min-height: 0;
+  width: 100%;
+  object-fit: cover;
+  border-radius: 18px;
+}
+
+.nf-thumbs {
+  display: flex;
+  gap: 8px;
+}
+
+.nf-thumbs img,
+.nf-thumbs button {
+  width: 56px;
+  height: 56px;
+  border-radius: 12px;
+  object-fit: cover;
+}
+
+.nf-thumbs button {
+  border: 2px dashed var(--border-color);
+  background: transparent;
+  color: var(--text-secondary);
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+}
+
+/* Фото туалета: превью с крестиком в углу. */
+.nf-thumb {
+  position: relative;
+  width: 56px;
+  height: 56px;
+}
+
+.nf-thumbs .nf-thumb button {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  width: 24px;
+  height: 24px;
+  border: 0;
+  border-radius: 50%;
+  background: var(--text-color);
+  color: var(--bg-color);
+}
+
+.nf-two {
+  display: flex;
+  gap: 10px;
+}
+
+.nf-two .nf-btn {
+  flex: 1;
+}
+
+.nf-btn {
+  min-height: 52px;
+  border-radius: 13px;
+  border: 0;
+  font: 700 16px/1.2 var(--font-family);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  cursor: pointer;
+  width: 100%;
+}
+
+.nf-btn.is-work { background: var(--go-work); color: #FFFFFF; }
+.nf-btn.is-final { background: var(--go-final); color: #FFFFFF; }
+.nf-btn.is-ghost { background: var(--surface-color); color: var(--text-color); }
+
+.nf-btn:disabled {
+  background: var(--border-color);
+  color: var(--text-secondary);
+  cursor: default;
+}
+
+.nf-foot {
+  flex: 0 0 auto;
+  padding: 10px 16px calc(12px + env(safe-area-inset-bottom, 0px));
+}
+
+/* Помощник внутри шагов: полоса над кнопкой «Далее». */
+.nf-companion {
+  flex: 0 0 auto;
+  padding: 8px 16px 0;
+  background: var(--bg-color);
+  border-top: 1px solid var(--border-color);
+}
+
+.nf-screen:not(:has(.nf-foot)) .nf-companion {
+  padding-bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+}
+
+.nf-companion-say {
+  margin: 0 0 8px;
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  max-height: 4.2em;
+  overflow-y: auto;
+  font-size: 14px;
+  line-height: 1.4;
+  color: var(--text-color);
+}
+
+.nf-companion-say svg {
+  flex: 0 0 auto;
+  margin-top: 2px;
+}
+
+.nf-companion-say.is-error {
+  padding: 8px 12px;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--status-red) 12%, transparent);
+}
+
+.nf-companion-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.nf-companion-input {
+  flex: 1;
+  min-width: 0;
+  height: 44px;
+  padding: 0 14px;
+  border: 1px solid var(--border-color);
+  border-radius: 22px;
+  background: var(--surface-color);
+  color: var(--text-color);
+  font: 400 16px/1.2 var(--font-family);
+}
+
+.nf-companion-input::placeholder {
+  color: var(--text-secondary);
+}
+
+.nf-companion-bar button {
+  flex: 0 0 44px;
+  width: 44px;
+  height: 44px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 50%;
+  background: var(--surface-color);
+  color: var(--text-color);
+  cursor: pointer;
+}
+
+.nf-companion-bar button.is-send,
+.nf-companion-bar button.is-on {
+  background: var(--go-work);
+  color: #FFFFFF;
+}
+
+.nf-companion-bar button.is-live {
+  background: var(--go-final);
+  color: #FFFFFF;
+}
+
+.nf-companion-bar button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+/* Разговор с камерой поверх шага: закрыли, и человек на том же шаге. */
+.nf-live {
+  display: none;
+}
+
+.nf-live.is-on {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  background: #0b0f0d;
+  color: #FFFFFF;
+}
+
+.nf-live-video {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.nf-live-panel {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 48px 16px calc(16px + env(safe-area-inset-bottom, 0px));
+  background: linear-gradient(180deg, rgba(11, 15, 13, 0) 0%, rgba(11, 15, 13, 0.82) 34%);
+}
+
+.nf-live-state {
+  margin: 0;
+  align-self: flex-start;
+  padding: 6px 12px;
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.18);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.nf-live-error {
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--status-red) 60%, #0b0f0d);
+  font-size: 14px;
+  line-height: 1.35;
+}
+
+.nf-live-lines {
+  max-height: 30vh;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.nf-live-lines p {
+  margin: 0;
+  font-size: 15px;
+  line-height: 1.4;
+}
+
+.nf-live-lines p.is-you {
+  opacity: 0.66;
+}
+
+.nf-live-noted {
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.16);
+  font-size: 15px;
+}
+
+.nf-live-noted b {
+  display: block;
+  margin-bottom: 2px;
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  opacity: 0.8;
+}
+
+.nf-ai-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 4px;
+}
+
+.nf-ai-row img {
+  width: 56px;
+  height: 56px;
+  border-radius: 12px;
+  object-fit: cover;
+}
+
+.nf-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 20px;
+  background: color-mix(in srgb, var(--go-final) 14%, transparent);
+  color: var(--go-final);
+  font-weight: 700;
+  font-size: 13px;
+}
+
+.nf-pill.is-busy svg {
+  animation: nf-spin 1.4s linear infinite;
+}
+
+@keyframes nf-spin {
+  to { transform: rotate(360deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .nf-pill.is-busy svg { animation: none; }
+}
+
+.nf-label {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin: 8px 0 0;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.nf-label.is-sub {
+  margin-top: 4px;
+}
+
+/* Состояние замера: «предварительно» рядом с заголовком блока. */
+.nf-tag {
+  font-style: normal;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 20px;
+  background: color-mix(in srgb, var(--status-yellow, #E8A400) 18%, transparent);
+  color: var(--text-color);
+}
+
+.nf-input[aria-invalid='true'] {
+  border-color: var(--status-red, #D92D20);
+}
+
+textarea.nf-input.nf-textarea {
+  min-height: 84px;
+  padding: 10px 12px;
+  line-height: 1.35;
+  resize: vertical;
+}
+
+.ai-mark {
+  color: var(--go-final);
+}
+
+.nf-input {
+  min-height: 46px;
+  width: 100%;
+  border: 1.5px solid var(--border-color);
+  border-radius: 11px;
+  background: var(--bg-color);
+  color: var(--text-color);
+  font: 16px/1.2 var(--font-family);
+  padding: 0 12px;
+}
+
+/* Родной <select> на iPhone рисуется своей высотой и не слушает min-height,
+   поэтому «Пандус» выходил ниже счётчика ступеней рядом. Снимаем системный
+   вид и рисуем стрелку сами: поле держит общую высоту. */
+select.nf-input {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 46px;
+  padding-right: 38px;
+  text-overflow: ellipsis;
+}
+
+/* Стрелка отдельным правилом и для оболочки: та задаёт фон поля целиком. */
+select.nf-input,
+[data-skin='living'] select.nf-input {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%237a8580' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  background-size: 18px 18px;
+}
+
+.nf-select {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  text-align: left;
+  cursor: pointer;
+}
+
+.nf-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.nf-chips button {
+  min-height: 40px;
+  padding: 0 12px;
+  border-radius: 20px;
+  border: 1px solid var(--border-color);
+  background: var(--bg-color);
+  color: var(--text-color);
+  font: 14px/1 var(--font-family);
+  cursor: pointer;
+}
+
+.nf-chips button[aria-pressed='true'] {
+  border-color: var(--go-final);
+  background: color-mix(in srgb, var(--go-final) 14%, transparent);
+  font-weight: 700;
+}
+
+.nf-row2 {
+  display: flex;
+  gap: 10px;
+}
+
+.nf-row2 > div {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Два поля в ряду одной высоты, какое бы из них ни оказалось выше. */
+.nf-row2 > div > .nf-stepper,
+.nf-row2 > div > select.nf-input {
+  flex: 1 0 auto;
+  height: auto;
+  min-height: 46px;
+}
+
+.nf-stepper {
+  min-height: 46px;
+  border: 1.5px solid var(--border-color);
+  border-radius: 11px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.nf-stepper button {
+  width: 44px;
+  height: 44px;
+  border: 0;
+  background: transparent;
+  color: var(--text-color);
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+}
+
+.nf-stepper output {
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.nf-seg {
+  display: flex;
+  border: 1.5px solid var(--border-color);
+  border-radius: 11px;
+  overflow: hidden;
+}
+
+.nf-seg button {
+  flex: 1;
+  min-height: 44px;
+  border: 0;
+  background: transparent;
+  color: var(--text-color);
+  font: 15px/1 var(--font-family);
+  cursor: pointer;
+}
+
+.nf-seg button + button {
+  border-left: 1px solid var(--border-color);
+}
+
+.nf-seg button[aria-pressed='true'] {
+  background: var(--go-work);
+  color: #FFFFFF;
+  font-weight: 700;
+}
+
+.nf-hint {
+  margin: 8px 0 0;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.nf-status {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px;
+  border: 1.5px solid var(--border-color);
+  border-radius: 14px;
+  background: var(--bg-color);
+  color: var(--text-color);
+  text-align: left;
+  font: 14px/1.35 var(--font-family);
+  cursor: pointer;
+}
+
+.nf-status-text {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.nf-status-text b {
+  font-size: 16px;
+}
+
+.nf-dot {
+  flex: 0 0 auto;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.nf-status.is-green .nf-dot, .nf-dot.is-green { background: var(--status-green); }
+.nf-status.is-yellow .nf-dot, .nf-dot.is-yellow { background: var(--status-yellow); }
+.nf-status.is-red .nf-dot, .nf-dot.is-red { background: var(--status-red); }
+
+.nf-status[aria-pressed='true'].is-green { border-color: var(--status-green); background: color-mix(in srgb, var(--status-green) 10%, transparent); }
+.nf-status[aria-pressed='true'].is-yellow { border-color: var(--status-yellow); background: color-mix(in srgb, var(--status-yellow) 12%, transparent); }
+.nf-status[aria-pressed='true'].is-red { border-color: var(--status-red); background: color-mix(in srgb, var(--status-red) 10%, transparent); }
+
+.nf-status.is-green .nf-check { color: var(--status-green); }
+.nf-status.is-yellow .nf-check { color: var(--status-yellow); }
+.nf-status.is-red .nf-check { color: var(--status-red); }
+
+.nf-map-step {
+  padding: 0;
+}
+
+.nf-map {
+  position: relative;
+  flex: 1;
+  min-height: 300px;
+}
+
+.nf-map-note {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  right: 12px;
+  z-index: 5;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: var(--bg-color);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  font-size: 14px;
+}
+
+.nf-done {
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  gap: 10px;
+}
+
+.nf-done-mark {
+  width: 76px;
+  height: 76px;
+  border-radius: 50%;
+  background: var(--status-green);
+  color: #FFFFFF;
+  display: grid;
+  place-items: center;
+}
+
+.nf-done h2 {
+  margin: 6px 0 0;
+  font-size: 20px;
+}
+
+.nf-karma {
+  margin: 0;
+  font-size: 26px;
+  font-weight: 800;
+  color: var(--go-final);
+}
+
+.nf-cat-list {
+  list-style: none;
+  margin: 0;
+  padding: 6px 12px;
+  overflow-y: auto;
+}
+
+.nf-cat-list button {
+  width: 100%;
+  min-height: 52px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 10px;
+  border: 0;
+  border-bottom: 1px solid var(--border-color);
+  background: transparent;
+  color: var(--text-color);
+  font: 16px/1.2 var(--font-family);
+  text-align: left;
+  cursor: pointer;
+}
+
+.nf-cat-list button.is-on {
+  border-radius: 8px;
+  border-bottom-color: transparent;
+  background: color-mix(in srgb, var(--go-final) 14%, transparent);
+  color: var(--go-final);
+  font-weight: 700;
+}
+
+.cab-karma {
+  padding: 14px;
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--go-final) 12%, transparent);
+}
+
+.cab-karma-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.cab-karma-top span {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--go-final);
+  font-weight: 700;
+}
+
+.cab-karma-top b {
+  font-size: 30px;
+  color: var(--go-final);
+}
+
+.cab-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
+  padding: 5px 11px;
+  border-radius: 16px;
+  background: var(--go-final);
+  color: #FFFFFF;
+  font-weight: 700;
+  font-size: 13px;
+}
+
+.cab-bar {
+  height: 8px;
+  margin-top: 10px;
+  border-radius: 5px;
+  background: color-mix(in srgb, var(--go-final) 22%, transparent);
+  overflow: hidden;
+}
+
+.cab-bar i {
+  display: block;
+  height: 100%;
+  background: var(--go-final);
+}
+
+.cab-stats {
+  display: flex;
+  gap: 10px;
+  margin-top: 6px;
+}
+
+.cab-stats div {
+  flex: 1;
+  padding: 11px 6px;
+  border-radius: 12px;
+  background: var(--surface-color);
+  text-align: center;
+}
+
+.cab-stats b {
+  display: block;
+  font-size: 20px;
+}
+
+.cab-stats span {
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+
+.cab-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.cab-list li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.cab-name {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  font-weight: 600;
+}
+
+.cab-name small,
+.cab-meta small {
+  font-weight: 400;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.cab-meta {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+}
+
+.cab-meta b {
+  color: var(--status-green);
+}
+
+/* ── Путь картографа: отправка, кабинет, очередь проверки ─────────────── */
+
+.nf-send-error {
+  margin: 0 0 10px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--status-red) 12%, transparent);
+  color: var(--text-color);
+  font-size: 14px;
+  line-height: 1.35;
+}
+
+.cab-signin {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 18px 16px;
+  border-radius: 16px;
+  background: var(--surface-color);
+}
+
+.cab-signin h2 {
+  margin: 0;
+  font-size: 19px;
+}
+
+.cab-queue {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 6px;
+  padding: 13px 14px;
+  border: 1px solid var(--border-color);
+  border-radius: 14px;
+  background: var(--surface-color);
+  color: var(--text-color);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.cab-queue span {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.cab-queue small {
+  font-size: 12.5px;
+  color: var(--text-secondary);
+}
+
+.cab-error {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.cab-meta.is-pending small { color: var(--text-secondary); }
+.cab-meta.is-published small { color: var(--status-green); font-weight: 700; }
+.cab-meta.is-hidden small { color: var(--status-red); font-weight: 700; }
+
+.cab-signout {
+  margin-top: 14px;
+  min-height: 44px;
+  border: 0;
+  background: transparent;
+  color: var(--text-secondary);
+  font: 14px/1.2 var(--font-family);
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.mq-nav {
+  margin-left: auto;
+  display: flex;
+  gap: 4px;
+}
+
+.mq-nav button:disabled {
+  opacity: 0.35;
+}
+
+.mq-note {
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--status-green) 12%, transparent);
+  font-size: 14px;
+}
+
+.mq-card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.mq-photo {
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  object-fit: cover;
+  border-radius: 16px;
+  background: var(--surface-color);
+}
+
+.mq-photo.is-missing {
+  margin: 0;
+  display: grid;
+  place-items: center;
+  color: var(--text-secondary);
+  font-size: 14px;
+}
+
+.mq-name {
+  margin: 6px 0 0;
+  font-size: 21px;
+}
+
+.mq-sub {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 14px;
+}
+
+.mq-status {
+  margin: 2px 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 700;
+}
+
+.mq-note {
+  margin: 8px 0 0;
+  font-size: 14px;
+  color: var(--text-color);
+}
+
+.mq-extra-photos {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.mq-extra-photos img {
+  width: 96px;
+  height: 96px;
+  border-radius: 12px;
+  object-fit: cover;
+}
+
+.mq-facts {
+  margin: 0;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.mq-facts div {
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: var(--surface-color);
+}
+
+.mq-facts dt {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.mq-facts dd {
+  margin: 2px 0 0;
+  font-weight: 600;
+}
+
+.mq-map {
+  position: relative;
+  height: 200px;
+  border-radius: 16px;
+  overflow: hidden;
+}
+
+.mq-foot .nf-two {
+  margin: 0;
+}
+
+/* Переключатель панели вида карты нужен только оболочке «живой интерфейс». */
+.map-view-toggle {
+  display: none;
+}
+
+/* В карточке проверки карта только показывает точку: настройки вида и «где я» не нужны. */
+.mq-map .map-view-controls,
+.mq-map .gps-locate-btn {
+  display: none;
+}
+
+.sheet-measure-link {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 14px;
+  padding: 12px 14px;
+  min-height: 52px;
+  border: 1px solid var(--border-color);
+  border-radius: 14px;
+  background: var(--surface-color);
+  color: var(--text-color);
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.sheet-measure-link span {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.sheet-measure-link small {
+  font-weight: 400;
+  font-size: 12.5px;
+  color: var(--text-secondary);
+}
+
+/* Отложенная отправка: объекты, которые ждут на устройстве */
+.nf-done.is-kept .nf-done-mark {
+  background: var(--status-yellow);
+  color: #1b1b1b;
+}
+.cab-outbox {
+  display: grid;
+  gap: 10px;
+  padding: 14px;
+  margin-bottom: 18px;
+  border: 1px dashed var(--border-color, rgba(127, 127, 127, 0.45));
+  border-radius: 16px;
+}
+.cab-outbox .nf-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+}
+.cab-outbox .cab-list {
+  margin: 0;
+}
+.cab-outbox li.is-blocked .cab-name small {
+  color: var(--status-red);
+}
+.cab-drop {
+  margin-left: auto;
+  min-width: 44px;
+  min-height: 44px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 12px;
+  background: transparent;
+  color: var(--text-secondary);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.cab-drop:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.cab-outbox-note {
+  font-weight: 700;
+}
+
+.mapper-day-wait {
+  font-weight: 800;
+  color: var(--status-yellow);
+}
+
+/* Меню: два главных входа. Карта одна, слои разные. */
+.menu-layer {
+  gap: 12px;
+  min-height: 60px;
+  text-align: left;
+}
+
+.menu-layer > svg {
+  flex: 0 0 auto;
+}
+
+.menu-layer-text {
+  font-weight: 600;
+}
+
+.menu-layer--ramps {
+  border: 2px solid #7a5af8;
+}
+
+.menu-layer--ramps > svg {
+  color: #7a5af8;
+}
+
+/* Слой замеров на той же карте: метка слоя, прицел и кнопка замера. */
+.ramps-bar {
+  position: absolute;
+  top: 12px;
+  left: 50%;
+  translate: -50% 0;
+  z-index: 12;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 4px 4px 14px;
+  border-radius: 999px;
+  background: #7a5af8;
+  color: #ffffff;
+  font: 600 14px/1 var(--font-family);
+  white-space: nowrap;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+}
+
+.ramps-bar-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.ramps-bar-close {
+  width: 36px;
+  height: 36px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.2);
+  color: inherit;
+  cursor: pointer;
+}
+
+.ramps-cross {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 34px;
+  height: 34px;
+  margin: -17px 0 0 -17px;
+  z-index: 11;
+  border: 3px solid #ffffff;
+  border-radius: 50%;
+  background: radial-gradient(circle, #7a5af8 0 5px, rgba(122, 90, 248, 0.18) 6px);
+  box-shadow: 0 0 0 2px #7a5af8, 0 4px 14px rgba(0, 0, 0, 0.28);
+  pointer-events: none;
+}
+
+.ramps-fab {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  background: #7a5af8;
+  border-color: #7a5af8;
+}
+
+/* В слое замеров ссылка на замер стоит сразу под статусом места. */
+.sheet-status-line + .sheet-measure-link {
+  margin: 10px 0 14px;
 }

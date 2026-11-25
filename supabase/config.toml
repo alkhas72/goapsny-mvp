@@ -19,13 +19,17 @@ TELEGRAM_BOT_TOKEN = "env(TELEGRAM_BOT_TOKEN)"
 EDGE_JWT_SECRET = "env(SUPABASE_JWT_SECRET)"
 
 [auth.email]
-# Клиент ждёт ровно 8 цифр (publicAuth.ts: OTP_CODE_LENGTH = 8, ^\d{8}$).
-# Дефолт Supabase — 6, при нём код не пройдёт валидацию на клиенте.
-otp_length = 8
+# Шесть цифр: слово Алхаса 25.11 («8 знаков это неудобно и не нужно»).
+# Клиент (publicAuth.ts) принимает 6 цифр и, на время перехода, прежние 8.
+# На production rujxthjaquvwbdnrftua длина меняется в дашборде
+# (Authentication → Providers → Email → Email OTP Length); код из main до
+# слияния PR #30 ждёт ровно 8 цифр, поэтому боевую настройку переключать
+# вместе со слиянием.
+otp_length = 6
 otp_expiry = 3600
 
 # Тело письма — supabase/templates/otp.html, версионируется в репозитории.
-# Оно ОБЯЗАНО содержать {{ .Token }}: клиент ждёт восьмизначный код и ссылку
+# Оно ОБЯЗАНО содержать {{ .Token }}: клиент ждёт код из письма и ссылку
 # не обрабатывает вовсе.
 #
 # Автоприменение через content_path намеренно НЕ включено: Supabase CLI 2.104

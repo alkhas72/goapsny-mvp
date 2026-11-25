@@ -77,6 +77,8 @@ export type SubmitPlaceErrorKind =
   | 'not_configured'
   /** The facade upload failed before the RPC could run. */
   | 'missing_photo'
+  /** The facade photo held on the device has no bytes: nothing to upload. */
+  | 'photo_unreadable'
   /** `42501` — no auth session. */
   | 'auth_required'
   /** `42501` — authenticated but no `profiles` row. */
@@ -99,6 +101,10 @@ export type SubmitPlaceErrorKind =
   | 'coordinates_invalid'
   /** `22P02` — storage_path does not equal `{place_id}/facade.jpg`. */
   | 'storage_path_invalid'
+  /** `22P02` — mapper card fields rejected (status, steps, ramp, answers). */
+  | 'card_invalid'
+  /** `PGRST202` — the server does not have the RPC yet (migration not applied). */
+  | 'server_not_ready'
   /** Anything not covered above (network, unexpected Postgres code/text). */
   | 'unknown';
 
@@ -165,6 +171,15 @@ export function classifySubmitError(raw: unknown): SubmitPlaceError {
   }
   if (message.includes('profile not found')) {
     return new SubmitPlaceError('profile_required', message || 'Profile not found', code, raw);
+  }
+  if (code === 'PGRST202') {
+    return new SubmitPlaceError('server_not_ready', message || 'RPC is not available', code, raw);
+  }
+  if (message.includes('invalid card')) {
+    return new SubmitPlaceError('card_invalid', message || 'Invalid card', code, raw);
+  }
+  if (message.includes('caller is not allowed to submit')) {
+    return new SubmitPlaceError('role_required', message || 'Caller is not allowed to submit', code, raw);
   }
   if (message.includes('caller must be public_user')) {
     return new SubmitPlaceError('role_required', message || 'Caller must be public_user', code, raw);

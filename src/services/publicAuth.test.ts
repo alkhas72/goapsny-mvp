@@ -41,9 +41,12 @@ describe('isValidEmail', () => {
 });
 
 describe('isValidOtpCode', () => {
-  it('requires exactly eight digits from the configured Supabase project', () => {
+  it('accepts six digits, and the former eight while the project setting is being switched', () => {
+    // Шесть цифр — новая длина; восемь — прежняя, пока настройка не переключена.
+    expect(isValidOtpCode('123456')).toBe(true);
     expect(isValidOtpCode('12345678')).toBe(true);
-    expect(isValidOtpCode('123456')).toBe(false);
+    expect(isValidOtpCode('12345')).toBe(false);
+    expect(isValidOtpCode('1234567')).toBe(false);
     expect(isValidOtpCode('123456789')).toBe(false);
     expect(isValidOtpCode('12a45678')).toBe(false);
   });

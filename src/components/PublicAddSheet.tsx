@@ -10,7 +10,7 @@ import {
 import { getBrowserLocation } from '../utils/location';
 import { trapFocus } from '../utils/focusTrap';
 import { FacadePhotoError, prepareFacadePhoto } from '../utils/photo';
-import { LeafletMap } from './LeafletMap';
+import { MapLibreMap } from './map/MapLibreMap';
 
 /**
  * Deterministic Russian copy for each hardened {@link SubmitPlaceErrorKind}.
@@ -19,6 +19,7 @@ import { LeafletMap } from './LeafletMap';
 const SUBMIT_ERROR_MESSAGES: Record<SubmitPlaceErrorKind, string> = {
   not_configured: 'Сервис недоступен. Попробуйте позже.',
   missing_photo: 'Не удалось загрузить фото. Попробуйте ещё раз.',
+  photo_unreadable: 'Фото не прочиталось. Снимите вход ещё раз.',
   auth_required: 'Войдите, чтобы добавить место.',
   profile_required: 'Профиль не найден. Обратитесь к администратору.',
   role_required: 'Нет прав для добавления места.',
@@ -30,6 +31,8 @@ const SUBMIT_ERROR_MESSAGES: Record<SubmitPlaceErrorKind, string> = {
   facade_reused: 'Это фото уже используется.',
   coordinates_invalid: 'Укажите корректные координаты.',
   storage_path_invalid: 'Ошибка пути фото. Попробуйте ещё раз.',
+  card_invalid: 'Проверьте данные карточки и попробуйте ещё раз.',
+  server_not_ready: 'Сервис обновляется. Попробуйте позже.',
   unknown: 'Не удалось опубликовать место. Попробуйте позже.',
 };
 
@@ -254,7 +257,7 @@ export function PublicAddSheet({ open, theme, onClose, onSubmitted }: PublicAddS
             <p className="wizard-sub">Перетащите маркер к входу в здание.</p>
             <div className="drag-map-container">
               {lat != null && lng != null && (
-                <LeafletMap
+                <MapLibreMap
                   places={[]}
                   selectedPlaceId={null}
                   theme={theme}

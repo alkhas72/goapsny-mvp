@@ -8,6 +8,7 @@
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "test": "vitest run",
+    "test:zamer": "node --test tests/zamer/*.test.mjs",
     "smoke": "node scripts/smoke-public.mjs",
     "smoke:setup": "node scripts/setup-test-fixtures.mjs",
     "smoke:gate-offline": "node scripts/test-db-gate-offline.mjs",
@@ -15,14 +16,18 @@
     "browser-smoke": "node scripts/browser-smoke.mjs",
     "preview": "vite preview",
     "e2e:public": "node scripts/e2e-public-submit.mjs",
-    "e2e:telegram": "node scripts/e2e-telegram-submit.mjs"
+    "e2e:telegram": "node scripts/e2e-telegram-submit.mjs",
+    "db:push": "bash scripts/db-push.sh",
+    "keys:assistant": "bash scripts/assistant-keys.sh"
   },
   "dependencies": {
+    "@protomaps/basemaps": "^5.7.2",
     "@supabase/supabase-js": "^2.99.1",
     "@types/leaflet": "^1.9.21",
     "leaflet": "^1.9.4",
     "lucide-react": "^1.17.0",
     "maplibre-gl": "^6.10.0",
+    "pmtiles": "^4.5.0",
     "react": "^19.2.6",
     "react-dom": "^19.2.6"
   },

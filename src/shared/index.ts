@@ -17,7 +17,7 @@ export const STATUS_META: Record<AccessibilityStatus, StatusMeta> = {
   green: { ru: 'Доступно', description: 'вход, зал и туалет доступны', color: '#2EA84A', wheelchairTag: 'yes', operatorSelectable: true },
   yellow: { ru: 'Частично', description: 'въезд есть, но с ограничениями', color: '#EBA92B', wheelchairTag: 'limited', operatorSelectable: true },
   red: { ru: 'Недоступно', description: 'входная группа недоступна', color: '#E24B4A', wheelchairTag: 'no', operatorSelectable: true },
-  gray: { ru: 'На проверке', description: 'предварительно, ожидает проверки сообщества', color: '#A0A8B0', wheelchairTag: 'unknown', operatorSelectable: false },
+  gray: { ru: 'Ещё не оценено', description: 'предварительно, ожидает проверки сообщества', color: '#A0A8B0', wheelchairTag: 'unknown', operatorSelectable: false },
 };
 
 // Statuses an operator may pick in v1 (gray is reserved, not offered).
@@ -89,8 +89,10 @@ export const LEGACY_CATEGORY_SLUGS = ['other'] as const;
 export const CATEGORY_SLUGS = CATEGORIES.map((c) => c.slug);
 
 // ---- Core entities (match Codex migration 0001) ----
-export type Role = 'owner' | 'admin' | 'operator' | 'tester' | 'public_user' | 'banned';
-export type RampType = 'none' | 'permanent' | 'portable_on_request' | 'portable_available';
+/** `coordinator` — координатор района (миграция 20261125090000): собирает наравне с оператором. */
+export type Role = 'owner' | 'admin' | 'operator' | 'coordinator' | 'tester' | 'public_user' | 'banned';
+/** `lift` — подъёмник у входа (платформа); лифт между этажами отмечается отдельно. */
+export type RampType = 'none' | 'permanent' | 'portable_on_request' | 'portable_available' | 'lift';
 export type YesNoUnknown = 'yes' | 'no' | 'unknown';
 export type ToiletAccessible = 'yes' | 'no' | 'partial' | 'unknown';
 export type PhotoKind = 'facade' | 'steps' | 'ramp' | 'toilet' | 'interior';
