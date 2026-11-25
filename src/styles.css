@@ -3081,3 +3081,13 @@ select.nf-input,
   height: 100%;
   border: 0;
 }
+
+/* iPhone приближает страницу, когда курсор встаёт в поле с буквами мельче 16 px,
+   и окно «уезжает» за край экрана. На сенсорных экранах поля ввода не мельче 16 px. */
+@media (pointer: coarse) {
+  input,
+  textarea,
+  select {
+    font-size: 16px !important;
+  }
+}

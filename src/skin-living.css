@@ -134,6 +134,27 @@
   animation-delay: -5s;
 }
 
+/* На телефоне экран продолжается под полосами браузера (часы сверху, адрес
+   снизу), и они красятся в крайние цвета фона. Пятна там стоят целиком внутри
+   экрана и гаснут до его краёв: подложка читается одной картинкой, без шва. */
+@media (max-width: 540px) {
+  [data-skin='living'] .app-shell::before,
+  [data-skin='living'] .app-shell::after {
+    filter: none;
+    opacity: 0.8;
+  }
+
+  [data-skin='living'] .app-shell::before {
+    top: 18px;
+    background: radial-gradient(closest-side, var(--lime), transparent);
+  }
+
+  [data-skin='living'] .app-shell::after {
+    bottom: 18px;
+    background: radial-gradient(closest-side, var(--orchid), transparent);
+  }
+}
+
 [data-skin='living'][data-mood='night'] .app-shell::before,
 [data-skin='living'][data-mood='night'] .app-shell::after {
   opacity: 0.16;
@@ -370,32 +391,35 @@
   animation: lvRise 0.34s var(--spring) both;
 }
 
-/* Раскрытая панель стоит двумя столбцами у верха карты: освещение слева,
-   цвет и объём под кнопкой. Так она не доходит до кнопок масштаба. */
-[data-skin='living'] .map-view-controls.is-open {
-  display: grid;
-  grid-template-columns: 44px 44px;
-  grid-template-areas:
-    'light toggle'
-    'light palette'
-    'light volume';
-  align-items: start;
-}
+/* Раскрытая панель идёт одной рельсой вниз под кнопкой: цвет карты, объём,
+   освещение. Два столбца остаются только на очень низком экране, где рельса
+   дошла бы до кнопок масштаба. */
+@media (max-height: 599px) {
+  [data-skin='living'] .map-view-controls.is-open {
+    display: grid;
+    grid-template-columns: 44px 44px;
+    grid-template-areas:
+      'light toggle'
+      'light palette'
+      'light volume';
+    align-items: start;
+  }
 
-[data-skin='living'] .map-view-controls.is-open > :nth-child(1) {
-  grid-area: toggle;
-}
+  [data-skin='living'] .map-view-controls.is-open > :nth-child(1) {
+    grid-area: toggle;
+  }
 
-[data-skin='living'] .map-view-controls.is-open > :nth-child(2) {
-  grid-area: palette;
-}
+  [data-skin='living'] .map-view-controls.is-open > :nth-child(2) {
+    grid-area: palette;
+  }
 
-[data-skin='living'] .map-view-controls.is-open > :nth-child(3) {
-  grid-area: volume;
-}
+  [data-skin='living'] .map-view-controls.is-open > :nth-child(3) {
+    grid-area: volume;
+  }
 
-[data-skin='living'] .map-view-controls.is-open > :nth-child(4) {
-  grid-area: light;
+  [data-skin='living'] .map-view-controls.is-open > :nth-child(4) {
+    grid-area: light;
+  }
 }
 
 [data-skin='living'] .map-pin-wrapper {
