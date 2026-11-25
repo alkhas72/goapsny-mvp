@@ -56,8 +56,15 @@ put() { # put <имя переменной Vercel> <значение>
 
 step "1/4 Вход в Vercel"
 command -v npx >/dev/null || stop "не найден npx. Установите Node: brew install node"
-vc whoami >/dev/null 2>&1 || vc login || stop "вход в Vercel не выполнен"
-echo "Вход есть: $(vc whoami 2>/dev/null | tail -1)"
+# Ничего не прячем: первый запуск скачивает Vercel CLI и молчал бы до минуты.
+echo "Скачиваю Vercel CLI. В первый раз это занимает до минуты, дальше быстро…"
+vc --version || stop "Vercel CLI не запустился. Проверьте интернет и повторите команду."
+echo "Проверяю вход…"
+if ! vc whoami; then
+  echo "Входа в Vercel на этом Mac нет. Сейчас откроется браузер: подтвердите вход и вернитесь в Терминал."
+  vc login || stop "вход в Vercel не выполнен"
+  vc whoami || stop "вход в Vercel не подтвердился"
+fi
 
 step "2/4 Ключ DeepSeek (помощник волонтёров)"
 echo "Ключ выдаёт кабинет DeepSeek: platform.deepseek.com, раздел API keys."
