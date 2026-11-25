@@ -1,11 +1,24 @@
 /**
- * Ссылка «Замерить вход»: открывает мастер замера Stopgap с уже заполненным
- * местом. Формат согласован с Stopgap (goapsny-stopgap, data/README.md):
+ * Ссылка «Замерить вход»: открывает мастер замера с уже заполненным местом.
+ * Формат прежний, от отдельного Stopgap (data/README.md):
  * ?measure=1&place_id=<uuid>&name=…&address=…&lat=…&lng=…&return=<адрес>.
- * Stopgap принимает return только по https и только на свои и наши узлы.
+ * Мастер принимает return только по https и только на свои и наши узлы.
+ *
+ * С 25.11 (решение Арбитра: одно приложение) мастер замера живёт внутри карты,
+ * в папке `public/zamer/`, по адресу `/zamer/` того же сайта. Отдельный
+ * Stopgap (goapsny-stopgap.vercel.app) остаётся как прежняя версия и точка
+ * отката: вернуть ссылку на него можно переменной VITE_STOPGAP_URL.
  */
-export const STOPGAP_URL: string =
-  (import.meta.env.VITE_STOPGAP_URL as string | undefined) || 'https://goapsny-stopgap.vercel.app/';
+export const ZAMER_PATH = '/zamer/';
+
+function defaultBase(): string {
+  const fromEnv = import.meta.env.VITE_STOPGAP_URL as string | undefined;
+  if (fromEnv) return fromEnv;
+  const origin = typeof window !== 'undefined' ? window.location.origin : 'https://map.goapsny.org';
+  return new URL(ZAMER_PATH, origin).toString();
+}
+
+export const STOPGAP_URL: string = defaultBase();
 
 export interface MeasureTarget {
   id: string;

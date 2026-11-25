@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { stopgapMeasurePointUrl, stopgapMeasureUrl } from './stopgapLink';
+import { STOPGAP_URL, stopgapMeasurePointUrl, stopgapMeasureUrl } from './stopgapLink';
 
 const PLACE = {
   id: '11111111-1111-4111-8111-111111111111',
@@ -54,5 +54,17 @@ describe('stopgapMeasurePointUrl', () => {
     expect(url.searchParams.get('measure')).toBe('1');
     expect(url.searchParams.has('lat')).toBe(false);
     expect(url.searchParams.has('return')).toBe(false);
+  });
+});
+
+describe('мастер замера внутри карты', () => {
+  it('по умолчанию ссылка ведёт в папку /zamer/ того же сайта', () => {
+    const base = new URL(STOPGAP_URL);
+    expect(base.origin).toBe(window.location.origin);
+    expect(base.pathname).toBe('/zamer/');
+    const url = new URL(stopgapMeasurePointUrl({ lat: 43, lng: 41 }, 'https://map.goapsny.org/?layer=ramps'));
+    expect(url.pathname).toBe('/zamer/');
+    expect(url.searchParams.get('measure')).toBe('1');
+    expect(url.searchParams.get('return')).toBe('https://map.goapsny.org/?layer=ramps');
   });
 });

@@ -72,10 +72,7 @@ export function PlaceSheet({
         )}
       >
         <Ruler size={18} aria-hidden="true" />
-        <span>
-          Замерить вход для пандуса
-          <small>Откроется Stopgap с этим местом</small>
-        </span>
+        <span>Замерить вход для пандуса</span>
         <ChevronRight size={18} aria-hidden="true" />
       </a>
     ) : null;
