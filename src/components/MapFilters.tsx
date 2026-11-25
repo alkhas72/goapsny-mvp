@@ -48,17 +48,15 @@ export function MapFilters({
 
   if (!open) return null;
 
-  // Типы показываем, когда выбрана ровно одна группа: «Здоровье» раскрывается
-  // в аптеку, поликлинику, больницу. Смена набора групп сбрасывает типы.
-  const openGroup =
-    filters.categories.length === 1 ? CATEGORIES.find((item) => item.slug === filters.categories[0]) : undefined;
+  // Группа выбирается одна. Нажатие на другую группу сбрасывает прежнюю вместе
+  // с её типами и сразу раскрывает типы новой: «Здоровье» → аптека, больница.
+  // Повторное нажатие на выбранную группу снимает выбор.
+  const openGroup = CATEGORIES.find((item) => item.slug === filters.categories[0]);
   const groupTypes = openGroup ? placeTypesOf(openGroup.slug) : [];
   const selectedTypes = filters.types ?? [];
 
   const toggleCategory = (slug: string) => {
-    const selected = filters.categories.includes(slug)
-      ? filters.categories.filter((item) => item !== slug)
-      : [...filters.categories, slug];
+    const selected = filters.categories.includes(slug) ? [] : [slug];
     onChange({ ...filters, categories: selected, types: [] });
   };
 
@@ -114,7 +112,7 @@ export function MapFilters({
 
         <div className="filter-category-grid" role="group" aria-label="Категории">
           {CATEGORIES.map((category) => {
-            const active = filters.categories.includes(category.slug);
+            const active = openGroup?.slug === category.slug;
             return (
               <button
                 key={category.slug}
