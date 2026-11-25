@@ -6,29 +6,22 @@
 import { createIntake } from "./intake.js";
 import { createExport } from "./export.js";
 import { createRampsSource } from "./ramps-source.js";
+import { loadThree } from "./three-load.js";
+import { PARAMS_VERSION } from "./ramp.js";
 
-const THREE_URL = "https://cdn.jsdelivr.net/npm/three@0.147.0/build/three.min.js";
 const d = document.documentElement;
 const EMBED = d.dataset.embed === "1" && window.parent !== window;
 const EXP = createExport(), GEO = createRampsSource();
 
-// three.js одним запросом и один раз; при сбое показ сам скажет, что не открылся
-let three = null;
-export function loadThree(doc = document, win = window) {
-  if (win.THREE) return Promise.resolve(win.THREE);
-  if (three) return three;
-  three = new Promise((resolve, reject) => {
-    const s = doc.createElement("script");
-    s.src = THREE_URL; s.async = true;
-    s.onload = () => (win.THREE ? resolve(win.THREE) : reject(new Error("three")));
-    s.onerror = () => { three = null; s.remove(); reject(new Error("three")); };
-    doc.head.appendChild(s);
-  });
-  return three;
-}
-
 // Сообщения карте: только своему адресу. ready — мастер открыт; close — человек закрыл мастер.
 const tell = (type, extra) => { if (EMBED) try { window.parent.postMessage({ stopgap: type, ...extra }, location.origin); } catch {} };
+
+// Цвет пандуса: то же место хранения, что у конструктора (ключ и поле paint), чтобы выбор был один на оба режима.
+// Конструктора рядом нет, поэтому мастер читает и пишет цвет сам; параметры пандуса в записи не трогает.
+const STORE = "goapsny-stopgap:v" + PARAMS_VERSION;
+const stored = () => { try { const v = JSON.parse(localStorage.getItem(STORE) || "{}"); return v && typeof v === "object" ? v : {}; } catch { return {}; } };
+let paint = (() => { const v = stored(); return "paint" in v ? v.paint || null : "#102C54"; })();
+const setPaint = (hex) => { paint = hex || null; try { localStorage.setItem(STORE, JSON.stringify({ ...stored(), paint })); } catch {} };
 
 let pf = null;
 try { pf = GEO.prefillFromQuery(location.search, { origin: location.origin }); } catch {}
@@ -40,6 +33,8 @@ const intake = createIntake().mount(root, {
   exitTo: "map",
   save: (name, data) => EXP.save(name, data),
   loadThree: () => loadThree(),
+  getPaint: () => paint,
+  onPaint: setPaint,
   onOpen() { tell("ready"); },
   // Закрытие мастера: внутри карты — сказать карте; отдельной страницей — вернуться на карту
   onClose() {
