@@ -92,7 +92,40 @@ describe('MapFilters keyboard and apply', () => {
     expect(onChange).toHaveBeenLastCalledWith(expect.objectContaining({ categories: ['health'], types: ['pharmacy'] }));
   });
 
-  it('смена группы сбрасывает выбранные типы', async () => {
+  it('нажатие на другую группу сбрасывает прежнюю и её типы', async () => {
+    const user = userEvent.setup();
+    const onChange = vi.fn();
+    const { rerender } = render(
+      <MapFilters
+        open
+        filters={{ categories: ['education'], types: ['school'], status: 'all', query: '' }}
+        onChange={onChange}
+        onClose={vi.fn()}
+        onApplyStatus={vi.fn()}
+      />,
+    );
+    expect(screen.getByRole('group', { name: 'Обучение: что именно' })).toBeTruthy();
+
+    await user.click(screen.getByRole('button', { name: /Здоровье/ }));
+    expect(onChange).toHaveBeenLastCalledWith(expect.objectContaining({ categories: ['health'], types: [] }));
+
+    // Новая группа раскрыта сразу, прежняя больше не выделена.
+    rerender(
+      <MapFilters
+        open
+        filters={{ categories: ['health'], types: [], status: 'all', query: '' }}
+        onChange={onChange}
+        onClose={vi.fn()}
+        onApplyStatus={vi.fn()}
+      />,
+    );
+    expect(screen.getByRole('group', { name: 'Здоровье: что именно' })).toBeTruthy();
+    expect(screen.queryByRole('group', { name: 'Обучение: что именно' })).toBeNull();
+    expect(screen.getByRole('button', { name: /Обучение/ }).getAttribute('aria-pressed')).toBe('false');
+    expect(screen.getByRole('button', { name: /Здоровье/ }).getAttribute('aria-pressed')).toBe('true');
+  });
+
+  it('повторное нажатие на выбранную группу снимает выбор', async () => {
     const user = userEvent.setup();
     const onChange = vi.fn();
     render(
@@ -104,7 +137,7 @@ describe('MapFilters keyboard and apply', () => {
         onApplyStatus={vi.fn()}
       />,
     );
-    await user.click(screen.getByRole('button', { name: /Магазины/ }));
-    expect(onChange).toHaveBeenLastCalledWith(expect.objectContaining({ categories: ['health', 'shops'], types: [] }));
+    await user.click(screen.getByRole('button', { name: /Здоровье/ }));
+    expect(onChange).toHaveBeenLastCalledWith(expect.objectContaining({ categories: [], types: [] }));
   });
 });
