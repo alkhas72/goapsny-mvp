@@ -2054,6 +2054,11 @@ select.nf-input {
   height: 46px;
   padding-right: 38px;
   text-overflow: ellipsis;
+}
+
+/* Стрелка отдельным правилом и для оболочки: та задаёт фон поля целиком. */
+select.nf-input,
+[data-skin='living'] select.nf-input {
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%237a8580' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
   background-repeat: no-repeat;
   background-position: right 12px center;
