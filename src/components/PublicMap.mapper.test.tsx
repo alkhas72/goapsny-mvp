@@ -78,7 +78,7 @@ describe('PublicMap: путь картографа', () => {
     expect(screen.queryByRole('dialog', { name: 'Новый объект' })).toBeNull();
 
     await user.click(screen.getByRole('button', { name: 'Mock verify OTP' }));
-    expect(screen.getByRole('dialog', { name: 'Новый объект' })).toBeTruthy();
+    expect(await screen.findByRole('dialog', { name: 'Новый объект' })).toBeTruthy();
   });
 
   it('вошедший картограф попадает в шаги сразу', async () => {
@@ -89,7 +89,7 @@ describe('PublicMap: путь картографа', () => {
     await screen.findByRole('button', { name: /Добавить объект/ });
     await vi.waitFor(() => expect(fetchMapperAccount).toHaveBeenCalled());
     await user.click(screen.getByRole('button', { name: /Добавить объект/ }));
-    expect(screen.getByRole('dialog', { name: 'Новый объект' })).toBeTruthy();
+    expect(await screen.findByRole('dialog', { name: 'Новый объект' })).toBeTruthy();
   });
 
   it('модератор из кабинета открывает очередь проверки', async () => {
@@ -148,7 +148,7 @@ describe('PublicMap, живая оболочка: одна кнопка на к�
 
     await vi.waitFor(() => expect(fetchMapperAccount).toHaveBeenCalled());
     await user.click(add);
-    expect(screen.getByRole('dialog', { name: 'Новый объект' })).toBeTruthy();
+    expect(await screen.findByRole('dialog', { name: 'Новый объект' })).toBeTruthy();
   });
 
   it('без входа центральная кнопка сначала ведёт ко входу', async () => {
@@ -159,6 +159,6 @@ describe('PublicMap, живая оболочка: одна кнопка на к�
     await user.click(await screen.findByRole('button', { name: 'Добавить объект' }));
     expect(screen.queryByRole('dialog', { name: 'Новый объект' })).toBeNull();
     await user.click(screen.getByRole('button', { name: 'Mock verify OTP' }));
-    expect(screen.getByRole('dialog', { name: 'Новый объект' })).toBeTruthy();
+    expect(await screen.findByRole('dialog', { name: 'Новый объект' })).toBeTruthy();
   });
 });

@@ -3,6 +3,19 @@ import { cleanup, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { PublicMap } from './PublicMap';
 import type { PublicPlace } from '../services/places';
+import { resetModulesForTests } from '../modules/registry';
+
+// Модуль слоя замеров можно «сломать» из теста: проверяем, что основа это переживает.
+const rampsModule = vi.hoisted(() => ({ broken: false }));
+vi.mock('../modules/ramps/RampsModule', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../modules/ramps/RampsModule')>();
+  return {
+    default: (props: Parameters<typeof actual.default>[0]) => {
+      if (rampsModule.broken) throw new Error('модуль замеров сломан');
+      return actual.default(props);
+    },
+  };
+});
 
 const mockPlaces: PublicPlace[] = [
   {
@@ -184,6 +197,10 @@ describe('PublicMap integration', () => {
 
   afterEach(() => {
     cleanup();
+    rampsModule.broken = false;
+    resetModulesForTests();
+    window.history.replaceState(null, '', '/');
+    vi.restoreAllMocks();
   });
 
   it('loads published places and renders markers', async () => {
@@ -324,7 +341,8 @@ describe('PublicMap integration', () => {
     await user.click(screen.getByRole('button', { name: /меню/i }));
     await user.click(screen.getByRole('button', { name: /заказать пандус/i }));
 
-    expect(screen.getByText('Слой замеров')).toBeTruthy();
+    // Модуль слоя грузится отдельным куском кода, поэтому ждём его появления.
+    expect(await screen.findByText('Слой замеров')).toBeTruthy();
     expect(screen.getByRole('button', { name: /замерить вход здесь/i })).toBeTruthy();
     expect(new URLSearchParams(window.location.search).get('layer')).toBe('ramps');
     // Места те же: карта не подменяется.
@@ -467,5 +485,89 @@ describe('PublicMap integration', () => {
     for (const place of mockPlaces) {
       expect(screen.getByRole('button', { name: place.name })).toBeTruthy();
     }
+  });
+  // Решение Арбитра 25.11: внешние ссылки убраны с карты в меню, на карте остаётся «Кабинет».
+  it('keeps project links in the menu, not on the map', async () => {
+    const user = userEvent.setup();
+    await renderLoadedMap();
+    expect(screen.queryByRole('link', { name: 'Instagram GoApsny' })).toBeNull();
+    expect(screen.getByRole('button', { name: 'Кабинет' })).toBeTruthy();
+
+    await user.click(screen.getByRole('button', { name: /меню/i }));
+    expect(screen.getByRole('link', { name: 'Instagram GoApsny' }).getAttribute('href')).toBe(
+      'https://instagram.com/go_apsny',
+    );
+    expect(screen.getByRole('link', { name: 'Telegram GoApsny' })).toBeTruthy();
+    expect(screen.getByRole('link', { name: 'Сайт' }).getAttribute('href')).toBe('https://goapsny.org');
+  });
+});
+
+describe('PublicMap: модули включаются и выключаются, сбой модуля не роняет основу', () => {
+  beforeEach(() => {
+    vi.mocked(fetchPublishedPlaces).mockReset();
+    vi.mocked(fetchPlaceById).mockReset();
+    vi.mocked(fetchPublishedPlaces).mockResolvedValue(mockPlaces);
+    vi.mocked(fetchPlaceById).mockImplementation(async (id) => mockPlaces.find((p) => p.id === id) ?? null);
+  });
+
+  afterEach(() => {
+    cleanup();
+    rampsModule.broken = false;
+    resetModulesForTests();
+    window.history.replaceState(null, '', '/');
+    vi.restoreAllMocks();
+  });
+
+  it('модуль «пандусы» выключен флагом: слоя нет, вход погашен, карта работает', async () => {
+    window.history.replaceState(null, '', '/?modules=-ramps&layer=ramps');
+    const user = userEvent.setup();
+    await renderLoadedMap();
+
+    expect(screen.queryByText('Слой замеров')).toBeNull();
+    expect(screen.getByRole('button', { name: 'Магазин Зелёный' })).toBeTruthy();
+
+    await user.click(screen.getByRole('button', { name: /меню/i }));
+    const ramp = screen.getByRole('button', { name: /заказать пандус/i }) as HTMLButtonElement;
+    expect(ramp.disabled).toBe(true);
+    expect(ramp.textContent).toContain('временно недоступно');
+    // Второй модуль от этого не зависит.
+    expect((screen.getByRole('button', { name: /добавить локацию/i }) as HTMLButtonElement).disabled).toBe(false);
+  });
+
+  it('модуль «пандусы» упал: вместо слоя строка, карта и места на месте', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    rampsModule.broken = true;
+    const user = userEvent.setup();
+    await renderLoadedMap();
+    await user.click(screen.getByRole('button', { name: /меню/i }));
+    await user.click(screen.getByRole('button', { name: /заказать пандус/i }));
+
+    expect((await screen.findByRole('alert')).textContent).toContain('временно недоступен');
+    expect(screen.getByRole('button', { name: 'Кафе Серый' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Поиск и фильтр' })).toBeTruthy();
+
+    // «Закрыть» возвращает на карту доступности.
+    await user.click(screen.getByRole('button', { name: 'Закрыть' }));
+    expect(screen.queryByRole('alert')).toBeNull();
+    expect(new URLSearchParams(window.location.search).has('layer')).toBe(false);
+  });
+
+  it('после второго падения модуль выключен до конца сессии', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    rampsModule.broken = true;
+    const user = userEvent.setup();
+    await renderLoadedMap();
+    for (let i = 0; i < 2; i += 1) {
+      await user.click(screen.getByRole('button', { name: /меню/i }));
+      const ramp = screen.getByRole('button', { name: /заказать пандус/i }) as HTMLButtonElement;
+      if (ramp.disabled) break;
+      await user.click(ramp);
+      if (i === 0) await user.click(await screen.findByRole('button', { name: 'Закрыть' }));
+    }
+    // Второе падение гасит модуль сразу: слой снят, карта открыта.
+    await waitFor(() => expect(screen.queryByRole('alert')).toBeNull());
+    await user.click(screen.getByRole('button', { name: /меню/i }));
+    expect((screen.getByRole('button', { name: /заказать пандус/i }) as HTMLButtonElement).disabled).toBe(true);
+    expect(screen.getByRole('button', { name: 'Кафе Серый' })).toBeTruthy();
   });
 });

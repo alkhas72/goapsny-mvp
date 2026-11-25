@@ -5,6 +5,8 @@ import type { MapLayer } from '../utils/mapLayer';
 import { currentSkin } from '../utils/skin';
 import { MOOD_META, useMood } from '../utils/useMood';
 import { MoodPicker } from './MoodPicker';
+import { InstagramIcon, TelegramIcon } from './projectLinks';
+import { PROJECT_LINKS } from '../utils/projectLinks';
 
 interface MenuOverlayProps {
   open: boolean;
@@ -14,6 +16,8 @@ interface MenuOverlayProps {
   onOrderRamp: () => void;
   /** Какой слой карты сейчас открыт. */
   layer?: MapLayer;
+  /** Модуль «пандусы» включён; выключенный показан погасшей строкой. */
+  rampsAvailable?: boolean;
   returnFocusRef?: RefObject<HTMLElement | null>;
 }
 
@@ -41,6 +45,7 @@ export function MenuOverlay({
   onAddLocation,
   onOrderRamp,
   layer = 'access',
+  rampsAvailable = true,
   returnFocusRef,
 }: MenuOverlayProps) {
   const panelRef = useRef<HTMLElement | null>(null);
@@ -100,12 +105,16 @@ export function MenuOverlay({
           <li>
             <button
               type="button"
-              className="menu-link menu-layer menu-layer--ramps"
+              className={`menu-link menu-layer menu-layer--ramps${rampsAvailable ? '' : ' menu-link--disabled'}`}
               aria-current={layer === 'ramps' ? 'true' : undefined}
+              disabled={!rampsAvailable}
+              aria-disabled={!rampsAvailable}
               onClick={onOrderRamp}
             >
               <Ruler size={22} aria-hidden="true" />
-              <span className="menu-layer-text">Заказать пандус</span>
+              <span className="menu-layer-text">
+                Заказать пандус{!rampsAvailable && <span className="menu-soon"> (временно недоступно)</span>}
+              </span>
             </button>
           </li>
           {MENU_ITEMS.map((item) => (
@@ -120,6 +129,34 @@ export function MenuOverlay({
               <MenuMoodRow />
             </li>
           )}
+          {/* Внешние ссылки проекта: с карты они убраны сюда (решение Арбитра 25.11). */}
+          <li>
+            <div className="menu-links-row" role="group" aria-label="GoApsny в сети">
+              <a
+                className="menu-ext-link"
+                href={PROJECT_LINKS.instagram}
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label="Instagram GoApsny"
+              >
+                <InstagramIcon />
+                <span>Instagram</span>
+              </a>
+              <a
+                className="menu-ext-link"
+                href={PROJECT_LINKS.telegram}
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label="Telegram GoApsny"
+              >
+                <TelegramIcon />
+                <span>Telegram</span>
+              </a>
+              <a className="menu-ext-link" href={PROJECT_LINKS.site} target="_blank" rel="noopener noreferrer">
+                <span>Сайт</span>
+              </a>
+            </div>
+          </li>
           <li>
             <span className="menu-muted">Вход для волонтёров — Telegram</span>
           </li>

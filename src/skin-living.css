@@ -99,6 +99,9 @@
   border: 0;
   color: var(--stage-ink);
   overflow: hidden;
+  /* Световые пятна выходят за край экрана. При hidden оболочку всё ещё можно
+     прокрутить изнутри, и шапка уезжала вверх на 106 px; clip прокрутки не даёт. */
+  overflow: clip;
   transition: background 0.5s ease;
 }
 
@@ -427,11 +430,17 @@
   background: var(--lime);
 }
 
+/* Ряд действия слоя стоит правее круглой кнопки «Кабинет». */
 [data-skin='living'] .mapper-fab-row {
-  left: 14px;
+  left: 78px;
   right: 14px;
   bottom: 18px;
   gap: 10px;
+}
+
+/* Подпись карты поднята над кнопкой «Кабинет». */
+[data-skin='living'] .maplibregl-ctrl-bottom-left {
+  bottom: 76px;
 }
 
 [data-skin='living'] .public-map-main:has(.mapper-fab-row) .gps-locate-btn {
@@ -487,45 +496,60 @@
 
 /* ── 5. Нижняя полка и место ассистента ──────────────────────────────── */
 
+/* Полки внизу нет (решение Арбитра 25.11): карта доходит до низа экрана, поверх
+   неё слева круглая кнопка «Кабинет», по центру кнопка добавления. Ссылки в меню. */
+[data-skin='living'] .public-map-main {
+  margin-bottom: calc(10px + env(safe-area-inset-bottom, 0px));
+}
+
 [data-skin='living'] .public-bottom-rail {
-  position: relative;
-  z-index: 2;
-  grid-template-columns: 1fr 1fr 76px 1.15fr 1fr;
-  gap: 6px;
-  min-height: 82px;
-  padding: 18px 12px calc(14px + env(safe-area-inset-bottom, 0px));
+  position: absolute;
+  left: 24px;
+  bottom: calc(28px + env(safe-area-inset-bottom, 0px));
+  z-index: 3;
+  display: block;
+  min-height: 0;
+  padding: 0;
   border-top: 0;
   background: transparent;
 }
 
-[data-skin='living'] .public-bottom-rail > :nth-child(3) {
-  grid-column: 4;
-}
-
-[data-skin='living'] .public-bottom-rail > :nth-child(4) {
-  grid-column: 5;
-}
-
-[data-skin='living'] .footer-link,
 [data-skin='living'] .footer-cabinet-btn {
+  width: 52px;
+  height: 52px;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.94);
+  color: var(--ink);
+  box-shadow: 0 12px 26px rgba(22, 24, 23, 0.2);
+}
+
+[data-skin='living'][data-mood='night'] .footer-cabinet-btn {
+  background: rgba(30, 44, 38, 0.94);
+  color: #ffffff;
+}
+
+/* Подпись читает экранный диктор, на кнопке остаётся значок. */
+[data-skin='living'] .footer-cabinet-text {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+[data-skin='living'] .menu-ext-link {
   border: 0;
   border-radius: 999px;
-  font-size: 11.5px;
-  font-weight: 500;
-  background: var(--stage-glass);
-  color: var(--stage-ink);
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
+  background: rgba(22, 24, 23, 0.06);
+  color: inherit;
 }
 
-[data-skin='living'] .footer-link--disabled {
-  opacity: 0.6;
-}
-
-[data-skin='living'] .footer-cabinet-btn {
-  background: var(--stage-pill-bg);
-  color: #ffffff;
-  font-weight: 600;
+[data-skin='living'][data-mood='night'] .menu-ext-link {
+  background: rgba(255, 255, 255, 0.12);
 }
 
 .lv-dome {
@@ -535,7 +559,7 @@
 [data-skin='living'] .lv-dome {
   position: absolute;
   left: 50%;
-  bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+  bottom: calc(26px + env(safe-area-inset-bottom, 0px));
   z-index: 3;
   width: 64px;
   height: 64px;
@@ -1573,12 +1597,16 @@
     background: rgba(255, 255, 255, 0.32);
   }
 
+  [data-skin='living']:not([data-shell='full']) .public-map-main {
+    margin-bottom: 22px;
+  }
+
   [data-skin='living']:not([data-shell='full']) .public-bottom-rail {
-    padding-bottom: 26px;
+    bottom: 40px;
   }
 
   [data-skin='living']:not([data-shell='full']) .lv-dome {
-    bottom: 24px;
+    bottom: 38px;
   }
 
   /* «Во весь экран»: приложение занимает окно, сцена и корпус уходят. */
@@ -1608,11 +1636,6 @@
   }
 
   /* На широком окне нижний ряд и кнопки картографа не растягиваются на всю ширину. */
-  [data-skin='living'][data-shell='full'] .public-bottom-rail {
-    width: min(100%, 620px);
-    margin-inline: auto;
-  }
-
   [data-skin='living'][data-shell='full'] .welcome-screen > * {
     width: min(100%, 460px);
     margin-inline: auto;

@@ -8,6 +8,7 @@ import { registerServiceWorker } from './registerSw.ts';
 import { telegram } from './utils/telegram';
 import { ensureTelegramSdk } from './utils/telegramSdk';
 import { initSkin } from './utils/skin';
+import { loadModuleFlags } from './modules/registry';
 
 // SDK Telegram грузится здесь, а не тегом в <head>: публичному входу он не
 // нужен, а синхронная загрузка с telegram.org задерживала первую отрисовку
@@ -16,7 +17,8 @@ import { initSkin } from './utils/skin';
 async function bootstrap() {
   // Оболочка «живой интерфейс» включается адресом ?skin=living; по умолчанию вид прежний.
   initSkin();
-  await ensureTelegramSdk();
+  // Аварийный выключатель модулей: /modules.json. Сбой чтения карту не задерживает дольше 1,5 с.
+  await Promise.all([ensureTelegramSdk(), loadModuleFlags()]);
 
   // П-15: сервис-воркер нужен публичному PWA-входу; в Telegram WebView не регистрируем.
   if (!telegram.isTelegram()) {

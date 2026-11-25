@@ -1305,9 +1305,8 @@ body {
 }
 
 .public-bottom-rail {
-  display: grid;
-  grid-template-columns: 1fr 1fr 1.3fr 1fr;
-  gap: 6px;
+  display: flex;
+  justify-content: center;
   align-items: center;
   min-height: 52px;
   padding: 8px 10px;
@@ -1347,6 +1346,31 @@ body {
 
 .footer-cabinet-btn {
   position: relative;
+  gap: 8px;
+  min-width: 140px;
+  font-size: 13px;
+}
+
+/* Внешние ссылки проекта в меню. */
+.menu-links-row {
+  display: flex;
+  gap: 8px;
+  padding: 6px 0;
+}
+
+.menu-ext-link {
+  flex: 1;
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 4px 8px;
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  color: var(--text-color);
+  font-size: 13px;
+  text-decoration: none;
 }
 
 /* Сколько объектов ждут в кабинете. */
@@ -3014,4 +3038,32 @@ select.nf-input,
 /* В слое замеров ссылка на замер стоит сразу под статусом места. */
 .sheet-status-line + .sheet-measure-link {
   margin: 10px 0 14px;
+}
+
+/* Модуль погас: короткая строка поверх карты, карта под ней работает. */
+.module-down {
+  position: absolute;
+  left: 12px;
+  right: 12px;
+  bottom: calc(96px + env(safe-area-inset-bottom, 0px));
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: 16px;
+  background: rgba(22, 24, 23, 0.92);
+  color: #fff;
+  font-size: 14px;
+  line-height: 1.35;
+}
+.module-down-close {
+  flex: none;
+  min-height: 44px;
+  padding: 0 14px;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  border-radius: 999px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
 }
