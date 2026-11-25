@@ -129,9 +129,13 @@ export function send(res, status, body) {
   res.end(JSON.stringify(body));
 }
 
-/** Обёртка функции: только POST, отказы одним видом, чужие ошибки без подробностей. */
-export function handler(work) {
+/**
+ * Обёртка функции: работа идёт по POST, отказы одним видом, чужие ошибки без
+ * подробностей. GET отдаёт состояние подключения, если функция его объявила.
+ */
+export function handler(work, status = null) {
   return async function vercelHandler(req, res) {
+    if (req.method === 'GET' && status) return send(res, 200, status());
     if (req.method !== 'POST') {
       res.setHeader('Allow', 'POST');
       return send(res, 405, { error: 'method_not_allowed' });

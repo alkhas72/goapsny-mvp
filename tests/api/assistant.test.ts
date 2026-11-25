@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { assistant, chatMessages, normalizeDraft } from '../../api/assistant.js';
+import { assistant, chatMessages, connection, normalizeDraft } from '../../api/assistant.js';
 import { ApiError, jpegBase64, publicSupabase, rateLimit, resetRateLimit } from '../../api/_lib/core.js';
 import { DEEPSEEK_URL, extractJson } from '../../api/_lib/deepseek.js';
 import { TOKEN_URL, liveToken } from '../../api/live-token.js';
@@ -292,6 +292,11 @@ describe('мелочи', () => {
     expect(extractJson('```json\n{"a":1}\n```')).toEqual({ a: 1 });
     expect(extractJson('нет тут ничего')).toBeNull();
     expect(extractJson('[1,2]')).toBeNull();
+  });
+
+  it('состояние подключения говорит только «да» или «нет»', () => {
+    expect(connection({ DEEPSEEK_API_KEY: 'ds-key' })).toEqual({ deepseek: true, gemini: false });
+    expect(JSON.stringify(connection(ENV))).not.toContain('key');
   });
 
   it('настройки Supabase берутся из окружения', () => {

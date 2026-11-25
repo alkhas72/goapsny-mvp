@@ -131,4 +131,12 @@ export async function assistant(req, deps = {}) {
   throw new ApiError(400, 'unknown_mode');
 }
 
-export default handler((req) => assistant(req));
+/** Подключены ли модели. Только «да» или «нет»: сами ключи наружу не выходят. */
+export function connection(env = process.env) {
+  return { deepseek: Boolean(env.DEEPSEEK_API_KEY), gemini: Boolean(env.GEMINI_API_KEY) };
+}
+
+export default handler(
+  (req) => assistant(req),
+  () => connection(),
+);
