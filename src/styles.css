@@ -1181,11 +1181,27 @@ body {
   padding: 24px;
 }
 
-.welcome-kicker {
+.welcome-head {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
   text-align: center;
+}
+
+.welcome-title {
+  margin: 0;
+  color: var(--text-color);
+  font-size: 34px;
+  line-height: 1.1;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.welcome-subtitle {
   margin: 0;
   color: var(--text-secondary);
   font-size: 15px;
+  line-height: 1.35;
 }
 
 .welcome-legend-list {

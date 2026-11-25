@@ -13,9 +13,12 @@ interface WelcomeLegendProps {
 export function WelcomeLegend({ onContinue }: WelcomeLegendProps) {
   return (
     <div className="welcome-screen" role="dialog" aria-modal="true" aria-labelledby="welcome-title">
-      <p id="welcome-title" className="welcome-kicker">
-        Добро пожаловать в GoApsny
-      </p>
+      <div className="welcome-head">
+        <h1 id="welcome-title" className="welcome-title">
+          GoApsny
+        </h1>
+        <p className="welcome-subtitle">Карта доступности Абхазии</p>
+      </div>
       <ul className="welcome-legend-list">
         {LEGEND_ITEMS.map((item) => (
           <li key={item.key} className="welcome-legend-item">
@@ -29,7 +32,7 @@ export function WelcomeLegend({ onContinue }: WelcomeLegendProps) {
         ))}
       </ul>
       <button type="button" className="primary-btn welcome-continue-btn" onClick={onContinue}>
-        ОК, поехали!
+        Go, поехали!
       </button>
     </div>
   );
