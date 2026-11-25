@@ -2045,6 +2045,21 @@ body {
   padding: 0 12px;
 }
 
+/* Родной <select> на iPhone рисуется своей высотой и не слушает min-height,
+   поэтому «Пандус» выходил ниже счётчика ступеней рядом. Снимаем системный
+   вид и рисуем стрелку сами: поле держит общую высоту. */
+select.nf-input {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 46px;
+  padding-right: 38px;
+  text-overflow: ellipsis;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%237a8580' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  background-size: 18px 18px;
+}
+
 .nf-select {
   display: flex;
   align-items: center;
@@ -2084,6 +2099,16 @@ body {
 .nf-row2 > div {
   flex: 1;
   min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Два поля в ряду одной высоты, какое бы из них ни оказалось выше. */
+.nf-row2 > div > .nf-stepper,
+.nf-row2 > div > select.nf-input {
+  flex: 1 0 auto;
+  height: auto;
+  min-height: 46px;
 }
 
 .nf-stepper {
