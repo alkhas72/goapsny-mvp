@@ -244,6 +244,26 @@ export async function selfCheck({ fetchImpl = fetch, env = process.env, now = ()
       draft: answer.ok && answer.text ? normalizeDraft(extractJson(answer.text)) : null,
     };
   }
+  if (env.DEEPSEEK_API_KEY) {
+    // Помощник в шагах: учебная фраза, в ответ должны прийти названные поля.
+    const said = [{ role: 'user', text: 'Тут две ступеньки по двенадцать сантиметров, дверь девяносто. Туалета нет.' }];
+    const guide = await tryDeepSeek({
+      messages: guideMessages(said, 2, { name: 'Аптека', category: 'health' }),
+      json: true,
+      maxTokens: 500,
+      fetchImpl,
+      env,
+    });
+    const parsed = guide.ok && guide.text ? extractJson(guide.text) : null;
+    result.guide = {
+      ok: guide.ok,
+      status: guide.status,
+      empty: guide.ok && !guide.text,
+      detail: guide.detail,
+      reply: typeof parsed?.reply === 'string' ? parsed.reply.slice(0, 300) : null,
+      patch: parsed ? normalizePatch(parsed.patch, 'health') : null,
+    };
+  }
   if (env.GEMINI_API_KEY) {
     const issued = await createLiveToken({ fetchImpl, env, now });
     result.live = { ok: issued.ok, status: issued.status, model: issued.model, detail: issued.detail };

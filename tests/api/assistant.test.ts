@@ -374,16 +374,21 @@ describe('самопроверка на превью', () => {
 
   it('шлёт учебную картинку и просит токен, в ответе нет ни ключей, ни токена', async () => {
     const { fetchImpl, calls } = fakeFetch({
-      model: [answer('{"name":"Аптека","category":"health","steps":2,"step_height_cm":15}'), { json: { name: 'auth_tokens/secret' } }],
+      model: [
+        answer('{"name":"Аптека","category":"health","steps":2,"step_height_cm":15}'),
+        answer('{"reply":"Записал.","patch":{"steps":2,"step_height_cm":12,"door_width_cm":90,"toilet":"no"}}'),
+        { json: { name: 'auth_tokens/secret' } },
+      ],
     });
     const result = await selfCheck({ fetchImpl, env: ENV, now: () => NOW });
     expect(result).toMatchObject({
       deepseek: true,
       gemini: true,
       look: { jsonMode: { ok: true, status: 200, empty: false }, draft: { name: 'Аптека', category: 'health', steps: 2 } },
+      guide: { ok: true, reply: 'Записал.', patch: { steps: 2, step_height_cm: 12, door_width_cm: 90, toilet: 'no' } },
       live: { ok: true, status: 200, model: 'gemini-3.8-live' },
     });
-    expect(calls.map((c) => c.url)).toEqual([DEEPSEEK_URL, TOKEN_URL]);
+    expect(calls.map((c) => c.url)).toEqual([DEEPSEEK_URL, DEEPSEEK_URL, TOKEN_URL]);
     const text = JSON.stringify(result);
     expect(text).not.toContain('ds-key');
     expect(text).not.toContain('g-key');
@@ -395,16 +400,19 @@ describe('самопроверка на превью', () => {
       model: [
         answer('   '),
         answer('Вижу вход. {"steps":1}'),
+        answer('Не понял.'),
         { ok: false, status: 400, json: { error: { message: 'Unknown name "x": Cannot find field.' } } },
       ],
     });
     const result = (await selfCheck({ fetchImpl, env: ENV, now: () => NOW })) as unknown as {
       look: { jsonMode: unknown; plain: unknown; draft: { steps: number } };
+      guide: unknown;
       live: unknown;
     };
     expect(result.look.jsonMode).toMatchObject({ ok: true, empty: true });
     expect(result.look.plain).toMatchObject({ ok: true, empty: false });
     expect(result.look.draft.steps).toBe(1);
+    expect(result.guide).toMatchObject({ ok: true, reply: null, patch: null });
     expect(result.live).toMatchObject({ ok: false, status: 400, detail: 'Unknown name "x": Cannot find field.' });
   });
 });
