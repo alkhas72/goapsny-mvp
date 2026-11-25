@@ -43,7 +43,7 @@ import {
   type YesNoUnknown,
 } from './assistant';
 import { appendDay, type DayEntry } from './dayLog';
-import { demoEyes, type AssistantEyes } from './eyes';
+import { cloudEyes, type AssistantEyes } from './eyes';
 import { keptText, sendErrorText } from './sendError';
 
 interface MapperFlowProps {
@@ -75,6 +75,9 @@ const STEP_NAME: Record<1 | 2 | 3 | 4 | 5, string> = {
   4: 'Туалет и удобства',
   5: 'Точка на карте',
 };
+
+/** Помощник волонтёров: один на всё приложение. */
+const DEFAULT_EYES = cloudEyes();
 
 const STEPS = [1, 2, 3, 4, 5] as const;
 const LAST_STEP = 5;
@@ -145,7 +148,7 @@ function Pick<T extends string>({
 export function MapperFlow({
   theme,
   getCenter,
-  eyes = demoEyes,
+  eyes = DEFAULT_EYES,
   submit = submitMapperPlace,
   ownerId = null,
   outbox,
@@ -180,8 +183,11 @@ export function MapperFlow({
   const galleryRef = useRef<HTMLInputElement | null>(null);
   const toiletRef = useRef<HTMLInputElement | null>(null);
   const toiletUrls = useRef<string[]>([]);
+  // Последний текст описания: ответ помощника не должен затереть слова человека.
   const noteRef = useRef('');
-  noteRef.current = amenities.toiletNote;
+  useEffect(() => {
+    noteRef.current = amenities.toiletNote;
+  }, [amenities.toiletNote]);
 
   const suggestion = useMemo(() => suggestStatus(facts), [facts]);
   const category = CATEGORIES.find((c) => c.slug === facts.category) ?? null;

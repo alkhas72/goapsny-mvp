@@ -6,5 +6,10 @@
       "destination": "/",
       "permanent": true
     }
-  ]
+  ],
+  "functions": {
+    "api/*.js": {
+      "includeFiles": ".env.development"
+    }
+  }
 }

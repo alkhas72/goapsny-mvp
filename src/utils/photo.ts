@@ -176,3 +176,45 @@ export function fit(
     height: Math.round(height * scale),
   };
 }
+
+/** Сторона кадра для модели: больше ей не нужно, а запрос легче. */
+export const MODEL_MAX_DIMENSION = 1280;
+const MODEL_JPEG_QUALITY = 0.8;
+/** Телефон мог выбросить временный файл: ждём кадр не дольше этого. */
+const DECODE_TIMEOUT_MS = 8000;
+
+function blobToBase64(blob: Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const text = typeof reader.result === 'string' ? reader.result : '';
+      const comma = text.indexOf(',');
+      if (comma < 0) reject(new Error('encode_failed'));
+      else resolve(text.slice(comma + 1));
+    };
+    reader.onerror = () => reject(new Error('encode_failed'));
+    reader.readAsDataURL(blob);
+  });
+}
+
+/**
+ * Кадр для помощника: JPEG не больше `max` по стороне, в base64 без префикса.
+ * Перекодирование заодно снимает EXIF с координатами съёмки.
+ */
+export async function shrinkToBase64(file: Blob, max = MODEL_MAX_DIMENSION): Promise<string> {
+  const source = file instanceof File ? file : new File([file], 'photo.jpg', { type: file.type || FACADE_TARGET_MIME });
+  const bitmap = await Promise.race([
+    decode(source),
+    new Promise<never>((_, reject) => setTimeout(() => reject(new Error('decode_timeout')), DECODE_TIMEOUT_MS)),
+  ]);
+  const { width, height } = fit(bitmap.width, bitmap.height, max);
+  const canvas = document.createElement('canvas');
+  canvas.width = width;
+  canvas.height = height;
+  const context = canvas.getContext('2d');
+  if (!context) throw new Error('canvas_unavailable');
+  context.drawImage(bitmap, 0, 0, width, height);
+  const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, FACADE_TARGET_MIME, MODEL_JPEG_QUALITY));
+  if (!blob) throw new Error('encode_failed');
+  return blobToBase64(blob);
+}

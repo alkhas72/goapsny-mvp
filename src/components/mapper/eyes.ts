@@ -1,16 +1,19 @@
 /**
  * The assistant's eyes: what it reads from the entrance photo.
  *
- * Arbitrator 28.09: the photo goes to a cloud vision model, but only after
- * the phone itself hides faces and car plates. `prepareForCloud` re-encodes
- * the photo on the device (drops EXIF with the location, caps the size);
- * face and plate masking plugs in here before anything leaves the phone.
+ * `cloudEyes` sends the photo to the volunteers' assistant (DeepSeek Flash
+ * behind `api/assistant.js`): the photo is re-encoded on the phone (no EXIF
+ * with the location, at most 1280 px a side) and goes to the model as taken
+ * (Arbitrator 25.11). The answer is a draft: rough centimetres are marked
+ * preliminary and the mapper corrects them. When the assistant is not
+ * connected or fails, the fields simply stay empty.
  *
- * The prototype uses `demoEyes` — a fixed answer, no network — so the flow
- * can be tried on the phone before the cloud call is switched on.
+ * `demoEyes` is a fixed answer with no network, for tests and demos.
  */
-import type { EntranceDraft } from './assistant';
-import { maskSensitive, nativeFaceDetector, type SensitiveDetector } from './privacyMask';
+import { CATEGORY_SLUGS, type RampType } from '../../shared/index';
+import { postAssistant, type AssistantApiOptions } from '../../services/assistantApi';
+import { shrinkToBase64 } from '../../utils/photo';
+import { DOOR_WIDTH_RANGE, STEP_HEIGHT_RANGE, SUBTYPES, TOILET_NOTE_MAX, type EntranceDraft } from './assistant';
 
 export interface AssistantEyes {
   look(photo: File): Promise<EntranceDraft>;
@@ -18,33 +21,43 @@ export interface AssistantEyes {
   describeToilet?(photo: File): Promise<string | null>;
 }
 
-const MAX_SIDE = 1280;
+const RAMPS: readonly RampType[] = ['none', 'permanent', 'portable_on_request', 'portable_available', 'lift'];
 
-/** Detectors available on this device. Plates have none yet (AISP-328), so the cloud path stays closed. */
-export function deviceDetectors(): SensitiveDetector[] {
-  const face = nativeFaceDetector();
-  return face ? [face] : [];
+function whole(value: unknown, min: number, max: number): number | null {
+  return typeof value === 'number' && Number.isInteger(value) && value >= min && value <= max ? value : null;
 }
 
-/**
- * Re-encode on the device: no EXIF (location), at most 1280 px a side, faces and
- * plates hidden. Throws `privacy_unavailable` when a detector is missing — the
- * photo must then not leave the phone.
- */
-export async function prepareForCloud(photo: File, detectors: SensitiveDetector[] = deviceDetectors()): Promise<Blob> {
-  const bitmap = await createImageBitmap(photo);
-  const scale = Math.min(1, MAX_SIDE / Math.max(bitmap.width, bitmap.height));
-  const canvas = document.createElement('canvas');
-  canvas.width = Math.round(bitmap.width * scale);
-  canvas.height = Math.round(bitmap.height * scale);
-  const ctx = canvas.getContext('2d');
-  if (!ctx) throw new Error('canvas_unavailable');
-  ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
-  bitmap.close();
-  await maskSensitive(canvas, detectors);
-  return await new Promise((resolve, reject) =>
-    canvas.toBlob((b) => (b ? resolve(b) : reject(new Error('encode_failed'))), 'image/jpeg', 0.85),
-  );
+/** The server's draft, checked once more: nothing outside the lists gets in. */
+export function draftFromServer(raw: unknown): EntranceDraft {
+  const d = (raw && typeof raw === 'object' ? raw : {}) as Record<string, unknown>;
+  const category = typeof d.category === 'string' && CATEGORY_SLUGS.includes(d.category) ? d.category : null;
+  const subtype =
+    category && typeof d.subtype === 'string' && (SUBTYPES[category] ?? []).includes(d.subtype) ? d.subtype : null;
+  return {
+    name: typeof d.name === 'string' && d.name.trim() ? d.name.trim() : null,
+    category,
+    subtype,
+    stepsVisible: whole(d.steps, 0, 60),
+    ramp: RAMPS.includes(d.ramp as RampType) ? (d.ramp as RampType) : null,
+    stepHeightCm: whole(d.step_height_cm, STEP_HEIGHT_RANGE[0], STEP_HEIGHT_RANGE[1]),
+    doorWidthCm: whole(d.door_width_cm, DOOR_WIDTH_RANGE[0], DOOR_WIDTH_RANGE[1]),
+  };
+}
+
+export function cloudEyes(options: AssistantApiOptions = {}): AssistantEyes {
+  return {
+    async look(photo) {
+      const image = await shrinkToBase64(photo);
+      const data = await postAssistant<{ draft?: unknown }>('/api/assistant', { mode: 'look', image }, options);
+      return draftFromServer(data.draft);
+    },
+    async describeToilet(photo) {
+      const image = await shrinkToBase64(photo);
+      const data = await postAssistant<{ note?: unknown }>('/api/assistant', { mode: 'toilet', image }, options);
+      const note = typeof data.note === 'string' ? data.note.trim().slice(0, TOILET_NOTE_MAX) : '';
+      return note || null;
+    },
+  };
 }
 
 export const demoEyes: AssistantEyes = {
