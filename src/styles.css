@@ -1505,6 +1505,48 @@ body {
   margin-top: 10px;
 }
 
+.filter-types {
+  margin-top: 10px;
+  padding: 10px;
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  background: var(--surface-color);
+}
+
+.filter-types-title {
+  display: block;
+  margin-bottom: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.filter-types-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.filter-type-chip {
+  min-height: 40px;
+  padding: 8px 12px;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  background: var(--bg-color);
+  color: var(--text-color);
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.filter-type-chip.active {
+  border-width: 2px;
+  font-weight: 600;
+}
+
+.filter-amenity-row {
+  display: flex;
+}
+
 .filter-status-dot {
   width: 10px;
   height: 10px;

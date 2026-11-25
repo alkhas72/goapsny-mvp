@@ -30,7 +30,7 @@ const categoryEmojis: Record<string, string> = {
   other: "📍"
 };
 
-// 12 Wheelmap Categories from shared contract
+// Группы мест из общего справочника (11; типы OSM — src/shared/placeTypes.ts)
 export const categoriesList = CATEGORIES.map(c => ({
   slug: c.slug,
   name: c.ru,

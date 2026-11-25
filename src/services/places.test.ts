@@ -135,6 +135,41 @@ describe('applyPlaceFilters', () => {
     });
     expect(result.map((p) => p.id)).toEqual(['b']);
   });
+
+  it('тип внутри группы: «Здоровье» → только аптеки', () => {
+    const typed = [
+      makePlace({ id: 'p', category: 'health', placeType: 'pharmacy' }),
+      makePlace({ id: 'h', category: 'health', placeType: 'hospital' }),
+      makePlace({ id: 'u', category: 'health', placeType: null }),
+    ];
+    const result = applyPlaceFilters(typed, { categories: ['health'], types: ['pharmacy'], status: 'all', query: '' });
+    expect(result.map((p) => p.id)).toEqual(['p']);
+    // Без выбранного типа группа показывается целиком, вместе с местами без типа.
+    expect(applyPlaceFilters(typed, { categories: ['health'], types: [], status: 'all', query: '' })).toHaveLength(3);
+  });
+
+  it('переключатель «есть доступный туалет»', () => {
+    const withToilets = [
+      makePlace({ id: 'y', toiletAccessible: 'yes' }),
+      makePlace({ id: 'n', toiletAccessible: 'no' }),
+      makePlace({ id: 'q', toiletAccessible: 'unknown' }),
+    ];
+    const result = applyPlaceFilters(withToilets, { categories: [], accessibleToilet: true, status: 'all', query: '' });
+    expect(result.map((p) => p.id)).toEqual(['y']);
+  });
+});
+
+describe('тип места из карточки', () => {
+  it('название, записанное картографом, становится типом OSM', () => {
+    const row = { ...baseRow, category: 'health', details: { schema_version: 1, mapper: { subtype: 'Аптека' } } };
+    expect(mapPlaceRow(row as PlaceRow).placeType).toBe('pharmacy');
+  });
+
+  it('незнакомое название и пустая карточка типа не дают', () => {
+    const odd = { ...baseRow, details: { schema_version: 1, mapper: { subtype: 'Что-то своё' } } };
+    expect(mapPlaceRow(odd as PlaceRow).placeType).toBeNull();
+    expect(mapPlaceRow(baseRow).placeType).toBeNull();
+  });
 });
 
 describe('welcome persistence', () => {
