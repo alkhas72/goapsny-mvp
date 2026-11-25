@@ -206,7 +206,7 @@
 
 [data-skin='living'] .public-top-rail {
   min-height: 58px;
-  padding: 4px 16px 0;
+  padding: 4px 16px 10px;
 }
 
 [data-skin='living'] .logo-container {
@@ -266,25 +266,11 @@
   -webkit-backdrop-filter: blur(14px);
 }
 
-[data-skin='living'] .public-filter-rail {
-  padding: 4px 14px 12px;
-}
-
-[data-skin='living'] .public-search-trigger {
-  min-height: 48px;
-  padding: 10px 18px;
-  border: 0;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.9);
-  color: rgba(22, 24, 23, 0.52);
-  font-size: 15px;
-  box-shadow: 0 8px 22px rgba(22, 24, 23, 0.08);
-}
-
-[data-skin='living'][data-mood='night'] .public-search-trigger {
-  background: var(--stage-glass);
-  color: rgba(232, 241, 235, 0.7);
-  box-shadow: none;
+[data-skin='living'] .public-search-dot {
+  top: 9px;
+  right: 9px;
+  background: #e8623a;
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.9);
 }
 
 /* ── 4. Карта — карточка со скруглением ──────────────────────────────── */
@@ -379,6 +365,34 @@
 
 [data-skin='living'] .map-view-controls.is-open .map-view-group {
   animation: lvRise 0.34s var(--spring) both;
+}
+
+/* Раскрытая панель стоит двумя столбцами у верха карты: освещение слева,
+   цвет и объём под кнопкой. Так она не доходит до кнопок масштаба. */
+[data-skin='living'] .map-view-controls.is-open {
+  display: grid;
+  grid-template-columns: 44px 44px;
+  grid-template-areas:
+    'light toggle'
+    'light palette'
+    'light volume';
+  align-items: start;
+}
+
+[data-skin='living'] .map-view-controls.is-open > :nth-child(1) {
+  grid-area: toggle;
+}
+
+[data-skin='living'] .map-view-controls.is-open > :nth-child(2) {
+  grid-area: palette;
+}
+
+[data-skin='living'] .map-view-controls.is-open > :nth-child(3) {
+  grid-area: volume;
+}
+
+[data-skin='living'] .map-view-controls.is-open > :nth-child(4) {
+  grid-area: light;
 }
 
 [data-skin='living'] .map-pin-wrapper {

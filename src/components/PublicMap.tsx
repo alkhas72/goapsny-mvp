@@ -486,8 +486,7 @@ export function PublicMap() {
           setFiltersOpen(true);
           setMenuOpen(false);
         }}
-        filterQuery={filters.query}
-        onFilterQueryChange={(query) => setFilters((current) => ({ ...current, query }))}
+        filterActive={filters.query.trim() !== '' || filters.categories.length > 0 || filters.status !== 'all'}
         menuOpen={menuOpen}
         menuButtonRef={menuButtonRef}
         filterButtonRef={filterButtonRef}

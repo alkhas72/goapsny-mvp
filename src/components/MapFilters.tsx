@@ -32,11 +32,13 @@ export function MapFilters({
 }: MapFiltersProps) {
   const panelRef = useRef<HTMLElement | null>(null);
   const closeButtonRef = useRef<HTMLButtonElement | null>(null);
+  const searchRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
     if (!open || !panelRef.current) return;
     return trapFocus(panelRef.current, {
-      initialFocus: closeButtonRef.current,
+      // Открыли лупой: строка поиска сразу готова к вводу.
+      initialFocus: searchRef.current ?? closeButtonRef.current,
       onEscape: () => {
         onClose();
         returnFocusRef?.current?.focus();
@@ -86,6 +88,9 @@ export function MapFilters({
         </label>
         <input
           id="filter-search"
+          ref={searchRef}
+          type="search"
+          enterKeyHint="search"
           className="filter-search-input"
           value={filters.query}
           onChange={(event) => onChange({ ...filters, query: event.target.value })}

@@ -1254,7 +1254,7 @@ body {
 
 .public-top-rail {
   display: grid;
-  grid-template-columns: 1fr auto;
+  grid-template-columns: 1fr auto auto;
   align-items: center;
   gap: 8px;
   min-height: 56px;
@@ -1282,31 +1282,20 @@ body {
   font-weight: 700;
 }
 
-.public-filter-rail {
+.public-search-btn {
   position: relative;
-  padding: 0 12px 10px;
 }
 
-.public-search-trigger {
-  width: 100%;
-  min-height: 44px;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 10px 12px;
-  border-radius: 10px;
-  border: 1px solid var(--border-color);
-  background: var(--surface-color);
-  color: var(--text-secondary);
-  cursor: pointer;
-}
-
-.public-search-input {
+/* Поиск или фильтр что-то отбирают. */
+.public-search-dot {
   position: absolute;
-  opacity: 0;
-  pointer-events: none;
-  width: 1px;
-  height: 1px;
+  top: 8px;
+  right: 8px;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 0 2px var(--bg-color);
 }
 
 .public-map-main {

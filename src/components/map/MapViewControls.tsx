@@ -10,7 +10,6 @@ import {
 
 const PALETTE_LABEL: Record<BasemapPalette, string> = {
   gray: 'Серая карта',
-  blue: 'Синяя карта',
   violet: 'Сиреневая карта',
 };
 

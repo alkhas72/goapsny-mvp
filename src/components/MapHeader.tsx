@@ -6,8 +6,8 @@ import { BrandMark } from './BrandMark';
 interface MapHeaderProps {
   onOpenMenu: () => void;
   onOpenFilters: () => void;
-  filterQuery: string;
-  onFilterQueryChange: (value: string) => void;
+  /** Поиск или фильтр что-то отбирают: на кнопке с лупой горит точка. */
+  filterActive: boolean;
   menuOpen: boolean;
   menuButtonRef: RefObject<HTMLButtonElement | null>;
   filterButtonRef: RefObject<HTMLButtonElement | null>;
@@ -16,8 +16,7 @@ interface MapHeaderProps {
 export function MapHeader({
   onOpenMenu,
   onOpenFilters,
-  filterQuery,
-  onFilterQueryChange,
+  filterActive,
   menuOpen,
   menuButtonRef,
   filterButtonRef,
@@ -63,6 +62,19 @@ export function MapHeader({
           </div>
           <span ref={titleRef} className="app-title">GoApsny</span>
         </div>
+        {/* Поиск свёрнут в кнопку рядом с меню (слово Алхаса 25.11): строка поиска
+            открывается по нажатию и не занимает экран карты. */}
+        <button
+          ref={filterButtonRef}
+          type="button"
+          className={`icon-btn public-search-btn${filterActive ? ' is-active' : ''}`}
+          onClick={onOpenFilters}
+          aria-label="Поиск и фильтр"
+          aria-haspopup="dialog"
+        >
+          <Search size={20} aria-hidden="true" />
+          {filterActive && <span className="public-search-dot" aria-hidden="true" />}
+        </button>
         <button
           ref={menuButtonRef}
           type="button"
@@ -74,33 +86,6 @@ export function MapHeader({
         >
           <Menu size={20} />
         </button>
-      </div>
-      <div className="public-filter-rail">
-        <button
-          ref={filterButtonRef}
-          type="button"
-          className="public-search-trigger"
-          onClick={onOpenFilters}
-          aria-label="Поиск и фильтр"
-          aria-haspopup="dialog"
-        >
-          <Search size={18} aria-hidden="true" />
-          <span className="public-search-placeholder">
-            {filterQuery || 'Улица или название…'}
-          </span>
-        </button>
-        <label className="visually-hidden" htmlFor="public-search-input">
-          Поиск по улице или названию
-        </label>
-        <input
-          id="public-search-input"
-          className="public-search-input"
-          value={filterQuery}
-          onChange={(event) => onFilterQueryChange(event.target.value)}
-          onFocus={onOpenFilters}
-          placeholder="Улица или название…"
-          autoComplete="off"
-        />
       </div>
     </header>
   );

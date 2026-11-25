@@ -367,26 +367,21 @@ const PRESETS: Record<LightPreset, PresetSpec> = {
 
 /*
  * Base palettes the user picks from; each then takes the four lights.
- * Gray is tuned per light by hand; blue and violet (after the Arbitrator's
- * own Mapbox styles) are derived from their day colours.
+ * Gray is tuned per light by hand; violet (after the Arbitrator's own Mapbox
+ * style) is derived from its day colours. Цветов два, светлый и более тёмный:
+ * средний, синий, убран по слову Алхаса 25.11.
  */
-export type BasemapPalette = 'gray' | 'blue' | 'violet';
+export type BasemapPalette = 'gray' | 'violet';
 
-export const BASEMAP_PALETTES: readonly BasemapPalette[] = ['gray', 'blue', 'violet'];
+export const BASEMAP_PALETTES: readonly BasemapPalette[] = ['gray', 'violet'];
 
 /** Swatch shown in the palette picker. */
 export const PALETTE_SWATCH: Record<BasemapPalette, string> = {
   gray: '#D9D9D9',
-  blue: '#7F99B8',
   violet: '#8C96E6',
 };
 
 const PALETTE_DAY: Record<Exclude<BasemapPalette, 'gray'>, MonoTokens> = {
-  blue: {
-    background: '#B9C8DA', land: '#C6D3E2', area: '#BCCADC', water: '#6F87A3',
-    road: '#E6EDF5', roadMajor: '#F2F6FA', building: '#B3C2D4', building3d: '#D3DEEA',
-    label: '#4F6682', labelStrong: '#2C3E55', halo: '#DCE5EF', line: '#98ABC2',
-  },
   violet: {
     background: '#AEB6EE', land: '#B9C0F2', area: '#A3A9E4', water: '#64C0EC',
     road: '#F1F4FF', roadMajor: '#FFFFFF', building: '#A2A8E6', building3d: '#CDD2FA',
