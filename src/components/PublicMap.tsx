@@ -9,7 +9,7 @@ import { PlaceSheet, type PlaceSheetState } from './PlaceSheet';
 import { EmailOtpSheet } from './EmailOtpSheet';
 import { PublicAddSheet } from './PublicAddSheet';
 import { MapperDay } from './mapper/MapperDay';
-import { MapperFlow } from './mapper/MapperFlow';
+import { MapperFlow, type MeasurePrefill } from './mapper/MapperFlow';
 import { ModerationQueue } from './mapper/ModerationQueue';
 import { readDay, type DayEntry } from './mapper/dayLog';
 import {
@@ -110,6 +110,8 @@ export function PublicMap() {
   const [dayOpen, setDayOpen] = useState(false);
   const [dayEntries, setDayEntries] = useState<DayEntry[]>(() => (mapperEnabled ? readDay() : []));
   const [flowKey, setFlowKey] = useState(0);
+  // Предварительный замер из разговора координатора с помощником.
+  const [measurePrefill, setMeasurePrefill] = useState<MeasurePrefill | null>(null);
   const getCenterRef = useRef<(() => { lat: number; lng: number } | null) | null>(null);
   const [authEmail, setAuthEmail] = useState<string | null>(null);
   // Идентификатор вошедшего: к нему привязаны объекты, ждущие отправки на устройстве.
@@ -546,8 +548,15 @@ export function PublicMap() {
             theme={theme}
             getCenter={() => getCenterRef.current?.() ?? null}
             ownerId={authUserId}
-            onAnother={() => setFlowKey((k) => k + 1)}
-            onClose={() => setMapperOpen(false)}
+            prefill={measurePrefill}
+            onAnother={() => {
+              setMeasurePrefill(null);
+              setFlowKey((k) => k + 1);
+            }}
+            onClose={() => {
+              setMeasurePrefill(null);
+              setMapperOpen(false);
+            }}
             onSaved={setDayEntries}
             onOpenDay={() => {
               setMapperOpen(false);
@@ -640,7 +649,24 @@ export function PublicMap() {
         />
       </main>
 
-      {livingSkin && <AssistantDock />}
+      {livingSkin && (
+        <AssistantDock
+          signedIn={Boolean(authEmail)}
+          onSignIn={() => {
+            setAuthSheetKey((key) => key + 1);
+            setAuthOpen(true);
+          }}
+          onMeasure={
+            mapperEnabled
+              ? (measure) => {
+                  setMeasurePrefill(measure);
+                  setFlowKey((k) => k + 1);
+                  setMapperOpen(true);
+                }
+              : undefined
+          }
+        />
+      )}
 
       <MapFooter
         onCabinet={handleCabinet}

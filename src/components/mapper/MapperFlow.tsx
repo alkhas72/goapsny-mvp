@@ -58,12 +58,32 @@ interface MapperFlowProps {
    * и уходит позже; без него отказ просто показывается на экране.
    */
   ownerId?: string | null;
+  /**
+   * Цифры, с которыми открыт мастер: предварительный замер из разговора
+   * координатора с помощником. Они важнее того, что помощник прочтёт по фото.
+   */
+  prefill?: MeasurePrefill | null;
   /** Отложенная отправка; подменяется в тестах. */
   outbox?: Pick<MapperOutbox, 'add'>;
   onClose: () => void;
   onSaved: (entries: DayEntry[]) => void;
   onOpenDay: () => void;
   onAnother: () => void;
+}
+
+export interface MeasurePrefill {
+  steps?: number | null;
+  stepHeightCm?: number | null;
+  doorWidthCm?: number | null;
+}
+
+/** Поля замера, которые пришли заполненными. */
+function prefilled(prefill: MeasurePrefill | null | undefined): Partial<EntranceFacts> {
+  const facts: Partial<EntranceFacts> = {};
+  if (prefill?.steps != null) facts.steps = prefill.steps;
+  if (prefill?.stepHeightCm != null) facts.stepHeightCm = prefill.stepHeightCm;
+  if (prefill?.doorWidthCm != null) facts.doorWidthCm = prefill.doorWidthCm;
+  return facts;
 }
 
 type Step = 1 | 2 | 3 | 4 | 5 | 'done';
@@ -151,6 +171,7 @@ export function MapperFlow({
   eyes = DEFAULT_EYES,
   submit = submitMapperPlace,
   ownerId = null,
+  prefill = null,
   outbox,
   onClose,
   onSaved,
@@ -161,8 +182,10 @@ export function MapperFlow({
   const [photos, setPhotos] = useState<{ file: File; url: string }[]>([]);
   const [point, setPoint] = useState<{ lat: number; lng: number } | null>(null);
   const [looking, setLooking] = useState(false);
-  const [aiFields, setAiFields] = useState<Set<keyof EntranceFacts>>(new Set());
-  const [facts, setFacts] = useState<EntranceFacts>(EMPTY_FACTS);
+  const [aiFields, setAiFields] = useState<Set<keyof EntranceFacts>>(
+    () => new Set(Object.keys(prefilled(prefill)) as (keyof EntranceFacts)[]),
+  );
+  const [facts, setFacts] = useState<EntranceFacts>(() => ({ ...EMPTY_FACTS, ...prefilled(prefill) }));
   const [pickCategory, setPickCategory] = useState(false);
   const [light, setLight] = useState<Light | null>(null);
   const [saved, setSaved] = useState<DayEntry[] | null>(null);
@@ -171,8 +194,8 @@ export function MapperFlow({
   // Объект не ушёл, но сохранён на устройстве: причина, по которой он ждёт.
   const [kept, setKept] = useState<OutboxReason | null>(null);
   // Сантиметры держим текстом, пока человек печатает; в факты идёт число.
-  const [stepText, setStepText] = useState('');
-  const [doorText, setDoorText] = useState('');
+  const [stepText, setStepText] = useState(() => (prefill?.stepHeightCm != null ? String(prefill.stepHeightCm) : ''));
+  const [doorText, setDoorText] = useState(() => (prefill?.doorWidthCm != null ? String(prefill.doorWidthCm) : ''));
   const [amenities, setAmenities] = useState<Amenities>(EMPTY_AMENITIES);
   const [toiletPhotos, setToiletPhotos] = useState<{ file: File; url: string }[]>([]);
   const [noteByAi, setNoteByAi] = useState(false);
@@ -229,10 +252,12 @@ export function MapperFlow({
     eyes
       .look(added[0].file)
       .then((draft) => {
-        setFacts(factsFromDraft(draft));
-        setStepText(draft.stepHeightCm != null ? String(draft.stepHeightCm) : '');
-        setDoorText(draft.doorWidthCm != null ? String(draft.doorWidthCm) : '');
-        const seen = new Set<keyof EntranceFacts>();
+        // Цифры из разговора с помощником важнее прочитанного по фото.
+        const next = { ...factsFromDraft(draft), ...prefilled(prefill) };
+        setFacts(next);
+        setStepText(next.stepHeightCm != null ? String(next.stepHeightCm) : '');
+        setDoorText(next.doorWidthCm != null ? String(next.doorWidthCm) : '');
+        const seen = new Set<keyof EntranceFacts>(Object.keys(prefilled(prefill)) as (keyof EntranceFacts)[]);
         if (draft.name) seen.add('name');
         if (draft.category) seen.add('category');
         if (draft.subtype) seen.add('subtype');
