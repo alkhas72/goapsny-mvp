@@ -317,6 +317,36 @@ describe('PublicMap integration', () => {
     expect(screen.getByRole('button', { name: 'Mock publish gray pin' })).toBeTruthy();
   });
 
+  // Карта одна, слоёв два: «Заказать пандус» открывает слой замеров на той же карте.
+  it('switches to the measurements layer from the menu and back', async () => {
+    const user = userEvent.setup();
+    await renderLoadedMap();
+    await user.click(screen.getByRole('button', { name: /меню/i }));
+    await user.click(screen.getByRole('button', { name: /заказать пандус/i }));
+
+    expect(screen.getByText('Слой замеров')).toBeTruthy();
+    expect(screen.getByRole('button', { name: /замерить вход здесь/i })).toBeTruthy();
+    expect(new URLSearchParams(window.location.search).get('layer')).toBe('ramps');
+    // Места те же: карта не подменяется.
+    expect(screen.getByRole('button', { name: 'Кафе Серый' })).toBeTruthy();
+
+    await user.click(screen.getByRole('button', { name: /вернуться к карте доступности/i }));
+    expect(screen.queryByText('Слой замеров')).toBeNull();
+    expect(new URLSearchParams(window.location.search).has('layer')).toBe(false);
+  });
+
+  it('offers the entrance measurement in a place card inside the measurements layer', async () => {
+    const user = userEvent.setup();
+    await renderLoadedMap();
+    await user.click(screen.getByRole('button', { name: /меню/i }));
+    await user.click(screen.getByRole('button', { name: /заказать пандус/i }));
+    await user.click(screen.getByRole('button', { name: 'Кафе Серый' }));
+
+    const link = await screen.findByRole('link', { name: /замерить вход для пандуса/i });
+    expect(new URL(link.getAttribute('href') ?? '').searchParams.get('measure')).toBe('1');
+    window.history.replaceState(null, '', window.location.pathname);
+  });
+
   it('reloads places after a successful submit and renders the new gray marker', async () => {
     const newGrayPlace: PublicPlace = {
       id: 'new-gray-place',

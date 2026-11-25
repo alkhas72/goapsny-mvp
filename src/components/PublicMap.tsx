@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Ruler, X } from 'lucide-react';
 import { MapLibreMap } from './map/MapLibreMap';
 import { MapHeader } from './MapHeader';
 import { MapFooter } from './MapFooter';
@@ -38,6 +39,8 @@ import { getMapperOutbox } from '../services/mapper-outbox';
 import { isSupabaseConfigured } from '../services/supabase';
 import type { Place } from '../types';
 import { MOOD_EVENT, currentMood, currentSkin } from '../utils/skin';
+import { readMapLayer, writeMapLayer, type MapLayer } from '../utils/mapLayer';
+import { stopgapMeasurePointUrl } from '../utils/stopgapLink';
 import { AssistantDock } from './AssistantDock';
 
 function toMapPlace(place: PublicPlace): Place {
@@ -99,6 +102,8 @@ export function PublicMap() {
   const [cabinetNote, setCabinetNote] = useState<string | null>(null);
   const [authOpen, setAuthOpen] = useState(false);
   const [addOpen, setAddOpen] = useState(false);
+  // Карта одна, слоёв два: карта доступности и замеры (приставные пандусы).
+  const [layer, setLayer] = useState<MapLayer>(() => readMapLayer());
   // Mapper prototype (AISP-328): guided add flow with Нуца, behind ?mapper=1.
   const mapperEnabled = typeof window !== 'undefined' && new URLSearchParams(window.location.search).has('mapper');
   const [mapperOpen, setMapperOpen] = useState(false);
@@ -348,6 +353,34 @@ export function PublicMap() {
     requestMapperSignIn('flow');
   }, [authEmail, requestMapperSignIn]);
 
+  const switchLayer = useCallback((next: MapLayer) => {
+    setLayer(next);
+    writeMapLayer(next);
+  }, []);
+
+  /** «Добавить локацию» из меню: слой карты доступности и сразу добавление. */
+  const handleMenuAddLocation = useCallback(() => {
+    setMenuOpen(false);
+    switchLayer('access');
+    if (mapperEnabled) beginMapperFlow();
+    else beginAddFlow();
+  }, [beginAddFlow, beginMapperFlow, mapperEnabled, switchLayer]);
+
+  /** «Заказать пандус» из меню: та же карта, слой замеров. */
+  const handleMenuOrderRamp = useCallback(() => {
+    setMenuOpen(false);
+    setMapperOpen(false);
+    setDayOpen(false);
+    setQueueOpen(false);
+    switchLayer('ramps');
+  }, [switchLayer]);
+
+  /** Замер в точке под прицелом: мастер Stopgap с координатами и адресом возврата. */
+  const handleMeasureHere = useCallback(() => {
+    const center = getCenterRef.current?.() ?? null;
+    window.location.assign(stopgapMeasurePointUrl(center, window.location.href));
+  }, []);
+
   const handleCabinet = useCallback(() => {
     if (mapperEnabled) {
       setDayOpen(true);
@@ -471,7 +504,32 @@ export function PublicMap() {
             getCenterRef.current = fn;
           }}
         />
-        {mapperEnabled && !mapperOpen && !dayOpen && !queueOpen && (
+        {layer === 'ramps' && (
+          <>
+            <div className="ramps-bar">
+              <span className="ramps-bar-label" role="status">
+                <Ruler size={16} aria-hidden="true" />
+                Слой замеров
+              </span>
+              <button
+                type="button"
+                className="ramps-bar-close"
+                aria-label="Вернуться к карте доступности"
+                onClick={() => switchLayer('access')}
+              >
+                <X size={16} aria-hidden="true" />
+              </button>
+            </div>
+            {!selectedPlaceId && <div className="ramps-cross" aria-hidden="true" />}
+            <div className="mapper-fab-row ramps-fab-row">
+              <button type="button" className="mapper-fab ramps-fab" onClick={handleMeasureHere}>
+                <Ruler size={18} aria-hidden="true" />
+                Замерить вход здесь
+              </button>
+            </div>
+          </>
+        )}
+        {layer === 'access' && mapperEnabled && !mapperOpen && !dayOpen && !queueOpen && (
           <div className="mapper-fab-row">
             <button type="button" className="mapper-day-btn" onClick={() => setDayOpen(true)}>
               Сегодня · {dayEntries.length}
@@ -534,10 +592,9 @@ export function PublicMap() {
         <MenuOverlay
           open={menuOpen}
           onClose={() => setMenuOpen(false)}
-          onAddLocation={() => {
-            setMenuOpen(false);
-            beginAddFlow();
-          }}
+          onAddLocation={handleMenuAddLocation}
+          onOrderRamp={handleMenuOrderRamp}
+          layer={layer}
           returnFocusRef={menuButtonRef}
         />
         <MapFilters
@@ -558,7 +615,8 @@ export function PublicMap() {
             closeSheet();
           }}
           onRetry={() => selectedPlaceId && void openPlaceSheet(selectedPlaceId)}
-          showMeasure={mapperEnabled}
+          showMeasure={mapperEnabled || layer === 'ramps'}
+          measureFirst={layer === 'ramps'}
         />
         <EmailOtpSheet
           // Префикс обязателен: оба счётчика стартуют с нуля, и без него

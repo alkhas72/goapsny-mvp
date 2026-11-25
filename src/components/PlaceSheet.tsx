@@ -18,6 +18,8 @@ interface PlaceSheetProps {
   onRetry?: () => void;
   /** Путь картографа: показать переход к замеру входа в Stopgap. */
   showMeasure?: boolean;
+  /** Слой замеров: замер тут главное действие, ссылка стоит сразу под статусом. */
+  measureFirst?: boolean;
 }
 
 function categoryLabel(slug: string): string {
@@ -39,6 +41,7 @@ export function PlaceSheet({
   onClose,
   onRetry,
   showMeasure = false,
+  measureFirst = false,
 }: PlaceSheetProps) {
   const sheetRef = useRef<HTMLElement | null>(null);
   const closeButtonRef = useRef<HTMLButtonElement>(null);
@@ -58,6 +61,24 @@ export function PlaceSheet({
   if (!open) return null;
 
   const partial = place ? isPartialPlace(place) || state === 'partial' : false;
+
+  const measureLink =
+    place && showMeasure && place.rampType !== 'permanent' ? (
+      <a
+        className="sheet-measure-link"
+        href={stopgapMeasureUrl(
+          { id: place.id, name: place.name, lat: place.lat, lng: place.lng, address: place.details.address },
+          window.location.href,
+        )}
+      >
+        <Ruler size={18} aria-hidden="true" />
+        <span>
+          Замерить вход для пандуса
+          <small>Откроется Stopgap с этим местом</small>
+        </span>
+        <ChevronRight size={18} aria-hidden="true" />
+      </a>
+    ) : null;
 
   return (
     <article
@@ -121,6 +142,8 @@ export function PlaceSheet({
             <span className="sheet-status-dot" style={{ backgroundColor: statusColor(place.status) }} aria-hidden="true" />
             <span>{statusLabel(place.status)}</span>
           </p>
+
+          {measureFirst && measureLink}
 
           {place.status === 'gray' && (
             <p className="sheet-gray-note">Предварительно, ожидает проверки сообщества</p>
@@ -190,22 +213,7 @@ export function PlaceSheet({
 
           {place.comment && <p className="sheet-comment">{place.comment}</p>}
 
-          {showMeasure && place.rampType !== 'permanent' && (
-            <a
-              className="sheet-measure-link"
-              href={stopgapMeasureUrl(
-                { id: place.id, name: place.name, lat: place.lat, lng: place.lng, address: place.details.address },
-                window.location.href,
-              )}
-            >
-              <Ruler size={18} aria-hidden="true" />
-              <span>
-                Замерить вход для пандуса
-                <small>Откроется Stopgap с этим местом</small>
-              </span>
-              <ChevronRight size={18} aria-hidden="true" />
-            </a>
-          )}
+          {!measureFirst && measureLink}
         </>
       )}
     </article>

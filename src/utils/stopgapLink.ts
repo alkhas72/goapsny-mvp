@@ -31,3 +31,22 @@ export function stopgapMeasureUrl(
   if (returnUrl && returnUrl.startsWith('https://')) url.searchParams.set('return', returnUrl);
   return url.toString();
 }
+
+/**
+ * Слой замеров: замер входа в точке карты, когда места в базе ещё нет.
+ * Stopgap открывает мастер и без place_id, по одним координатам.
+ */
+export function stopgapMeasurePointUrl(
+  point: { lat: number; lng: number } | null,
+  returnUrl: string | null,
+  base: string = STOPGAP_URL,
+): string {
+  const url = new URL(base);
+  url.searchParams.set('measure', '1');
+  if (point && Number.isFinite(point.lat) && Number.isFinite(point.lng)) {
+    url.searchParams.set('lat', point.lat.toFixed(6));
+    url.searchParams.set('lng', point.lng.toFixed(6));
+  }
+  if (returnUrl && returnUrl.startsWith('https://')) url.searchParams.set('return', returnUrl);
+  return url.toString();
+}

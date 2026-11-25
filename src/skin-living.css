@@ -594,6 +594,49 @@
   color: var(--ink);
 }
 
+/* Два главных входа в меню: карта доступности и слой замеров. */
+[data-skin='living'] .menu-layer {
+  min-height: 66px;
+  padding: 12px 16px;
+  border-radius: 22px;
+  transition: transform 0.3s var(--spring);
+}
+
+[data-skin='living'] .menu-layer:active {
+  transform: scale(0.98);
+}
+
+[data-skin='living'] .menu-layer-text {
+  font-weight: 500;
+  font-size: 17px;
+  letter-spacing: -0.01em;
+}
+
+[data-skin='living'] .menu-layer--ramps {
+  border: 0;
+  background: var(--ramp);
+  color: #ffffff;
+}
+
+[data-skin='living'] .menu-layer--ramps > svg {
+  color: inherit;
+}
+
+/* Слой замеров: метка наверху карты и кнопка замера. */
+[data-skin='living'] .ramps-bar {
+  top: 14px;
+  background: var(--ramp);
+  font-weight: 500;
+  box-shadow: 0 12px 26px rgba(22, 24, 23, 0.2);
+  animation: lvRise 0.42s var(--spring) both;
+}
+
+[data-skin='living'] .ramps-fab {
+  flex: 1;
+  background: var(--ramp);
+  color: #ffffff;
+}
+
 /* Строка «Фон» в меню: выбор цвета оболочки в самом приложении. */
 [data-skin='living'] .menu-mood-row {
   display: flex;

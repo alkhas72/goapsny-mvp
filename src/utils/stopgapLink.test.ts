@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { stopgapMeasureUrl } from './stopgapLink';
+import { stopgapMeasurePointUrl, stopgapMeasureUrl } from './stopgapLink';
 
 const PLACE = {
   id: '11111111-1111-4111-8111-111111111111',
@@ -29,6 +29,30 @@ describe('stopgapMeasureUrl', () => {
       stopgapMeasureUrl({ ...PLACE, address: null }, 'http://localhost:5199/', 'https://goapsny-stopgap.vercel.app/'),
     );
     expect(url.searchParams.has('address')).toBe(false);
+    expect(url.searchParams.has('return')).toBe(false);
+  });
+});
+
+describe('stopgapMeasurePointUrl', () => {
+  it('замер в точке карты: координаты и возврат, без места', () => {
+    const url = new URL(
+      stopgapMeasurePointUrl(
+        { lat: 43.00331234, lng: 41.0237 },
+        'https://map.goapsny.org/?layer=ramps',
+        'https://goapsny-stopgap.vercel.app/',
+      ),
+    );
+    expect(url.searchParams.get('measure')).toBe('1');
+    expect(url.searchParams.has('place_id')).toBe(false);
+    expect(url.searchParams.get('lat')).toBe('43.003312');
+    expect(url.searchParams.get('lng')).toBe('41.023700');
+    expect(url.searchParams.get('return')).toBe('https://map.goapsny.org/?layer=ramps');
+  });
+
+  it('без точки открывает мастер без координат', () => {
+    const url = new URL(stopgapMeasurePointUrl(null, null, 'https://goapsny-stopgap.vercel.app/'));
+    expect(url.searchParams.get('measure')).toBe('1');
+    expect(url.searchParams.has('lat')).toBe(false);
     expect(url.searchParams.has('return')).toBe(false);
   });
 });
