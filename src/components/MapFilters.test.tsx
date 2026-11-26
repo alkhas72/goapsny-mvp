@@ -44,4 +44,100 @@ describe('MapFilters keyboard and apply', () => {
     await user.keyboard('а');
     expect(onChange).toHaveBeenCalledWith({ categories: [], status: 'all', query: 'а' });
   });
+
+  it('«Туалетов» среди групп нет, есть переключатель доступного туалета', async () => {
+    const user = userEvent.setup();
+    const onChange = vi.fn();
+    render(
+      <MapFilters
+        open
+        filters={{ categories: [], status: 'all', query: '' }}
+        onChange={onChange}
+        onClose={vi.fn()}
+        onApplyStatus={vi.fn()}
+      />,
+    );
+    expect(screen.queryByRole('button', { name: 'Туалеты' })).toBeNull();
+    await user.click(screen.getByRole('button', { name: 'Есть доступный туалет' }));
+    expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ accessibleToilet: true }));
+  });
+
+  it('выбранная группа раскрывается в типы OpenStreetMap', async () => {
+    const user = userEvent.setup();
+    const onChange = vi.fn();
+    const { rerender } = render(
+      <MapFilters
+        open
+        filters={{ categories: [], status: 'all', query: '' }}
+        onChange={onChange}
+        onClose={vi.fn()}
+        onApplyStatus={vi.fn()}
+      />,
+    );
+    expect(screen.queryByRole('button', { name: 'Аптека' })).toBeNull();
+
+    rerender(
+      <MapFilters
+        open
+        filters={{ categories: ['health'], types: [], status: 'all', query: '' }}
+        onChange={onChange}
+        onClose={vi.fn()}
+        onApplyStatus={vi.fn()}
+      />,
+    );
+    const types = screen.getByRole('group', { name: 'Здоровье: что именно' });
+    expect(types.textContent).toContain('Поликлиника');
+    expect(types.textContent).toContain('Больница');
+    await user.click(screen.getByRole('button', { name: 'Аптека' }));
+    expect(onChange).toHaveBeenLastCalledWith(expect.objectContaining({ categories: ['health'], types: ['pharmacy'] }));
+  });
+
+  it('нажатие на другую группу сбрасывает прежнюю и её типы', async () => {
+    const user = userEvent.setup();
+    const onChange = vi.fn();
+    const { rerender } = render(
+      <MapFilters
+        open
+        filters={{ categories: ['education'], types: ['school'], status: 'all', query: '' }}
+        onChange={onChange}
+        onClose={vi.fn()}
+        onApplyStatus={vi.fn()}
+      />,
+    );
+    expect(screen.getByRole('group', { name: 'Обучение: что именно' })).toBeTruthy();
+
+    await user.click(screen.getByRole('button', { name: /Здоровье/ }));
+    expect(onChange).toHaveBeenLastCalledWith(expect.objectContaining({ categories: ['health'], types: [] }));
+
+    // Новая группа раскрыта сразу, прежняя больше не выделена.
+    rerender(
+      <MapFilters
+        open
+        filters={{ categories: ['health'], types: [], status: 'all', query: '' }}
+        onChange={onChange}
+        onClose={vi.fn()}
+        onApplyStatus={vi.fn()}
+      />,
+    );
+    expect(screen.getByRole('group', { name: 'Здоровье: что именно' })).toBeTruthy();
+    expect(screen.queryByRole('group', { name: 'Обучение: что именно' })).toBeNull();
+    expect(screen.getByRole('button', { name: /Обучение/ }).getAttribute('aria-pressed')).toBe('false');
+    expect(screen.getByRole('button', { name: /Здоровье/ }).getAttribute('aria-pressed')).toBe('true');
+  });
+
+  it('повторное нажатие на выбранную группу снимает выбор', async () => {
+    const user = userEvent.setup();
+    const onChange = vi.fn();
+    render(
+      <MapFilters
+        open
+        filters={{ categories: ['health'], types: ['pharmacy'], status: 'all', query: '' }}
+        onChange={onChange}
+        onClose={vi.fn()}
+        onApplyStatus={vi.fn()}
+      />,
+    );
+    await user.click(screen.getByRole('button', { name: /Здоровье/ }));
+    expect(onChange).toHaveBeenLastCalledWith(expect.objectContaining({ categories: [], types: [] }));
+  });
 });

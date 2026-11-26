@@ -60,7 +60,7 @@ export function karmaNext(total: number): { next: KarmaLevel | null; remaining: 
   return { next, remaining: next ? next.threshold - total : 0 };
 }
 
-// ---- Categories (Wheelmap taxonomy, 12; slugs match Codex seed) ----
+// ---- Группы мест (11). Второй уровень — типы OpenStreetMap, см. placeTypes.ts ----
 export interface Category {
   slug: string;
   ru: string;
@@ -78,13 +78,23 @@ export const CATEGORIES: Category[] = [
   { slug: 'education', ru: 'Обучение', wheelmapGroup: 'education', icon: 'graduation-cap' },
   { slug: 'government', ru: 'Госучреждения', wheelmapGroup: 'government', icon: 'building-2' },
   { slug: 'health', ru: 'Здоровье', wheelmapGroup: 'health', icon: 'hospital' },
-  { slug: 'bank_post', ru: 'Финансы', wheelmapGroup: 'bank_post', icon: 'landmark' },
+  { slug: 'bank_post', ru: 'Финансы и почта', wheelmapGroup: 'bank_post', icon: 'landmark' },
   { slug: 'sport', ru: 'Спорт', wheelmapGroup: 'sport', icon: 'dumbbell' },
-  { slug: 'toilets', ru: 'Туалеты', wheelmapGroup: 'toilets', icon: 'toilet' },
 ];
 
-/** Legacy rows may still reference `other`; not offered for new selection. */
-export const LEGACY_CATEGORY_SLUGS = ['other'] as const;
+/**
+ * Старые строки могут ссылаться на эти группы; для выбора их не предлагаем.
+ * «Туалеты» были группой с 14.07 по 25.11.2026: теперь общественный туалет —
+ * тип `amenity=toilets`, а туалет в заведении — признак карточки.
+ */
+export const LEGACY_CATEGORY_SLUGS = ['other', 'toilets'] as const;
+
+const LEGACY_CATEGORY_NAMES: Record<string, string> = { other: 'Прочее', toilets: 'Общественный туалет' };
+
+/** Название группы для показа, включая выключенные. */
+export function categoryName(slug: string): string {
+  return CATEGORIES.find((item) => item.slug === slug)?.ru ?? LEGACY_CATEGORY_NAMES[slug] ?? slug;
+}
 
 export const CATEGORY_SLUGS = CATEGORIES.map((c) => c.slug);
 
@@ -187,3 +197,5 @@ export const THEME = {
   dark: { accent: '#4BA4DD', bg: '#0F1A24', surface: '#1B2A38', text: '#E8EEF3', textSecondary: '#8FA3B5', border: '#24384A', pattern: '#16273A' },
   youAreHere: '#2D7FF9',
 } as const;
+
+export * from './placeTypes';

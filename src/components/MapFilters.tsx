@@ -1,6 +1,6 @@
 import { useEffect, useRef, type RefObject } from 'react';
 import { X } from 'lucide-react';
-import { CATEGORIES, STATUS_META } from '../shared/index';
+import { CATEGORIES, STATUS_META, placeTypesOf } from '../shared/index';
 import type { AccessibilityStatus } from '../shared/index';
 import type { PlaceFilters, StatusFilter } from '../services/places';
 import { trapFocus } from '../utils/focusTrap';
@@ -48,11 +48,23 @@ export function MapFilters({
 
   if (!open) return null;
 
+  // Группа выбирается одна. Нажатие на другую группу сбрасывает прежнюю вместе
+  // с её типами и сразу раскрывает типы новой: «Здоровье» → аптека, больница.
+  // Повторное нажатие на выбранную группу снимает выбор.
+  const openGroup = CATEGORIES.find((item) => item.slug === filters.categories[0]);
+  const groupTypes = openGroup ? placeTypesOf(openGroup.slug) : [];
+  const selectedTypes = filters.types ?? [];
+
   const toggleCategory = (slug: string) => {
-    const selected = filters.categories.includes(slug)
-      ? filters.categories.filter((item) => item !== slug)
-      : [...filters.categories, slug];
-    onChange({ ...filters, categories: selected });
+    const selected = filters.categories.includes(slug) ? [] : [slug];
+    onChange({ ...filters, categories: selected, types: [] });
+  };
+
+  const toggleType = (slug: string) => {
+    const next = selectedTypes.includes(slug)
+      ? selectedTypes.filter((item) => item !== slug)
+      : [...selectedTypes, slug];
+    onChange({ ...filters, types: next });
   };
 
   const handleClose = () => {
@@ -100,7 +112,7 @@ export function MapFilters({
 
         <div className="filter-category-grid" role="group" aria-label="Категории">
           {CATEGORIES.map((category) => {
-            const active = filters.categories.includes(category.slug);
+            const active = openGroup?.slug === category.slug;
             return (
               <button
                 key={category.slug}
@@ -115,6 +127,36 @@ export function MapFilters({
             );
           })}
         </div>
+
+        {openGroup && groupTypes.length > 0 && (
+          <div className="filter-types" role="group" aria-label={`${openGroup.ru}: что именно`}>
+            <span className="filter-types-title">{openGroup.ru}: что именно</span>
+            <div className="filter-types-row">
+              <button
+                type="button"
+                className={`filter-type-chip${selectedTypes.length === 0 ? ' active' : ''}`}
+                aria-pressed={selectedTypes.length === 0}
+                onClick={() => onChange({ ...filters, types: [] })}
+              >
+                Все
+              </button>
+              {groupTypes.map((type) => {
+                const active = selectedTypes.includes(type.slug);
+                return (
+                  <button
+                    key={type.slug}
+                    type="button"
+                    className={`filter-type-chip${active ? ' active' : ''}`}
+                    aria-pressed={active}
+                    onClick={() => toggleType(type.slug)}
+                  >
+                    {type.ru}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
 
         <div className="filter-status-row" role="group" aria-label="Статус доступности">
           {STATUS_OPTIONS.map((option) => (
@@ -135,6 +177,16 @@ export function MapFilters({
               {option.label}
             </button>
           ))}
+        </div>
+        <div className="filter-status-row filter-amenity-row" role="group" aria-label="Удобства">
+          <button
+            type="button"
+            className={`filter-status-chip${filters.accessibleToilet ? ' active' : ''}`}
+            aria-pressed={filters.accessibleToilet === true}
+            onClick={() => onChange({ ...filters, accessibleToilet: !filters.accessibleToilet })}
+          >
+            Есть доступный туалет
+          </button>
         </div>
       </section>
     </div>
