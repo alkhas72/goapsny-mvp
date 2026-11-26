@@ -2992,7 +2992,7 @@ select.nf-input,
   color: var(--status-yellow);
 }
 
-/* Меню: два главных входа. Карта одна, слои разные. */
+/* Меню: добавить место и карточка отдельного приложения Stopgap. */
 .menu-layer {
   gap: 12px;
   min-height: 60px;
@@ -3009,77 +3009,29 @@ select.nf-input,
 
 .menu-layer--ramps {
   border: 2px solid #7a5af8;
+  text-decoration: none;
+}
+
+.menu-layer--ramps .menu-layer-text {
+  flex: 1;
+  min-width: 0;
+}
+
+.menu-layer-note {
+  display: block;
+  margin-top: 2px;
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 1.3;
+  opacity: 0.8;
+}
+
+.menu-layer-go {
+  flex: 0 0 auto;
 }
 
 .menu-layer--ramps > svg {
   color: #7a5af8;
-}
-
-/* Слой замеров на той же карте: метка слоя, прицел и кнопка замера. */
-.ramps-bar {
-  position: absolute;
-  top: 12px;
-  left: 50%;
-  translate: -50% 0;
-  z-index: 12;
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  padding: 4px 4px 4px 14px;
-  border-radius: 999px;
-  background: #7a5af8;
-  color: #ffffff;
-  font: 600 14px/1 var(--font-family);
-  white-space: nowrap;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
-}
-
-.ramps-bar-label {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.ramps-bar-close {
-  width: 36px;
-  height: 36px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  border: 0;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.2);
-  color: inherit;
-  cursor: pointer;
-}
-
-.ramps-cross {
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  width: 34px;
-  height: 34px;
-  margin: -17px 0 0 -17px;
-  z-index: 11;
-  border: 3px solid #ffffff;
-  border-radius: 50%;
-  background: radial-gradient(circle, #7a5af8 0 5px, rgba(122, 90, 248, 0.18) 6px);
-  box-shadow: 0 0 0 2px #7a5af8, 0 4px 14px rgba(0, 0, 0, 0.28);
-  pointer-events: none;
-}
-
-.ramps-fab {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
-  background: #7a5af8;
-  border-color: #7a5af8;
-}
-
-/* В слое замеров ссылка на замер стоит сразу под статусом места. */
-.sheet-status-line + .sheet-measure-link {
-  margin: 10px 0 14px;
 }
 
 /* Модуль погас: короткая строка поверх карты, карта под ней работает. */
@@ -3108,20 +3060,6 @@ select.nf-input,
   background: transparent;
   color: inherit;
   font: inherit;
-}
-
-/* Мастер замера внутри карты: рамка на весь экран приложения. */
-.zamer-frame {
-  position: absolute;
-  inset: 0;
-  z-index: 400;
-  background: var(--bg-color);
-}
-.zamer-frame-view {
-  display: block;
-  width: 100%;
-  height: 100%;
-  border: 0;
 }
 
 /* iPhone приближает страницу, когда курсор встаёт в поле с буквами мельче 16 px,

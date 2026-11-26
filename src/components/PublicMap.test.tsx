@@ -5,18 +5,6 @@ import { PublicMap } from './PublicMap';
 import type { PublicPlace } from '../services/places';
 import { resetModulesForTests } from '../modules/registry';
 
-// Модуль слоя замеров можно «сломать» из теста: проверяем, что основа это переживает.
-const rampsModule = vi.hoisted(() => ({ broken: false }));
-vi.mock('../modules/ramps/RampsModule', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('../modules/ramps/RampsModule')>();
-  return {
-    default: (props: Parameters<typeof actual.default>[0]) => {
-      if (rampsModule.broken) throw new Error('модуль замеров сломан');
-      return actual.default(props);
-    },
-  };
-});
-
 const mockPlaces: PublicPlace[] = [
   {
     id: 'place-gray',
@@ -197,7 +185,6 @@ describe('PublicMap integration', () => {
 
   afterEach(() => {
     cleanup();
-    rampsModule.broken = false;
     resetModulesForTests();
     window.history.replaceState(null, '', '/');
     vi.restoreAllMocks();
@@ -334,35 +321,21 @@ describe('PublicMap integration', () => {
     expect(screen.getByRole('button', { name: 'Mock publish gray pin' })).toBeTruthy();
   });
 
-  // Карта одна, слоёв два: «Заказать пандус» открывает слой замеров на той же карте.
-  it('switches to the measurements layer from the menu and back', async () => {
+  // Карта и Stopgap — два приложения: карточка меню открывает Stopgap отдельной страницей.
+  it('opens Stopgap as a separate app from the menu card', async () => {
     const user = userEvent.setup();
     await renderLoadedMap();
     await user.click(screen.getByRole('button', { name: /меню/i }));
-    await user.click(screen.getByRole('button', { name: /заказать пандус/i }));
 
-    // Модуль слоя грузится отдельным куском кода, поэтому ждём его появления.
-    expect(await screen.findByText('Слой замеров')).toBeTruthy();
-    expect(screen.getByRole('button', { name: /замерить вход здесь/i })).toBeTruthy();
-    expect(new URLSearchParams(window.location.search).get('layer')).toBe('ramps');
-    // Места те же: карта не подменяется.
-    expect(screen.getByRole('button', { name: 'Кафе Серый' })).toBeTruthy();
-
-    await user.click(screen.getByRole('button', { name: /вернуться к карте доступности/i }));
-    expect(screen.queryByText('Слой замеров')).toBeNull();
-    expect(new URLSearchParams(window.location.search).has('layer')).toBe(false);
-  });
-
-  it('offers the entrance measurement in a place card inside the measurements layer', async () => {
-    const user = userEvent.setup();
-    await renderLoadedMap();
-    await user.click(screen.getByRole('button', { name: /меню/i }));
-    await user.click(screen.getByRole('button', { name: /заказать пандус/i }));
-    await user.click(screen.getByRole('button', { name: 'Кафе Серый' }));
-
-    const link = await screen.findByRole('link', { name: /замерить вход для пандуса/i });
-    expect(new URL(link.getAttribute('href') ?? '').searchParams.get('measure')).toBe('1');
-    window.history.replaceState(null, '', window.location.pathname);
+    const card = screen.getByRole('link', { name: /приставные пандусы/i });
+    const url = new URL(card.getAttribute('href') ?? '');
+    expect(url.origin).toBe('https://goapsny-stopgap.vercel.app');
+    expect(url.searchParams.get('measure')).toBe('1');
+    expect(url.searchParams.get('mode')).toBe('wizard');
+    // Заглушек и слоя замеров в карте больше нет.
+    expect(screen.queryByText(/скоро/i)).toBeNull();
+    expect(screen.queryByText(/вход для волонтёров/i)).toBeNull();
+    expect(screen.queryByRole('button', { name: /замерить вход здесь/i })).toBeNull();
   });
 
   it('reloads places after a successful submit and renders the new gray marker', async () => {
@@ -512,62 +485,19 @@ describe('PublicMap: модули включаются и выключаются
 
   afterEach(() => {
     cleanup();
-    rampsModule.broken = false;
     resetModulesForTests();
     window.history.replaceState(null, '', '/');
     vi.restoreAllMocks();
   });
 
-  it('модуль «пандусы» выключен флагом: слоя нет, вход погашен, карта работает', async () => {
+  it('«пандусы» выключены флагом: карточки в меню нет, карта работает', async () => {
     window.history.replaceState(null, '', '/?modules=-ramps&layer=ramps');
     const user = userEvent.setup();
     await renderLoadedMap();
 
-    expect(screen.queryByText('Слой замеров')).toBeNull();
     expect(screen.getByRole('button', { name: 'Магазин Зелёный' })).toBeTruthy();
-
     await user.click(screen.getByRole('button', { name: /меню/i }));
-    const ramp = screen.getByRole('button', { name: /заказать пандус/i }) as HTMLButtonElement;
-    expect(ramp.disabled).toBe(true);
-    expect(ramp.textContent).toContain('временно недоступно');
-    // Второй модуль от этого не зависит.
+    expect(screen.queryByRole('link', { name: /приставные пандусы/i })).toBeNull();
     expect((screen.getByRole('button', { name: /добавить локацию/i }) as HTMLButtonElement).disabled).toBe(false);
-  });
-
-  it('модуль «пандусы» упал: вместо слоя строка, карта и места на месте', async () => {
-    vi.spyOn(console, 'error').mockImplementation(() => undefined);
-    rampsModule.broken = true;
-    const user = userEvent.setup();
-    await renderLoadedMap();
-    await user.click(screen.getByRole('button', { name: /меню/i }));
-    await user.click(screen.getByRole('button', { name: /заказать пандус/i }));
-
-    expect((await screen.findByRole('alert')).textContent).toContain('временно недоступен');
-    expect(screen.getByRole('button', { name: 'Кафе Серый' })).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Поиск и фильтр' })).toBeTruthy();
-
-    // «Закрыть» возвращает на карту доступности.
-    await user.click(screen.getByRole('button', { name: 'Закрыть' }));
-    expect(screen.queryByRole('alert')).toBeNull();
-    expect(new URLSearchParams(window.location.search).has('layer')).toBe(false);
-  });
-
-  it('после второго падения модуль выключен до конца сессии', async () => {
-    vi.spyOn(console, 'error').mockImplementation(() => undefined);
-    rampsModule.broken = true;
-    const user = userEvent.setup();
-    await renderLoadedMap();
-    for (let i = 0; i < 2; i += 1) {
-      await user.click(screen.getByRole('button', { name: /меню/i }));
-      const ramp = screen.getByRole('button', { name: /заказать пандус/i }) as HTMLButtonElement;
-      if (ramp.disabled) break;
-      await user.click(ramp);
-      if (i === 0) await user.click(await screen.findByRole('button', { name: 'Закрыть' }));
-    }
-    // Второе падение гасит модуль сразу: слой снят, карта открыта.
-    await waitFor(() => expect(screen.queryByRole('alert')).toBeNull());
-    await user.click(screen.getByRole('button', { name: /меню/i }));
-    expect((screen.getByRole('button', { name: /заказать пандус/i }) as HTMLButtonElement).disabled).toBe(true);
-    expect(screen.getByRole('button', { name: 'Кафе Серый' })).toBeTruthy();
   });
 });

@@ -36,8 +36,6 @@ import { getMapperOutbox } from '../services/mapper-outbox';
 import { isSupabaseConfigured } from '../services/supabase';
 import type { Place } from '../types';
 import { MOOD_EVENT, currentMood, currentSkin } from '../utils/skin';
-import { readMapLayer, writeMapLayer, type MapLayer } from '../utils/mapLayer';
-import { stopgapMeasurePointUrl, zamerEmbedUrl } from '../utils/stopgapLink';
 import { canUseLive } from '../services/assistantApi';
 import { BrandMark } from './BrandMark';
 import { ModuleBoundary } from '../modules/ModuleBoundary';
@@ -46,7 +44,6 @@ import type { MapperScreen } from '../modules/mapper/MapperModule';
 
 // Модули грузятся отдельными кусками кода: основа открывается и без них.
 const MapperModule = lazy(() => import('../modules/mapper/MapperModule'));
-const RampsModule = lazy(() => import('../modules/ramps/RampsModule'));
 
 function toMapPlace(place: PublicPlace): Place {
   return {
@@ -107,12 +104,10 @@ export function PublicMap() {
   const [cabinetNote, setCabinetNote] = useState<string | null>(null);
   const [authOpen, setAuthOpen] = useState(false);
   const [addOpen, setAddOpen] = useState(false);
-  // Карта одна, слоёв два: карта доступности и замеры (приставные пандусы).
-  const [storedLayer, setLayer] = useState<MapLayer>(() => readMapLayer());
   // Модули включаются и выключаются флагом (src/modules/registry.ts); выключенный модуль основа не рисует.
   const moduleFlags = useModuleFlags();
+  // «Пандусы» — отдельное приложение Stopgap; флаг гасит ссылки на него.
   const rampsOn = moduleFlags.ramps;
-  const layer: MapLayer = rampsOn ? storedLayer : 'access';
   // Путь картографа (AISP-328) пока открывается адресом ?mapper=1 и только при включённом модуле.
   const mapperEnabled =
     moduleFlags.mapper && typeof window !== 'undefined' && new URLSearchParams(window.location.search).has('mapper');
@@ -366,31 +361,12 @@ export function PublicMap() {
     requestMapperSignIn('flow');
   }, [authEmail, requestMapperSignIn]);
 
-  const switchLayer = useCallback((next: MapLayer) => {
-    setLayer(next);
-    writeMapLayer(next);
-  }, []);
-
-  /** «Добавить локацию» из меню: слой карты доступности и сразу добавление. */
+  /** «Добавить локацию» из меню: сразу добавление. */
   const handleMenuAddLocation = useCallback(() => {
     setMenuOpen(false);
-    switchLayer('access');
     if (mapperEnabled) beginMapperFlow();
     else beginAddFlow();
-  }, [beginAddFlow, beginMapperFlow, mapperEnabled, switchLayer]);
-
-  /** «Заказать пандус» из меню: та же карта, слой замеров. */
-  const handleMenuOrderRamp = useCallback(() => {
-    setMenuOpen(false);
-    setMapperScreen(null);
-    switchLayer('ramps');
-  }, [switchLayer]);
-
-  /** Замер в точке под прицелом: мастер Stopgap с координатами и адресом возврата. */
-  const handleMeasureHere = useCallback(() => {
-    const center = getCenterRef.current?.() ?? null;
-    window.location.assign(stopgapMeasurePointUrl(center, window.location.href));
-  }, []);
+  }, [beginAddFlow, beginMapperFlow, mapperEnabled]);
 
   const handleCabinet = useCallback(() => {
     if (mapperEnabled) {
@@ -514,18 +490,8 @@ export function PublicMap() {
             getCenterRef.current = fn;
           }}
         />
-        {layer === 'ramps' && (
-          <ModuleBoundary id="ramps" title="Заказать пандус" onDismiss={() => switchLayer('access')}>
-            <RampsModule
-              showCross={!selectedPlaceId}
-              wizardUrl={() => zamerEmbedUrl(getCenterRef.current?.() ?? null, livingSkin ? currentMood() : null)}
-              onMeasureOutside={handleMeasureHere}
-              onLeave={() => switchLayer('access')}
-            />
-          </ModuleBoundary>
-        )}
         {/* В живой оболочке объект добавляет центральная кнопка, а число ждущих видно у входа в кабинет. */}
-        {!livingSkin && layer === 'access' && mapperEnabled && !mapperOpen && !dayOpen && !queueOpen && (
+        {!livingSkin && mapperEnabled && !mapperOpen && !dayOpen && !queueOpen && (
           <div className="mapper-fab-row">
             <button type="button" className="mapper-day-btn" onClick={() => setMapperScreen('day')}>
               Сегодня · {dayEntries.length}
@@ -571,8 +537,6 @@ export function PublicMap() {
           open={menuOpen}
           onClose={() => setMenuOpen(false)}
           onAddLocation={handleMenuAddLocation}
-          onOrderRamp={handleMenuOrderRamp}
-          layer={layer}
           rampsAvailable={rampsOn}
           returnFocusRef={menuButtonRef}
         />
@@ -594,8 +558,7 @@ export function PublicMap() {
             closeSheet();
           }}
           onRetry={() => selectedPlaceId && void openPlaceSheet(selectedPlaceId)}
-          showMeasure={rampsOn && (mapperEnabled || layer === 'ramps')}
-          measureFirst={layer === 'ramps'}
+          showMeasure={rampsOn && mapperEnabled}
         />
         <EmailOtpSheet
           // Префикс обязателен: оба счётчика стартуют с нуля, и без него
@@ -619,9 +582,8 @@ export function PublicMap() {
         />
       </main>
 
-      {/* Одна кнопка на карте: она начинает тот же путь, что «Добавить локацию» в меню.
-          В слое замеров её нет: там одно действие, «Замерить вход здесь». */}
-      {livingSkin && layer === 'access' && (
+      {/* Одна кнопка на карте: она начинает тот же путь, что «Добавить локацию» в меню. */}
+      {livingSkin && (
         <button type="button" className="lv-dome" aria-label="Добавить объект" onClick={handleMenuAddLocation}>
           <BrandMark size={34} />
         </button>
