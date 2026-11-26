@@ -18,7 +18,6 @@
  * Everything the mapper path sends is preliminary.
  */
 import type { AccessibilityStatus, RampType, ToiletAccessible } from '../../shared/index';
-import { PLACE_TYPE_NAMES } from '../../shared/index';
 
 export type YesNoUnknown = 'yes' | 'no' | 'unknown';
 
@@ -198,7 +197,24 @@ export function factsFromDraft(draft: EntranceDraft): EntranceFacts {
 }
 
 /**
- * Типы объектов внутри группы: картограф выбирает из них, а не печатает.
- * Список один на всё приложение и равен типам OpenStreetMap: `src/shared/placeTypes.ts`.
+ * Object types inside a category — the mapper picks from these, not types.
+ *
+ * 25.11 the Arbitrator compared the list with the category screen of an
+ * OpenStreetMap app; what was missing there went in as types, the twelve
+ * categories stay: parking, fuel and charging stations, car service and
+ * pier under transport, emergency services under government and health.
  */
-export const SUBTYPES: Record<string, string[]> = PLACE_TYPE_NAMES;
+export const SUBTYPES: Record<string, string[]> = {
+  health: ['Аптека', 'Поликлиника', 'Больница', 'Стоматология', 'Лаборатория', 'Скорая помощь'],
+  food: ['Кафе', 'Ресторан', 'Столовая', 'Кофейня', 'Пекарня'],
+  shops: ['Продукты', 'Супермаркет', 'Одежда', 'Хозяйственный', 'Рынок'],
+  government: ['Администрация', 'МФЦ', 'Суд', 'Паспортный стол', 'Пенсионный фонд', 'Полиция', 'Пожарная часть'],
+  bank_post: ['Банк', 'Банкомат', 'Почта'],
+  education: ['Школа', 'Детский сад', 'Университет', 'Колледж', 'Библиотека'],
+  leisure: ['Театр', 'Музей', 'Кинотеатр', 'Дом культуры', 'Парк'],
+  tourism: ['Памятник', 'Набережная', 'Смотровая площадка', 'Храм'],
+  accommodation: ['Гостиница', 'Гостевой дом', 'Хостел'],
+  public_transport: ['Остановка', 'Автовокзал', 'Вокзал', 'Причал', 'Парковка', 'АЗС', 'Зарядная станция', 'Автосервис'],
+  sport: ['Стадион', 'Спортзал', 'Бассейн'],
+  toilets: ['Общественный туалет'],
+};

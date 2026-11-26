@@ -17,7 +17,6 @@ import {
   type PlaceFilters,
   type PublicPlace,
   type StatusFilter,
-  hasActiveFilters,
 } from '../services/places';
 import type { SubmitPublicPlaceResult } from '../services/submit-place';
 import {
@@ -471,7 +470,7 @@ export function PublicMap() {
           setFiltersOpen(true);
           setMenuOpen(false);
         }}
-        filterActive={hasActiveFilters(filters)}
+        filterActive={filters.query.trim() !== '' || filters.categories.length > 0 || filters.status !== 'all'}
         menuOpen={menuOpen}
         menuButtonRef={menuButtonRef}
         filterButtonRef={filterButtonRef}

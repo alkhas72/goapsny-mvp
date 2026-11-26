@@ -1,5 +1,4 @@
 import type { AccessibilityStatus, RampType, ToiletAccessible, YesNoUnknown } from '../shared/index';
-import { placeTypeByName } from '../shared/index';
 import { getSupabaseClient, isSupabaseConfigured } from './supabase';
 
 export const PLACE_COLUMNS =
@@ -79,32 +78,14 @@ export interface PublicPlace {
   updatedAt: string;
   facadePhotoUrl?: string | null;
   facadePhotoError?: boolean;
-  /** Тип OSM (slug из PLACE_TYPES), если картограф его указал. */
-  placeType?: string | null;
 }
 
 export type StatusFilter = AccessibilityStatus | 'all';
 
 export interface PlaceFilters {
-  /** Группы (slug из CATEGORIES). */
   categories: string[];
-  /** Типы внутри выбранной группы (slug из PLACE_TYPES); пусто — вся группа. */
-  types?: string[];
-  /** Только места, где есть доступный туалет. */
-  accessibleToilet?: boolean;
   status: StatusFilter;
   query: string;
-}
-
-/** Фильтр что-то отбирает: на кнопке с лупой горит точка. */
-export function hasActiveFilters(filters: PlaceFilters): boolean {
-  return (
-    filters.query.trim() !== '' ||
-    filters.categories.length > 0 ||
-    (filters.types?.length ?? 0) > 0 ||
-    filters.accessibleToilet === true ||
-    filters.status !== 'all'
-  );
 }
 
 export function hasSeenWelcome(): boolean {
@@ -149,15 +130,7 @@ export function mapPlaceRow(row: PlaceRow, facadePhotoUrl?: string | null): Publ
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     facadePhotoUrl: facadePhotoUrl ?? null,
-    placeType: placeTypeOfRow(row),
   };
-}
-
-/** Тип места: картограф пишет его названием в `details.mapper.subtype`. */
-function placeTypeOfRow(row: PlaceRow): string | null {
-  const mapper = (row.details as { mapper?: { subtype?: unknown } } | null)?.mapper;
-  const name = typeof mapper?.subtype === 'string' ? mapper.subtype : null;
-  return placeTypeByName(name)?.slug ?? null;
 }
 
 export function isPartialPlace(place: PublicPlace): boolean {
@@ -216,12 +189,9 @@ export function upsertPublicPlace(places: PublicPlace[], place: PublicPlace): Pu
 
 export function applyPlaceFilters(places: PublicPlace[], filters: PlaceFilters): PublicPlace[] {
   const query = filters.query.trim().toLowerCase();
-  const types = filters.types ?? [];
   return places.filter((place) => {
     if (filters.status !== 'all' && place.status !== filters.status) return false;
     if (filters.categories.length > 0 && !filters.categories.includes(place.category)) return false;
-    if (types.length > 0 && !(place.placeType && types.includes(place.placeType))) return false;
-    if (filters.accessibleToilet && place.toiletAccessible !== 'yes') return false;
     if (!query) return true;
     const haystack = [
       place.name,

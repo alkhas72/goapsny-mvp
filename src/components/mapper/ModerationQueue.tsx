@@ -1,7 +1,7 @@
 import { ArrowLeft, Check, ChevronLeft, ChevronRight, X } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { categoryName, type RampType, type YesNoUnknown } from '../../shared/index';
+import { CATEGORIES, type RampType, type YesNoUnknown } from '../../shared/index';
 import {
   fetchModerationQueue,
   moderatePlace,
@@ -145,7 +145,7 @@ export function ModerationQueue({
     [busy, card, cards, decide, onChanged],
   );
 
-  const category = card ? categoryName(card.place.category) : '';
+  const category = card ? (CATEGORIES.find((c) => c.slug === card.place.category)?.ru ?? card.place.category) : '';
 
   return createPortal(
     <div className="nf-screen" role="dialog" aria-modal="true" aria-label="Очередь проверки">

@@ -795,44 +795,6 @@
   color: var(--ink);
 }
 
-/* Типы внутри выбранной группы: светлая подложка отделяет второй уровень. */
-[data-skin='living'] .filter-types {
-  margin-top: 12px;
-  padding: 12px;
-  border: 0;
-  border-radius: 20px;
-  background: color-mix(in srgb, var(--lime) 30%, transparent);
-}
-
-[data-skin='living'][data-mood='night'] .filter-types {
-  background: rgba(232, 241, 235, 0.08);
-}
-
-[data-skin='living'] .filter-types-row {
-  gap: 7px;
-}
-
-[data-skin='living'] .filter-type-chip {
-  min-height: 0;
-  padding: 8px 14px;
-  border: 0;
-  border-radius: 999px;
-  background: var(--bg-color);
-  font-size: 13px;
-  white-space: nowrap;
-}
-
-[data-skin='living'] .filter-type-chip.active {
-  background: var(--ink);
-  color: #ffffff;
-  font-weight: 400;
-}
-
-[data-skin='living'][data-mood='night'] .filter-type-chip.active {
-  background: var(--lime);
-  color: var(--ink);
-}
-
 [data-skin='living'] .bottom-sheet {
   border-top: 0;
   border-radius: 28px 28px 0 0;
@@ -1745,11 +1707,4 @@
 [data-skin='living'] .public-map-shell:has(.overlay-scrim, .bottom-sheet) > .lv-dome,
 [data-skin='living'] .public-map-shell:has(.overlay-scrim, .bottom-sheet) > .public-bottom-rail {
   visibility: hidden;
-}
-
-/* Переключатель удобств стоит сразу под статусами, без второй черты. */
-[data-skin='living'] .filter-amenity-row {
-  margin-top: 7px;
-  padding-top: 0;
-  border-top: 0;
 }

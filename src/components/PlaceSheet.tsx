@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef } from 'react';
 import { X, ChevronDown, ChevronRight, Ruler } from 'lucide-react';
-import { PLACE_TYPES, categoryName } from '../shared/index';
+import { CATEGORIES } from '../shared/index';
 import type { PublicPlace } from '../services/places';
 import { hasPortableRamp, isPartialPlace, rampLabel } from '../services/places';
 import { RAMP_COLOR, statusColor, statusLabel } from '../utils/status';
@@ -20,10 +20,8 @@ interface PlaceSheetProps {
   showMeasure?: boolean;
 }
 
-/** «Аптека · Здоровье», если тип известен; иначе только группа. */
-function categoryLabel(slug: string, typeSlug?: string | null): string {
-  const type = typeSlug ? PLACE_TYPES.find((item) => item.slug === typeSlug) : undefined;
-  return type ? `${type.ru} · ${categoryName(slug)}` : categoryName(slug);
+function categoryLabel(slug: string): string {
+  return CATEGORIES.find((item) => item.slug === slug)?.ru ?? slug;
 }
 
 function formatVerifiedAt(value?: string): string {
@@ -129,7 +127,7 @@ export function PlaceSheet({
               />
               <div>
                 <h3 className="sheet-title">{place.name}</h3>
-                <div className="sheet-meta">{categoryLabel(place.category, place.placeType)}</div>
+                <div className="sheet-meta">{categoryLabel(place.category)}</div>
               </div>
             </div>
           </div>
