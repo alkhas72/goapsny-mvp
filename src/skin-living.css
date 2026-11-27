@@ -99,6 +99,9 @@
   border: 0;
   color: var(--stage-ink);
   overflow: hidden;
+  /* Световые пятна выходят за край экрана. При hidden оболочку всё ещё можно
+     прокрутить изнутри, и шапка уезжала вверх на 106 px; clip прокрутки не даёт. */
+  overflow: clip;
   transition: background 0.5s ease;
 }
 
@@ -129,6 +132,27 @@
   left: -90px;
   background: var(--orchid);
   animation-delay: -5s;
+}
+
+/* На телефоне экран продолжается под полосами браузера (часы сверху, адрес
+   снизу), и они красятся в крайние цвета фона. Пятна там стоят целиком внутри
+   экрана и гаснут до его краёв: подложка читается одной картинкой, без шва. */
+@media (max-width: 540px) {
+  [data-skin='living'] .app-shell::before,
+  [data-skin='living'] .app-shell::after {
+    filter: none;
+    opacity: 0.8;
+  }
+
+  [data-skin='living'] .app-shell::before {
+    top: 18px;
+    background: radial-gradient(closest-side, var(--lime), transparent);
+  }
+
+  [data-skin='living'] .app-shell::after {
+    bottom: 18px;
+    background: radial-gradient(closest-side, var(--orchid), transparent);
+  }
 }
 
 [data-skin='living'][data-mood='night'] .app-shell::before,
@@ -367,32 +391,35 @@
   animation: lvRise 0.34s var(--spring) both;
 }
 
-/* Раскрытая панель стоит двумя столбцами у верха карты: освещение слева,
-   цвет и объём под кнопкой. Так она не доходит до кнопок масштаба. */
-[data-skin='living'] .map-view-controls.is-open {
-  display: grid;
-  grid-template-columns: 44px 44px;
-  grid-template-areas:
-    'light toggle'
-    'light palette'
-    'light volume';
-  align-items: start;
-}
+/* Раскрытая панель идёт одной рельсой вниз под кнопкой: цвет карты, объём,
+   освещение. Два столбца остаются только на очень низком экране, где рельса
+   дошла бы до кнопок масштаба. */
+@media (max-height: 599px) {
+  [data-skin='living'] .map-view-controls.is-open {
+    display: grid;
+    grid-template-columns: 44px 44px;
+    grid-template-areas:
+      'light toggle'
+      'light palette'
+      'light volume';
+    align-items: start;
+  }
 
-[data-skin='living'] .map-view-controls.is-open > :nth-child(1) {
-  grid-area: toggle;
-}
+  [data-skin='living'] .map-view-controls.is-open > :nth-child(1) {
+    grid-area: toggle;
+  }
 
-[data-skin='living'] .map-view-controls.is-open > :nth-child(2) {
-  grid-area: palette;
-}
+  [data-skin='living'] .map-view-controls.is-open > :nth-child(2) {
+    grid-area: palette;
+  }
 
-[data-skin='living'] .map-view-controls.is-open > :nth-child(3) {
-  grid-area: volume;
-}
+  [data-skin='living'] .map-view-controls.is-open > :nth-child(3) {
+    grid-area: volume;
+  }
 
-[data-skin='living'] .map-view-controls.is-open > :nth-child(4) {
-  grid-area: light;
+  [data-skin='living'] .map-view-controls.is-open > :nth-child(4) {
+    grid-area: light;
+  }
 }
 
 [data-skin='living'] .map-pin-wrapper {
@@ -427,11 +454,17 @@
   background: var(--lime);
 }
 
+/* Ряд действия слоя стоит правее круглой кнопки «Кабинет». */
 [data-skin='living'] .mapper-fab-row {
-  left: 14px;
+  left: 78px;
   right: 14px;
   bottom: 18px;
   gap: 10px;
+}
+
+/* Подпись карты поднята над кнопкой «Кабинет». */
+[data-skin='living'] .maplibregl-ctrl-bottom-left {
+  bottom: 76px;
 }
 
 [data-skin='living'] .public-map-main:has(.mapper-fab-row) .gps-locate-btn {
@@ -487,45 +520,60 @@
 
 /* ── 5. Нижняя полка и место ассистента ──────────────────────────────── */
 
+/* Полки внизу нет (решение Арбитра 25.11): карта доходит до низа экрана, поверх
+   неё слева круглая кнопка «Кабинет», по центру кнопка добавления. Ссылки в меню. */
+[data-skin='living'] .public-map-main {
+  margin-bottom: calc(10px + env(safe-area-inset-bottom, 0px));
+}
+
 [data-skin='living'] .public-bottom-rail {
-  position: relative;
-  z-index: 2;
-  grid-template-columns: 1fr 1fr 76px 1.15fr 1fr;
-  gap: 6px;
-  min-height: 82px;
-  padding: 18px 12px calc(14px + env(safe-area-inset-bottom, 0px));
+  position: absolute;
+  left: 24px;
+  bottom: calc(28px + env(safe-area-inset-bottom, 0px));
+  z-index: 3;
+  display: block;
+  min-height: 0;
+  padding: 0;
   border-top: 0;
   background: transparent;
 }
 
-[data-skin='living'] .public-bottom-rail > :nth-child(3) {
-  grid-column: 4;
-}
-
-[data-skin='living'] .public-bottom-rail > :nth-child(4) {
-  grid-column: 5;
-}
-
-[data-skin='living'] .footer-link,
 [data-skin='living'] .footer-cabinet-btn {
+  width: 52px;
+  height: 52px;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.94);
+  color: var(--ink);
+  box-shadow: 0 12px 26px rgba(22, 24, 23, 0.2);
+}
+
+[data-skin='living'][data-mood='night'] .footer-cabinet-btn {
+  background: rgba(30, 44, 38, 0.94);
+  color: #ffffff;
+}
+
+/* Подпись читает экранный диктор, на кнопке остаётся значок. */
+[data-skin='living'] .footer-cabinet-text {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+[data-skin='living'] .menu-ext-link {
   border: 0;
   border-radius: 999px;
-  font-size: 11.5px;
-  font-weight: 500;
-  background: var(--stage-glass);
-  color: var(--stage-ink);
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
+  background: rgba(22, 24, 23, 0.06);
+  color: inherit;
 }
 
-[data-skin='living'] .footer-link--disabled {
-  opacity: 0.6;
-}
-
-[data-skin='living'] .footer-cabinet-btn {
-  background: var(--stage-pill-bg);
-  color: #ffffff;
-  font-weight: 600;
+[data-skin='living'][data-mood='night'] .menu-ext-link {
+  background: rgba(255, 255, 255, 0.12);
 }
 
 .lv-dome {
@@ -535,7 +583,7 @@
 [data-skin='living'] .lv-dome {
   position: absolute;
   left: 50%;
-  bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+  bottom: calc(26px + env(safe-area-inset-bottom, 0px));
   z-index: 3;
   width: 64px;
   height: 64px;
@@ -608,7 +656,7 @@
   color: var(--ink);
 }
 
-/* Два главных входа в меню: карта доступности и слой замеров. */
+/* Меню: добавить место и карточка отдельного приложения Stopgap. */
 [data-skin='living'] .menu-layer {
   min-height: 60px;
   padding: 12px 16px;
@@ -634,21 +682,6 @@
 
 [data-skin='living'] .menu-layer--ramps > svg {
   color: inherit;
-}
-
-/* Слой замеров: метка наверху карты и кнопка замера. */
-[data-skin='living'] .ramps-bar {
-  top: 14px;
-  background: var(--ramp);
-  font-weight: 500;
-  box-shadow: 0 12px 26px rgba(22, 24, 23, 0.2);
-  animation: lvRise 0.42s var(--spring) both;
-}
-
-[data-skin='living'] .ramps-fab {
-  flex: 1;
-  background: var(--ramp);
-  color: #ffffff;
 }
 
 /* Строка «Фон» в меню: выбор цвета оболочки в самом приложении. */
@@ -1573,12 +1606,16 @@
     background: rgba(255, 255, 255, 0.32);
   }
 
+  [data-skin='living']:not([data-shell='full']) .public-map-main {
+    margin-bottom: 22px;
+  }
+
   [data-skin='living']:not([data-shell='full']) .public-bottom-rail {
-    padding-bottom: 26px;
+    bottom: 40px;
   }
 
   [data-skin='living']:not([data-shell='full']) .lv-dome {
-    bottom: 24px;
+    bottom: 38px;
   }
 
   /* «Во весь экран»: приложение занимает окно, сцена и корпус уходят. */
@@ -1599,7 +1636,8 @@
   [data-skin='living'][data-shell='full'] .lv-dock {
     top: 13px;
     left: auto;
-    right: 74px;
+    /* Правее стоят две круглые кнопки шапки: поиск и меню. */
+    right: 126px;
   }
 
   [data-skin='living'][data-shell='full'] .lv-moods {
@@ -1608,11 +1646,6 @@
   }
 
   /* На широком окне нижний ряд и кнопки картографа не растягиваются на всю ширину. */
-  [data-skin='living'][data-shell='full'] .public-bottom-rail {
-    width: min(100%, 620px);
-    margin-inline: auto;
-  }
-
   [data-skin='living'][data-shell='full'] .welcome-screen > * {
     width: min(100%, 460px);
     margin-inline: auto;
@@ -1668,4 +1701,240 @@
 
 :root[data-skin='living'][data-mood='night'] .ai-mark {
   color: var(--lime);
+}
+
+/* Открытая шторка или окно поверх карты: круглые кнопки низа не лежат на её содержимом. */
+[data-skin='living'] .public-map-shell:has(.overlay-scrim, .bottom-sheet) > .lv-dome,
+[data-skin='living'] .public-map-shell:has(.overlay-scrim, .bottom-sheet) > .public-bottom-rail {
+  visibility: hidden;
+}
+
+/* ── 12. Карта во весь экран (решение Арбитра 26.11) ───────────────────
+   Карта основа: от края до края, без рамки и цветного поля вокруг. Название,
+   поиск, меню, панель вида, «Кабинет» и кнопка добавления лежат слоями поверх. */
+
+[data-skin='living'] {
+  --map-edge: #e7e6e9;
+}
+
+[data-skin='living'][data-mood='night'] {
+  --map-edge: #2a2a2c;
+}
+
+[data-skin='living'] .public-map-shell {
+  position: relative;
+  --lv-head: calc(66px + env(safe-area-inset-top, 0px));
+}
+
+[data-skin='living'] .public-map-header {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  pointer-events: none;
+}
+
+[data-skin='living'] .public-top-rail {
+  min-height: 0;
+  padding: calc(10px + env(safe-area-inset-top, 0px)) 14px 0;
+}
+
+[data-skin='living'] .public-top-rail > * {
+  pointer-events: auto;
+}
+
+/* Слева один кружок: знак по центру, мерцающая точка в колесе. Название
+   выезжает из кружка по нажатию или наведению и убирается само (слово
+   Алхаса 27.11). */
+[data-skin='living'] .public-top-rail .logo-container {
+  justify-self: start;
+  height: 44px;
+  min-width: 44px;
+  padding: 0 11px;
+  gap: 0;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.86);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  box-shadow: 0 8px 22px rgba(22, 24, 23, 0.14);
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+[data-skin='living'] .public-top-rail .logo-container > div {
+  position: relative;
+  align-self: center;
+  flex: 0 0 auto;
+  height: 22px !important;
+  transform: none;
+}
+
+[data-skin='living'] .public-top-rail .logo-container .app-title {
+  align-self: center;
+  max-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  opacity: 0;
+  line-height: 44px;
+  transition: max-width 0.28s ease, opacity 0.2s ease, padding 0.28s ease;
+}
+
+[data-skin='living'] .public-top-rail .logo-container.is-open .app-title,
+[data-skin='living'] .public-top-rail .logo-container:focus-visible .app-title {
+  max-width: 120px;
+  padding: 0 5px 0 9px;
+  opacity: 1;
+}
+
+@media (hover: hover) {
+  [data-skin='living'] .public-top-rail .logo-container:hover .app-title {
+    max-width: 120px;
+    padding: 0 5px 0 9px;
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-skin='living'] .public-top-rail .logo-container .app-title { transition: none; }
+}
+
+[data-skin='living'] .public-top-rail .logo-container,
+[data-skin='living'] .public-top-rail .app-title,
+[data-skin='living'] .public-top-rail .logo-container > div {
+  color: var(--ink) !important;
+}
+
+[data-skin='living'] .public-top-rail .icon-btn {
+  width: 44px;
+  height: 44px;
+  background: rgba(255, 255, 255, 0.86);
+  color: var(--ink);
+  box-shadow: 0 8px 22px rgba(22, 24, 23, 0.14);
+}
+
+[data-skin='living'][data-mood='night'] .public-top-rail .logo-container,
+[data-skin='living'][data-mood='night'] .public-top-rail .icon-btn {
+  background: rgba(22, 33, 27, 0.86);
+}
+
+[data-skin='living'][data-mood='night'] .public-top-rail .logo-container,
+[data-skin='living'][data-mood='night'] .public-top-rail .app-title,
+[data-skin='living'][data-mood='night'] .public-top-rail .logo-container > div,
+[data-skin='living'][data-mood='night'] .public-top-rail .icon-btn {
+  color: #e8f1eb !important;
+}
+
+[data-skin='living'] .public-map-main {
+  margin: 0;
+  border-radius: 0;
+  box-shadow: none;
+  background: var(--map-edge);
+}
+
+/* Панель вида карты встаёт столбиком под кнопкой меню. */
+[data-skin='living'] .map-view-controls {
+  top: var(--lv-head);
+  right: 14px;
+}
+
+/* Меню и шторки открываются ниже шапки: кнопки шапки остаются на виду. */
+[data-skin='living'] .public-map-main > .overlay-scrim {
+  padding-top: var(--lv-head);
+}
+
+@media (max-width: 540px) {
+  :root[data-skin='living'][data-screen='map'],
+  [data-skin='living'][data-screen='map'] body {
+    background: var(--map-edge);
+  }
+
+  [data-skin='living'][data-screen='map'] .lv-edge {
+    background-color: var(--map-edge);
+  }
+}
+
+@media (min-width: 541px) {
+  [data-skin='living']:not([data-shell='full']) .public-map-shell {
+    --lv-head: 96px;
+  }
+
+  [data-skin='living']:not([data-shell='full']) .public-top-rail {
+    padding-top: 40px;
+  }
+
+  [data-skin='living']:not([data-shell='full']) .public-map-main {
+    margin-bottom: 0;
+  }
+}
+
+/* ── 13. Кружки карты в цвете настроения (?tint=mix три цвета, ?tint=white белые) ──
+   Цветная рамка вокруг карты ушла; её цвета переходят на кнопки. Ночью
+   кнопки остаются тёмными. Жёлтая кнопка добавления не меняется. */
+[data-skin='living'][data-tint]:not([data-mood='night']) {
+  --tint-a: color-mix(in srgb, var(--stage-top) 88%, #ffffff);
+  --tint-b: var(--tint-a);
+  --tint-c: var(--tint-a);
+}
+
+[data-skin='living'][data-tint='mix']:not([data-mood='night']) {
+  --tint-a: #c9e6d3;
+  --tint-b: #f1f6a6;
+  --tint-c: #f6cde6;
+}
+
+[data-skin='living'][data-tint]:not([data-mood='night']) .public-top-rail .logo-container,
+[data-skin='living'][data-tint]:not([data-mood='night']) .map-view-toggle:not([aria-expanded='true']),
+[data-skin='living'][data-tint]:not([data-mood='night']) .gps-locate-btn:not(.is-active) {
+  background: var(--tint-a);
+}
+
+[data-skin='living'][data-tint]:not([data-mood='night']) .public-top-rail .public-search-btn {
+  background: var(--tint-b);
+}
+
+[data-skin='living'][data-tint]:not([data-mood='night']) .public-top-rail .icon-btn:not(.public-search-btn),
+[data-skin='living'][data-tint]:not([data-mood='night']) .footer-cabinet-btn {
+  background: var(--tint-c);
+}
+
+/* ── 14. Правки после кросс-аудита среза 1 (Antigravity, 27.11) ────────── */
+/* Карточка меню по высоте содержимого, без пустого поля снизу. */
+[data-skin='living'] .menu-scrim {
+  align-items: flex-start;
+}
+
+/* «Моё местоположение» на одной линии с «Кабинетом». */
+[data-skin='living'] .gps-locate-btn {
+  bottom: calc(28px + env(safe-area-inset-bottom, 0px));
+}
+
+/* Ночью кнопки карты тёмные, как остальные. */
+[data-skin='living'][data-mood='night'] .gps-locate-btn:not(.is-active),
+[data-skin='living'][data-mood='night'] .maplibregl-ctrl-group,
+[data-skin='living'][data-mood='night'] .maplibregl-ctrl-attrib {
+  background: rgba(30, 44, 38, 0.94);
+  color: #e8f1eb;
+}
+
+[data-skin='living'][data-mood='night'] .maplibregl-ctrl-group button + button {
+  border-top-color: rgba(255, 255, 255, 0.16);
+}
+
+[data-skin='living'][data-mood='night'] .maplibregl-ctrl-group button .maplibregl-ctrl-icon,
+[data-skin='living'][data-mood='night'] .maplibregl-ctrl-attrib-button {
+  filter: invert(1);
+}
+
+/* Все кружки на карте одного размера (слово Алхаса 27.11): 44 px. Крупнее
+   остаётся только жёлтая кнопка добавления. */
+[data-skin='living'] .footer-cabinet-btn,
+[data-skin='living'] .gps-locate-btn {
+  width: 44px;
+  height: 44px;
+  box-shadow: 0 8px 22px rgba(22, 24, 23, 0.14);
+}
+
+[data-skin='living'] .public-bottom-rail {
+  left: 14px;
 }

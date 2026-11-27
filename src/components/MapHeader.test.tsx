@@ -29,7 +29,8 @@ describe('MapHeader: поиск свёрнут в кнопку рядом с м�
 
     expect(screen.queryByText('Улица или название…')).toBeNull();
     expect(screen.queryByRole('textbox')).toBeNull();
-    const [search, menu] = screen.getAllByRole('button');
+    const [logo, search, menu] = screen.getAllByRole('button');
+    expect(logo.getAttribute('aria-label')).toBe('GoApsny');
     expect(search.getAttribute('aria-label')).toBe('Поиск и фильтр');
     expect(menu.getAttribute('aria-label')).toBe('Меню');
     expect(search.className).toContain('icon-btn');
@@ -37,6 +38,17 @@ describe('MapHeader: поиск свёрнут в кнопку рядом с м�
     await user.click(search);
     expect(onOpenFilters).toHaveBeenCalledTimes(1);
     expect(onOpenMenu).not.toHaveBeenCalled();
+  });
+
+  it('знак слева один: название выезжает по нажатию', async () => {
+    const user = userEvent.setup();
+    setup();
+    const logo = screen.getByRole('button', { name: 'GoApsny' });
+    expect(logo.className).not.toContain('is-open');
+    await user.click(logo);
+    expect(logo.className).toContain('is-open');
+    await user.click(logo);
+    expect(logo.className).not.toContain('is-open');
   });
 
   it('когда поиск или фильтр что-то отбирают, на кнопке горит точка', () => {

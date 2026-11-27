@@ -22,6 +22,11 @@ describe('MapFooter: вход в кабинет', () => {
     expect(onCabinet).toHaveBeenCalledTimes(1);
   });
 
+  it('внешних ссылок на карте нет: они живут в меню', () => {
+    render(<MapFooter onCabinet={vi.fn()} />);
+    expect(screen.queryByRole('link')).toBeNull();
+  });
+
   it('большое число не ломает кружок', () => {
     render(<MapFooter onCabinet={vi.fn()} waiting={140} />);
     expect(screen.getByRole('button', { name: 'Кабинет, ждут: 140' }).textContent).toContain('99+');

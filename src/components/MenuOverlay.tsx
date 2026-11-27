@@ -1,26 +1,26 @@
 import { useEffect, useRef, type RefObject } from 'react';
-import { MapPinPlus, Ruler, X } from 'lucide-react';
+import { ChevronRight, MapPinPlus, Ruler, X } from 'lucide-react';
 import { trapFocus } from '../utils/focusTrap';
-import type { MapLayer } from '../utils/mapLayer';
 import { currentSkin } from '../utils/skin';
 import { MOOD_META, useMood } from '../utils/useMood';
 import { MoodPicker } from './MoodPicker';
+import { InstagramIcon, TelegramIcon } from './projectLinks';
+import { PROJECT_LINKS } from '../utils/projectLinks';
+import { stopgapAppUrl } from '../utils/stopgapLink';
 
 interface MenuOverlayProps {
   open: boolean;
   onClose: () => void;
   onAddLocation: () => void;
-  /** Вход в слой замеров: та же карта, но с замером входа и заявкой на пандус. */
-  onOrderRamp: () => void;
-  /** Какой слой карты сейчас открыт. */
-  layer?: MapLayer;
+  /** Ссылка на Stopgap включена флагом; выключенная карточка в меню не показана. */
+  rampsAvailable?: boolean;
   returnFocusRef?: RefObject<HTMLElement | null>;
 }
 
-const MENU_ITEMS = [
-  { id: 'community', label: 'Сообщество' },
-  { id: 'news', label: 'Новости' },
-] as const;
+/** Куда Stopgap возвращает человека: на карту, без случайных параметров адреса. */
+function returnHome(): string {
+  return new URL('/', window.location.href).toString();
+}
 
 /** Строка меню «Фон»: выбор цвета оболочки прямо в приложении (только в новом виде). */
 function MenuMoodRow() {
@@ -39,8 +39,7 @@ export function MenuOverlay({
   open,
   onClose,
   onAddLocation,
-  onOrderRamp,
-  layer = 'access',
+  rampsAvailable = true,
   returnFocusRef,
 }: MenuOverlayProps) {
   const panelRef = useRef<HTMLElement | null>(null);
@@ -85,43 +84,57 @@ export function MenuOverlay({
           </button>
         </div>
         <ul className="menu-list">
-          {/* Два главных входа: карта одна, слои разные. */}
           <li>
-            <button
-              type="button"
-              className="menu-link menu-link--primary menu-layer menu-layer--access"
-              aria-current={layer === 'access' ? 'true' : undefined}
-              onClick={onAddLocation}
-            >
+            <button type="button" className="menu-link menu-link--primary menu-layer menu-layer--access" onClick={onAddLocation}>
               <MapPinPlus size={22} aria-hidden="true" />
               <span className="menu-layer-text">Добавить локацию</span>
             </button>
           </li>
-          <li>
-            <button
-              type="button"
-              className="menu-link menu-layer menu-layer--ramps"
-              aria-current={layer === 'ramps' ? 'true' : undefined}
-              onClick={onOrderRamp}
-            >
-              <Ruler size={22} aria-hidden="true" />
-              <span className="menu-layer-text">Заказать пандус</span>
-            </button>
-          </li>
-          {MENU_ITEMS.map((item) => (
-            <li key={item.id}>
-              <button type="button" className="menu-link menu-link--disabled" disabled aria-disabled="true">
-                {item.label} <span className="menu-soon">(скоро)</span>
-              </button>
+          {/* Stopgap — отдельное приложение: карточка открывает его своей страницей (решение Арбитра 26.11). */}
+          {rampsAvailable && (
+            <li>
+              <a className="menu-link menu-layer menu-layer--ramps" href={stopgapAppUrl(returnHome())}>
+                <Ruler size={22} aria-hidden="true" />
+                <span className="menu-layer-text">
+                  Приставные пандусы
+                  <span className="menu-layer-note">Замер входа и заявка. Отдельное приложение</span>
+                </span>
+                <ChevronRight size={20} aria-hidden="true" className="menu-layer-go" />
+              </a>
             </li>
-          ))}
+          )}
           {currentSkin() === 'living' && (
             <li>
               <MenuMoodRow />
             </li>
           )}
+          {/* Внешние ссылки проекта: с карты они убраны сюда (решение Арбитра 25.11). */}
           <li>
-            <span className="menu-muted">Вход для волонтёров — Telegram</span>
+            <div className="menu-links-row" role="group" aria-label="GoApsny в сети">
+              <a
+                className="menu-ext-link"
+                href={PROJECT_LINKS.instagram}
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label="Instagram GoApsny"
+              >
+                <InstagramIcon />
+                <span>Instagram</span>
+              </a>
+              <a
+                className="menu-ext-link"
+                href={PROJECT_LINKS.telegram}
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label="Telegram GoApsny"
+              >
+                <TelegramIcon />
+                <span>Telegram</span>
+              </a>
+              <a className="menu-ext-link" href={PROJECT_LINKS.site} target="_blank" rel="noopener noreferrer">
+                <span>Сайт</span>
+              </a>
+            </div>
           </li>
         </ul>
       </nav>

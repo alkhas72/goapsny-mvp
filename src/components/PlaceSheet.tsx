@@ -18,8 +18,6 @@ interface PlaceSheetProps {
   onRetry?: () => void;
   /** Путь картографа: показать переход к замеру входа в Stopgap. */
   showMeasure?: boolean;
-  /** Слой замеров: замер тут главное действие, ссылка стоит сразу под статусом. */
-  measureFirst?: boolean;
 }
 
 function categoryLabel(slug: string): string {
@@ -41,7 +39,6 @@ export function PlaceSheet({
   onClose,
   onRetry,
   showMeasure = false,
-  measureFirst = false,
 }: PlaceSheetProps) {
   const sheetRef = useRef<HTMLElement | null>(null);
   const closeButtonRef = useRef<HTMLButtonElement>(null);
@@ -140,7 +137,6 @@ export function PlaceSheet({
             <span>{statusLabel(place.status)}</span>
           </p>
 
-          {measureFirst && measureLink}
 
           {place.status === 'gray' && (
             <p className="sheet-gray-note">Предварительно, ожидает проверки сообщества</p>
@@ -210,7 +206,7 @@ export function PlaceSheet({
 
           {place.comment && <p className="sheet-comment">{place.comment}</p>}
 
-          {!measureFirst && measureLink}
+          {measureLink}
         </>
       )}
     </article>

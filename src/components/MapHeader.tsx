@@ -1,5 +1,5 @@
 import { Menu, Search } from 'lucide-react';
-import { useLayoutEffect, useRef } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import type { RefObject } from 'react';
 import { BrandMark } from './BrandMark';
 
@@ -21,7 +21,15 @@ export function MapHeader({
   menuButtonRef,
   filterButtonRef,
 }: MapHeaderProps) {
-  const logoRef = useRef<HTMLDivElement | null>(null);
+  const logoRef = useRef<HTMLButtonElement | null>(null);
+  // В новом облике слева один кружок со знаком; название выезжает по нажатию
+  // (на компьютере и по наведению) и через несколько секунд убирается само.
+  const [titleOpen, setTitleOpen] = useState(false);
+  useEffect(() => {
+    if (!titleOpen) return;
+    const timer = window.setTimeout(() => setTitleOpen(false), 3200);
+    return () => window.clearTimeout(timer);
+  }, [titleOpen]);
   const titleRef = useRef<HTMLSpanElement | null>(null);
 
   // Знак в шапке должен стоять ровно в границах надписи: от верха букв до низа
@@ -56,12 +64,18 @@ export function MapHeader({
   return (
     <header className="public-map-header">
       <div className="public-top-rail">
-        <div ref={logoRef} className="logo-container" aria-label="GoApsny">
+        <button
+          ref={logoRef}
+          type="button"
+          className={`logo-container${titleOpen ? ' is-open' : ''}`}
+          aria-label="GoApsny"
+          onClick={() => setTitleOpen((open) => !open)}
+        >
           <div style={{ width: 24, height: 24, color: 'var(--accent)' }}>
             <BrandMark className="logo-svg" />
           </div>
           <span ref={titleRef} className="app-title">GoApsny</span>
-        </div>
+        </button>
         {/* Поиск свёрнут в кнопку рядом с меню (слово Алхаса 25.11): строка поиска
             открывается по нажатию и не занимает экран карты. */}
         <button

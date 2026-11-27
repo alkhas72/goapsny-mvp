@@ -8,7 +8,6 @@
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "test": "vitest run",
-    "test:zamer": "node --test tests/zamer/*.test.mjs",
     "smoke": "node scripts/smoke-public.mjs",
     "smoke:setup": "node scripts/setup-test-fixtures.mjs",
     "smoke:gate-offline": "node scripts/test-db-gate-offline.mjs",

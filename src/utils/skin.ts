@@ -73,7 +73,25 @@ const MOOD_TOP_COLOR: Record<Mood, string> = {
  */
 function syncThemeColor(mood: Mood): void {
   if (!window.matchMedia?.('(max-width: 540px)').matches) return;
-  document.querySelector('meta[name="theme-color"]')?.setAttribute('content', MOOD_TOP_COLOR[mood]);
+  const onMap = document.documentElement.dataset.screen === 'map';
+  const color = onMap ? MAP_EDGE_COLOR[mood === 'night' ? 'night' : 'day'] : MOOD_TOP_COLOR[mood];
+  document.querySelector('meta[name="theme-color"]')?.setAttribute('content', color);
+}
+
+/**
+ * Цвет полос браузера на экране карты (как `--map-edge` в skin-living.css):
+ * нейтральный цвет суши. Карта занимает весь экран, цветного фона вокруг неё нет.
+ */
+const MAP_EDGE_COLOR = { day: '#e7e6e9', night: '#2a2a2c' } as const;
+
+/**
+ * Экран карты открыт или закрыт. На карте полосы браузера берут цвет карты,
+ * на остальных экранах (приветствие, «Новый объект») цвет оболочки.
+ */
+export function setMapScreen(on: boolean): void {
+  if (on) document.documentElement.dataset.screen = 'map';
+  else delete document.documentElement.dataset.screen;
+  syncThemeColor(currentMood());
 }
 
 export function setMood(mood: Mood): void {
@@ -109,5 +127,10 @@ export function initSkin(): Skin {
   document.documentElement.dataset.mood = mood;
   syncThemeColor(mood);
   if (read(SHELL_KEY) === 'full') document.documentElement.dataset.shell = 'full';
+  // Кружки поверх карты окрашены в цвет настроения (слово Алхаса 27.11).
+  // Адресом можно сравнить: ?tint=mix три цвета, ?tint=white белые.
+  const tint = new URLSearchParams(window.location.search).get('tint');
+  if (tint === 'white') delete document.documentElement.dataset.tint;
+  else document.documentElement.dataset.tint = tint === 'mix' ? 'mix' : 'mood';
   return skin;
 }

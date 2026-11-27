@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { STOPGAP_URL, stopgapMeasurePointUrl, stopgapMeasureUrl } from './stopgapLink';
+import { STOPGAP_URL, stopgapAppUrl, stopgapMeasureUrl } from './stopgapLink';
 
 const PLACE = {
   id: '11111111-1111-4111-8111-111111111111',
@@ -33,38 +33,25 @@ describe('stopgapMeasureUrl', () => {
   });
 });
 
-describe('stopgapMeasurePointUrl', () => {
-  it('замер в точке карты: координаты и возврат, без места', () => {
-    const url = new URL(
-      stopgapMeasurePointUrl(
-        { lat: 43.00331234, lng: 41.0237 },
-        'https://map.goapsny.org/?layer=ramps',
-        'https://goapsny-stopgap.vercel.app/',
-      ),
-    );
+describe('stopgapAppUrl: карточка меню «Приставные пандусы»', () => {
+  it('по умолчанию ведёт в отдельный Stopgap, сразу в мастер', () => {
+    const url = new URL(stopgapAppUrl('https://map.goapsny.org/'));
+    expect(new URL(STOPGAP_URL).origin).toBe('https://goapsny-stopgap.vercel.app');
+    expect(url.origin).toBe('https://goapsny-stopgap.vercel.app');
     expect(url.searchParams.get('measure')).toBe('1');
+    expect(url.searchParams.get('mode')).toBe('wizard');
+    expect(url.searchParams.get('return')).toBe('https://map.goapsny.org/');
     expect(url.searchParams.has('place_id')).toBe(false);
-    expect(url.searchParams.get('lat')).toBe('43.003312');
-    expect(url.searchParams.get('lng')).toBe('41.023700');
-    expect(url.searchParams.get('return')).toBe('https://map.goapsny.org/?layer=ramps');
   });
 
-  it('без точки открывает мастер без координат', () => {
-    const url = new URL(stopgapMeasurePointUrl(null, null, 'https://goapsny-stopgap.vercel.app/'));
-    expect(url.searchParams.get('measure')).toBe('1');
-    expect(url.searchParams.has('lat')).toBe(false);
+  it('адрес возврата не по https не передаётся', () => {
+    const url = new URL(stopgapAppUrl('http://localhost:5199/'));
     expect(url.searchParams.has('return')).toBe(false);
   });
-});
 
-describe('мастер замера внутри карты', () => {
-  it('по умолчанию ссылка ведёт в папку /zamer/ того же сайта', () => {
-    const base = new URL(STOPGAP_URL);
-    expect(base.origin).toBe(window.location.origin);
-    expect(base.pathname).toBe('/zamer/');
-    const url = new URL(stopgapMeasurePointUrl({ lat: 43, lng: 41 }, 'https://map.goapsny.org/?layer=ramps'));
-    expect(url.pathname).toBe('/zamer/');
-    expect(url.searchParams.get('measure')).toBe('1');
-    expect(url.searchParams.get('return')).toBe('https://map.goapsny.org/?layer=ramps');
+  it('ссылка из карточки места тоже ведёт сразу в мастер', () => {
+    const url = new URL(stopgapMeasureUrl(PLACE, null));
+    expect(url.searchParams.get('mode')).toBe('wizard');
+    expect(url.searchParams.get('place_id')).toBe(PLACE.id);
   });
 });

@@ -3,6 +3,7 @@ import { cleanup, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { PublicMap } from './PublicMap';
 import type { PublicPlace } from '../services/places';
+import { resetModulesForTests } from '../modules/registry';
 
 const mockPlaces: PublicPlace[] = [
   {
@@ -184,6 +185,9 @@ describe('PublicMap integration', () => {
 
   afterEach(() => {
     cleanup();
+    resetModulesForTests();
+    window.history.replaceState(null, '', '/');
+    vi.restoreAllMocks();
   });
 
   it('loads published places and renders markers', async () => {
@@ -317,34 +321,21 @@ describe('PublicMap integration', () => {
     expect(screen.getByRole('button', { name: 'Mock publish gray pin' })).toBeTruthy();
   });
 
-  // Карта одна, слоёв два: «Заказать пандус» открывает слой замеров на той же карте.
-  it('switches to the measurements layer from the menu and back', async () => {
+  // Карта и Stopgap — два приложения: карточка меню открывает Stopgap отдельной страницей.
+  it('opens Stopgap as a separate app from the menu card', async () => {
     const user = userEvent.setup();
     await renderLoadedMap();
     await user.click(screen.getByRole('button', { name: /меню/i }));
-    await user.click(screen.getByRole('button', { name: /заказать пандус/i }));
 
-    expect(screen.getByText('Слой замеров')).toBeTruthy();
-    expect(screen.getByRole('button', { name: /замерить вход здесь/i })).toBeTruthy();
-    expect(new URLSearchParams(window.location.search).get('layer')).toBe('ramps');
-    // Места те же: карта не подменяется.
-    expect(screen.getByRole('button', { name: 'Кафе Серый' })).toBeTruthy();
-
-    await user.click(screen.getByRole('button', { name: /вернуться к карте доступности/i }));
-    expect(screen.queryByText('Слой замеров')).toBeNull();
-    expect(new URLSearchParams(window.location.search).has('layer')).toBe(false);
-  });
-
-  it('offers the entrance measurement in a place card inside the measurements layer', async () => {
-    const user = userEvent.setup();
-    await renderLoadedMap();
-    await user.click(screen.getByRole('button', { name: /меню/i }));
-    await user.click(screen.getByRole('button', { name: /заказать пандус/i }));
-    await user.click(screen.getByRole('button', { name: 'Кафе Серый' }));
-
-    const link = await screen.findByRole('link', { name: /замерить вход для пандуса/i });
-    expect(new URL(link.getAttribute('href') ?? '').searchParams.get('measure')).toBe('1');
-    window.history.replaceState(null, '', window.location.pathname);
+    const card = screen.getByRole('link', { name: /приставные пандусы/i });
+    const url = new URL(card.getAttribute('href') ?? '');
+    expect(url.origin).toBe('https://goapsny-stopgap.vercel.app');
+    expect(url.searchParams.get('measure')).toBe('1');
+    expect(url.searchParams.get('mode')).toBe('wizard');
+    // Заглушек и слоя замеров в карте больше нет.
+    expect(screen.queryByText(/скоро/i)).toBeNull();
+    expect(screen.queryByText(/вход для волонтёров/i)).toBeNull();
+    expect(screen.queryByRole('button', { name: /замерить вход здесь/i })).toBeNull();
   });
 
   it('reloads places after a successful submit and renders the new gray marker', async () => {
@@ -467,5 +458,46 @@ describe('PublicMap integration', () => {
     for (const place of mockPlaces) {
       expect(screen.getByRole('button', { name: place.name })).toBeTruthy();
     }
+  });
+  // Решение Арбитра 25.11: внешние ссылки убраны с карты в меню, на карте остаётся «Кабинет».
+  it('keeps project links in the menu, not on the map', async () => {
+    const user = userEvent.setup();
+    await renderLoadedMap();
+    expect(screen.queryByRole('link', { name: 'Instagram GoApsny' })).toBeNull();
+    expect(screen.getByRole('button', { name: 'Кабинет' })).toBeTruthy();
+
+    await user.click(screen.getByRole('button', { name: /меню/i }));
+    expect(screen.getByRole('link', { name: 'Instagram GoApsny' }).getAttribute('href')).toBe(
+      'https://instagram.com/go_apsny',
+    );
+    expect(screen.getByRole('link', { name: 'Telegram GoApsny' })).toBeTruthy();
+    expect(screen.getByRole('link', { name: 'Сайт' }).getAttribute('href')).toBe('https://goapsny.org');
+  });
+});
+
+describe('PublicMap: модули включаются и выключаются, сбой модуля не роняет основу', () => {
+  beforeEach(() => {
+    vi.mocked(fetchPublishedPlaces).mockReset();
+    vi.mocked(fetchPlaceById).mockReset();
+    vi.mocked(fetchPublishedPlaces).mockResolvedValue(mockPlaces);
+    vi.mocked(fetchPlaceById).mockImplementation(async (id) => mockPlaces.find((p) => p.id === id) ?? null);
+  });
+
+  afterEach(() => {
+    cleanup();
+    resetModulesForTests();
+    window.history.replaceState(null, '', '/');
+    vi.restoreAllMocks();
+  });
+
+  it('«пандусы» выключены флагом: карточки в меню нет, карта работает', async () => {
+    window.history.replaceState(null, '', '/?modules=-ramps&layer=ramps');
+    const user = userEvent.setup();
+    await renderLoadedMap();
+
+    expect(screen.getByRole('button', { name: 'Магазин Зелёный' })).toBeTruthy();
+    await user.click(screen.getByRole('button', { name: /меню/i }));
+    expect(screen.queryByRole('link', { name: /приставные пандусы/i })).toBeNull();
+    expect((screen.getByRole('button', { name: /добавить локацию/i }) as HTMLButtonElement).disabled).toBe(false);
   });
 });

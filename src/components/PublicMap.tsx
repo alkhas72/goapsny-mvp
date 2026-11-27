@@ -1,5 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Ruler, X } from 'lucide-react';
+import { lazy, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { MapLibreMap } from './map/MapLibreMap';
 import { MapHeader } from './MapHeader';
 import { MapFooter } from './MapFooter';
@@ -8,9 +7,6 @@ import { MenuOverlay } from './MenuOverlay';
 import { PlaceSheet, type PlaceSheetState } from './PlaceSheet';
 import { EmailOtpSheet } from './EmailOtpSheet';
 import { PublicAddSheet } from './PublicAddSheet';
-import { MapperDay } from './mapper/MapperDay';
-import { MapperFlow } from './mapper/MapperFlow';
-import { ModerationQueue } from './mapper/ModerationQueue';
 import { readDay, type DayEntry } from './mapper/dayLog';
 import {
   applyPlaceFilters,
@@ -38,11 +34,15 @@ import {
 import { getMapperOutbox } from '../services/mapper-outbox';
 import { isSupabaseConfigured } from '../services/supabase';
 import type { Place } from '../types';
-import { MOOD_EVENT, currentMood, currentSkin } from '../utils/skin';
-import { readMapLayer, writeMapLayer, type MapLayer } from '../utils/mapLayer';
-import { stopgapMeasurePointUrl } from '../utils/stopgapLink';
+import { MOOD_EVENT, currentMood, currentSkin, setMapScreen } from '../utils/skin';
 import { canUseLive } from '../services/assistantApi';
 import { BrandMark } from './BrandMark';
+import { ModuleBoundary } from '../modules/ModuleBoundary';
+import { useModuleFlags } from '../modules/useModuleFlags';
+import type { MapperScreen } from '../modules/mapper/MapperModule';
+
+// Модули грузятся отдельными кусками кода: основа открывается и без них.
+const MapperModule = lazy(() => import('../modules/mapper/MapperModule'));
 
 function toMapPlace(place: PublicPlace): Place {
   return {
@@ -103,12 +103,18 @@ export function PublicMap() {
   const [cabinetNote, setCabinetNote] = useState<string | null>(null);
   const [authOpen, setAuthOpen] = useState(false);
   const [addOpen, setAddOpen] = useState(false);
-  // Карта одна, слоёв два: карта доступности и замеры (приставные пандусы).
-  const [layer, setLayer] = useState<MapLayer>(() => readMapLayer());
-  // Mapper prototype (AISP-328): guided add flow with Нуца, behind ?mapper=1.
-  const mapperEnabled = typeof window !== 'undefined' && new URLSearchParams(window.location.search).has('mapper');
-  const [mapperOpen, setMapperOpen] = useState(false);
-  const [dayOpen, setDayOpen] = useState(false);
+  // Модули включаются и выключаются флагом (src/modules/registry.ts); выключенный модуль основа не рисует.
+  const moduleFlags = useModuleFlags();
+  // «Пандусы» — отдельное приложение Stopgap; флаг гасит ссылки на него.
+  const rampsOn = moduleFlags.ramps;
+  // Путь картографа (AISP-328) пока открывается адресом ?mapper=1 и только при включённом модуле.
+  const mapperEnabled =
+    moduleFlags.mapper && typeof window !== 'undefined' && new URLSearchParams(window.location.search).has('mapper');
+  // Какой экран модуля «картограф» открыт: путь, кабинет или очередь проверки.
+  const [mapperScreen, setMapperScreen] = useState<MapperScreen | null>(null);
+  const mapperOpen = mapperScreen === 'flow';
+  const dayOpen = mapperScreen === 'day';
+  const queueOpen = mapperScreen === 'queue';
   const [dayEntries, setDayEntries] = useState<DayEntry[]>(() => (mapperEnabled ? readDay() : []));
   const [flowKey, setFlowKey] = useState(0);
   // Предварительный замер из разговора координатора с помощником.
@@ -123,7 +129,6 @@ export function PublicMap() {
   const [pendingMapperAfterAuth, setPendingMapperAfterAuth] = useState<'flow' | 'cabinet' | null>(null);
   const [account, setAccount] = useState<MapperAccount | null>(null);
   const [queueCount, setQueueCount] = useState<number | null>(null);
-  const [queueOpen, setQueueOpen] = useState(false);
   const [authSheetKey, setAuthSheetKey] = useState(0);
   const [addSheetKey, setAddSheetKey] = useState(0);
 
@@ -349,43 +354,30 @@ export function PublicMap() {
     // Объект уходит на сервер от имени человека, поэтому вход нужен до первого шага:
     // иначе картограф заполнит карточку и упрётся в отказ на последнем.
     if (authEmail) {
-      setMapperOpen(true);
+      setMapperScreen('flow');
       return;
     }
     requestMapperSignIn('flow');
   }, [authEmail, requestMapperSignIn]);
 
-  const switchLayer = useCallback((next: MapLayer) => {
-    setLayer(next);
-    writeMapLayer(next);
-  }, []);
-
-  /** «Добавить локацию» из меню: слой карты доступности и сразу добавление. */
+  /** «Добавить локацию» из меню: сразу добавление. */
   const handleMenuAddLocation = useCallback(() => {
     setMenuOpen(false);
-    switchLayer('access');
     if (mapperEnabled) beginMapperFlow();
     else beginAddFlow();
-  }, [beginAddFlow, beginMapperFlow, mapperEnabled, switchLayer]);
+  }, [beginAddFlow, beginMapperFlow, mapperEnabled]);
 
-  /** «Заказать пандус» из меню: та же карта, слой замеров. */
-  const handleMenuOrderRamp = useCallback(() => {
-    setMenuOpen(false);
-    setMapperOpen(false);
-    setDayOpen(false);
-    setQueueOpen(false);
-    switchLayer('ramps');
-  }, [switchLayer]);
-
-  /** Замер в точке под прицелом: мастер Stopgap с координатами и адресом возврата. */
-  const handleMeasureHere = useCallback(() => {
-    const center = getCenterRef.current?.() ?? null;
-    window.location.assign(stopgapMeasurePointUrl(center, window.location.href));
-  }, []);
+  // Карта во весь экран: пока открыта сама карта, полосы браузера берут её цвет.
+  const mapOnScreen = livingSkin && loadState === 'ready' && mapperScreen === null;
+  useEffect(() => {
+    if (!mapOnScreen) return;
+    setMapScreen(true);
+    return () => setMapScreen(false);
+  }, [mapOnScreen]);
 
   const handleCabinet = useCallback(() => {
     if (mapperEnabled) {
-      setDayOpen(true);
+      setMapperScreen('day');
       return;
     }
     // Уже вошёл — сразу открываем форму: добавить место можно один раз,
@@ -407,8 +399,8 @@ export function PublicMap() {
     if (pendingMapperAfterAuth) {
       const target = pendingMapperAfterAuth;
       setPendingMapperAfterAuth(null);
-      if (target === 'flow') setMapperOpen(true);
-      else setDayOpen(true);
+      if (target === 'flow') setMapperScreen('flow');
+      else setMapperScreen('day');
       return;
     }
     if (pendingAddAfterAuth) {
@@ -505,35 +497,10 @@ export function PublicMap() {
             getCenterRef.current = fn;
           }}
         />
-        {layer === 'ramps' && (
-          <>
-            <div className="ramps-bar">
-              <span className="ramps-bar-label" role="status">
-                <Ruler size={16} aria-hidden="true" />
-                Слой замеров
-              </span>
-              <button
-                type="button"
-                className="ramps-bar-close"
-                aria-label="Вернуться к карте доступности"
-                onClick={() => switchLayer('access')}
-              >
-                <X size={16} aria-hidden="true" />
-              </button>
-            </div>
-            {!selectedPlaceId && <div className="ramps-cross" aria-hidden="true" />}
-            <div className="mapper-fab-row ramps-fab-row">
-              <button type="button" className="mapper-fab ramps-fab" onClick={handleMeasureHere}>
-                <Ruler size={18} aria-hidden="true" />
-                Замерить вход здесь
-              </button>
-            </div>
-          </>
-        )}
         {/* В живой оболочке объект добавляет центральная кнопка, а число ждущих видно у входа в кабинет. */}
-        {!livingSkin && layer === 'access' && mapperEnabled && !mapperOpen && !dayOpen && !queueOpen && (
+        {!livingSkin && mapperEnabled && !mapperOpen && !dayOpen && !queueOpen && (
           <div className="mapper-fab-row">
-            <button type="button" className="mapper-day-btn" onClick={() => setDayOpen(true)}>
+            <button type="button" className="mapper-day-btn" onClick={() => setMapperScreen('day')}>
               Сегодня · {dayEntries.length}
               {shownWaiting > 0 && <span className="mapper-day-wait"> · ждут {shownWaiting}</span>}
             </button>
@@ -542,62 +509,42 @@ export function PublicMap() {
             </button>
           </div>
         )}
-        {mapperEnabled && mapperOpen && (
-          <MapperFlow
-            key={`flow-${flowKey}`}
-            theme={theme}
-            getCenter={() => getCenterRef.current?.() ?? null}
-            ownerId={authUserId}
-            canLive={canUseLive(shownAccount?.role)}
-            onAnother={() => setFlowKey((k) => k + 1)}
-            onClose={() => setMapperOpen(false)}
-            onSaved={setDayEntries}
-            onOpenDay={() => {
-              setMapperOpen(false);
-              setDayOpen(true);
-            }}
-          />
-        )}
-        {mapperEnabled && dayOpen && (
-          <MapperDay
-            account={shownAccount}
-            accountLabel={authEmail ? maskEmailDomain(authEmail) : null}
-            queueCount={shownQueueCount}
-            onClose={() => setDayOpen(false)}
-            onSignIn={() => {
-              setDayOpen(false);
-              requestMapperSignIn('cabinet');
-            }}
-            onSignOut={() => {
-              setDayOpen(false);
-              void signOutPublicUser();
-            }}
-            onOpenQueue={() => {
-              setDayOpen(false);
-              setQueueOpen(true);
-            }}
-          />
-        )}
-        {mapperEnabled && queueOpen && (
-          <ModerationQueue
-            theme={theme}
-            onClose={() => {
-              setQueueOpen(false);
-              setDayOpen(true);
-            }}
-            onChanged={(left, published) => {
-              setQueueCount(left);
-              // Опубликованное сразу должно появиться на карте под очередью.
-              if (published) void reloadPlaces().catch(() => undefined);
-            }}
-          />
+        {mapperEnabled && mapperScreen && (
+          <ModuleBoundary id="mapper" title="Добавить локацию" onDismiss={() => setMapperScreen(null)}>
+            <MapperModule
+              screen={mapperScreen}
+              theme={theme}
+              flowKey={flowKey}
+              ownerId={authUserId}
+              canLive={canUseLive(shownAccount?.role)}
+              account={shownAccount}
+              accountLabel={authEmail ? maskEmailDomain(authEmail) : null}
+              queueCount={shownQueueCount}
+              getCenter={() => getCenterRef.current?.() ?? null}
+              onScreen={setMapperScreen}
+              onAnother={() => setFlowKey((k) => k + 1)}
+              onSaved={setDayEntries}
+              onSignIn={() => {
+                setMapperScreen(null);
+                requestMapperSignIn('cabinet');
+              }}
+              onSignOut={() => {
+                setMapperScreen(null);
+                void signOutPublicUser();
+              }}
+              onQueueChanged={(left, published) => {
+                setQueueCount(left);
+                // Опубликованное сразу должно появиться на карте под очередью.
+                if (published) void reloadPlaces().catch(() => undefined);
+              }}
+            />
+          </ModuleBoundary>
         )}
         <MenuOverlay
           open={menuOpen}
           onClose={() => setMenuOpen(false)}
           onAddLocation={handleMenuAddLocation}
-          onOrderRamp={handleMenuOrderRamp}
-          layer={layer}
+          rampsAvailable={rampsOn}
           returnFocusRef={menuButtonRef}
         />
         <MapFilters
@@ -618,8 +565,7 @@ export function PublicMap() {
             closeSheet();
           }}
           onRetry={() => selectedPlaceId && void openPlaceSheet(selectedPlaceId)}
-          showMeasure={mapperEnabled || layer === 'ramps'}
-          measureFirst={layer === 'ramps'}
+          showMeasure={rampsOn && mapperEnabled}
         />
         <EmailOtpSheet
           // Префикс обязателен: оба счётчика стартуют с нуля, и без него
