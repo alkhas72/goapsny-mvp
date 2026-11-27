@@ -1868,7 +1868,7 @@
   }
 }
 
-/* ── 13. Проба: кнопки карты в цветах настроения (?tint=mood | ?tint=mix) ──
+/* ── 13. Кружки карты в цвете настроения (?tint=mix три цвета, ?tint=white белые) ──
    Цветная рамка вокруг карты ушла; её цвета переходят на кнопки. Ночью
    кнопки остаются тёмными. Жёлтая кнопка добавления не меняется. */
 [data-skin='living'][data-tint]:not([data-mood='night']) {
@@ -1924,4 +1924,17 @@
 [data-skin='living'][data-mood='night'] .maplibregl-ctrl-group button .maplibregl-ctrl-icon,
 [data-skin='living'][data-mood='night'] .maplibregl-ctrl-attrib-button {
   filter: invert(1);
+}
+
+/* Все кружки на карте одного размера (слово Алхаса 27.11): 44 px. Крупнее
+   остаётся только жёлтая кнопка добавления. */
+[data-skin='living'] .footer-cabinet-btn,
+[data-skin='living'] .gps-locate-btn {
+  width: 44px;
+  height: 44px;
+  box-shadow: 0 8px 22px rgba(22, 24, 23, 0.14);
+}
+
+[data-skin='living'] .public-bottom-rail {
+  left: 14px;
 }

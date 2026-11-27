@@ -127,9 +127,10 @@ export function initSkin(): Skin {
   document.documentElement.dataset.mood = mood;
   syncThemeColor(mood);
   if (read(SHELL_KEY) === 'full') document.documentElement.dataset.shell = 'full';
-  // Проба 27.11: кнопки поверх карты в цветах настроения. Включается адресом
-  // (?tint=mood одним цветом, ?tint=mix тремя), без адреса кнопки белые.
+  // Кружки поверх карты окрашены в цвет настроения (слово Алхаса 27.11).
+  // Адресом можно сравнить: ?tint=mix три цвета, ?tint=white белые.
   const tint = new URLSearchParams(window.location.search).get('tint');
-  if (tint === 'mood' || tint === 'mix') document.documentElement.dataset.tint = tint;
+  if (tint === 'white') delete document.documentElement.dataset.tint;
+  else document.documentElement.dataset.tint = tint === 'mix' ? 'mix' : 'mood';
   return skin;
 }
