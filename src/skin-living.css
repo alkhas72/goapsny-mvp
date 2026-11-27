@@ -1708,3 +1708,119 @@
 [data-skin='living'] .public-map-shell:has(.overlay-scrim, .bottom-sheet) > .public-bottom-rail {
   visibility: hidden;
 }
+
+/* ── 12. Карта во весь экран (решение Арбитра 26.11) ───────────────────
+   Карта основа: от края до края, без рамки и цветного поля вокруг. Название,
+   поиск, меню, панель вида, «Кабинет» и кнопка добавления лежат слоями поверх. */
+
+[data-skin='living'] {
+  --map-edge: #e7e6e9;
+}
+
+[data-skin='living'][data-mood='night'] {
+  --map-edge: #2a2a2c;
+}
+
+[data-skin='living'] .public-map-shell {
+  position: relative;
+  --lv-head: calc(66px + env(safe-area-inset-top, 0px));
+}
+
+[data-skin='living'] .public-map-header {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  pointer-events: none;
+}
+
+[data-skin='living'] .public-top-rail {
+  min-height: 0;
+  padding: calc(10px + env(safe-area-inset-top, 0px)) 14px 0;
+}
+
+[data-skin='living'] .public-top-rail > * {
+  pointer-events: auto;
+}
+
+/* Название на стекле: читается на любой подложке карты. */
+[data-skin='living'] .public-top-rail .logo-container {
+  justify-self: start;
+  height: 44px;
+  padding: 0 16px 0 13px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.86);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  box-shadow: 0 8px 22px rgba(22, 24, 23, 0.14);
+  align-items: center;
+}
+
+[data-skin='living'] .public-top-rail .logo-container,
+[data-skin='living'] .public-top-rail .app-title,
+[data-skin='living'] .public-top-rail .logo-container > div {
+  color: var(--ink) !important;
+}
+
+[data-skin='living'] .public-top-rail .icon-btn {
+  width: 44px;
+  height: 44px;
+  background: rgba(255, 255, 255, 0.86);
+  color: var(--ink);
+  box-shadow: 0 8px 22px rgba(22, 24, 23, 0.14);
+}
+
+[data-skin='living'][data-mood='night'] .public-top-rail .logo-container,
+[data-skin='living'][data-mood='night'] .public-top-rail .icon-btn {
+  background: rgba(22, 33, 27, 0.86);
+}
+
+[data-skin='living'][data-mood='night'] .public-top-rail .logo-container,
+[data-skin='living'][data-mood='night'] .public-top-rail .app-title,
+[data-skin='living'][data-mood='night'] .public-top-rail .logo-container > div,
+[data-skin='living'][data-mood='night'] .public-top-rail .icon-btn {
+  color: #e8f1eb !important;
+}
+
+[data-skin='living'] .public-map-main {
+  margin: 0;
+  border-radius: 0;
+  box-shadow: none;
+  background: var(--map-edge);
+}
+
+/* Панель вида карты встаёт столбиком под кнопкой меню. */
+[data-skin='living'] .map-view-controls {
+  top: var(--lv-head);
+  right: 14px;
+}
+
+/* Меню и шторки открываются ниже шапки: кнопки шапки остаются на виду. */
+[data-skin='living'] .public-map-main > .overlay-scrim {
+  padding-top: var(--lv-head);
+}
+
+@media (max-width: 540px) {
+  :root[data-skin='living'][data-screen='map'],
+  [data-skin='living'][data-screen='map'] body {
+    background: var(--map-edge);
+  }
+
+  [data-skin='living'][data-screen='map'] .lv-edge {
+    background-color: var(--map-edge);
+  }
+}
+
+@media (min-width: 541px) {
+  [data-skin='living']:not([data-shell='full']) .public-map-shell {
+    --lv-head: 96px;
+  }
+
+  [data-skin='living']:not([data-shell='full']) .public-top-rail {
+    padding-top: 40px;
+  }
+
+  [data-skin='living']:not([data-shell='full']) .public-map-main {
+    margin-bottom: 0;
+  }
+}

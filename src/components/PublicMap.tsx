@@ -34,7 +34,7 @@ import {
 import { getMapperOutbox } from '../services/mapper-outbox';
 import { isSupabaseConfigured } from '../services/supabase';
 import type { Place } from '../types';
-import { MOOD_EVENT, currentMood, currentSkin } from '../utils/skin';
+import { MOOD_EVENT, currentMood, currentSkin, setMapScreen } from '../utils/skin';
 import { canUseLive } from '../services/assistantApi';
 import { BrandMark } from './BrandMark';
 import { ModuleBoundary } from '../modules/ModuleBoundary';
@@ -366,6 +366,14 @@ export function PublicMap() {
     if (mapperEnabled) beginMapperFlow();
     else beginAddFlow();
   }, [beginAddFlow, beginMapperFlow, mapperEnabled]);
+
+  // Карта во весь экран: пока открыта сама карта, полосы браузера берут её цвет.
+  const mapOnScreen = livingSkin && loadState === 'ready' && mapperScreen === null;
+  useEffect(() => {
+    if (!mapOnScreen) return;
+    setMapScreen(true);
+    return () => setMapScreen(false);
+  }, [mapOnScreen]);
 
   const handleCabinet = useCallback(() => {
     if (mapperEnabled) {
