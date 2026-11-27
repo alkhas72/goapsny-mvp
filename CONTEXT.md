@@ -30,7 +30,7 @@
 - **Базовый контракт БД (не менять без «да» Алхаса):** `docs/backend-contract-2026-06-01.md`
 - **Сервер помощника:** `api/assistant.js`, `api/_lib/assistant-v1.js`, `api/_lib/core.js`, `api/_lib/deepseek.js`, `api/_lib/catalog.js`
 - **Клиент помощника:** `src/services/assistantApi.ts`
-- **Миграции (ожидают боевую базу):**
-  - `supabase/migrations/20261125090000_mapper_measures_amenities_coordinator.sql` (откат: `supabase/rollback/2026-11-25_mapper_measures_down.sql`)
-  - `supabase/migrations/20261125180000_place_types_osm.sql` (откат: `supabase/rollback/2026-11-25_place_types_down.sql`)
+- **Миграции (сверить статус на боевой базе перед Срезом 4):**
+  - `supabase/migrations/20261125090000_mapper_measures_amenities_coordinator.sql` (откат: `supabase/rollback/2026-11-25_mapper_measures_down.sql`; по записям 25.11 могла быть внесена в боевую БД — не проверено напрямую, сверить перед прогоном)
+  - `supabase/migrations/20261125180000_place_types_osm.sql` (откат: `supabase/rollback/2026-11-25_place_types_down.sql`; ожидает боевую базу)
 - **Точки отката:** `rollback/main-2026-11-23`, `rollback/pre-split-2026-11-26`.

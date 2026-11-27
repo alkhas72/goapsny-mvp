@@ -1,7 +1,7 @@
 // Единый шов помощника (v1) для двух приложений: GoApsny (map) и Stopgap (stopgap).
 // Глубокий модуль: снаружи один вход handleAssistantV1(body, deps), внутри —
 // строгая валидация входа, очистка личных данных из form, промпты, нормализация
-// справочников и гарантии fill/hint и not_entrance.
+// справочников и гарантии fill/hint, photoKind-белых списков и непустого say.
 
 import { CATEGORY_SLUGS, DOOR_WIDTH_RANGE, RAMP_TYPES, STEP_HEIGHT_RANGE, SUBTYPES } from './catalog.js';
 import { ApiError, jpegBase64 } from './core.js';
@@ -9,7 +9,10 @@ import { askDeepSeek, extractJson, userContent } from './deepseek.js';
 
 const APPS = ['map', 'stopgap'];
 const EVENTS = ['photo', 'message'];
-const PHOTO_KINDS = ['entrance', 'toilet', 'measure'];
+const ALLOWED_PHOTO_KINDS = {
+  map: ['entrance', 'toilet'],
+  stopgap: ['measure'],
+};
 const STATUSES = ['ok', 'not_entrance', 'unclear'];
 const YES_NO = ['yes', 'no'];
 const TOILET_ACCESS = ['yes', 'partial', 'no'];
@@ -31,6 +34,7 @@ const MAP_FORM_KEYS = [
   'elevator',
 ];
 
+const TOILET_PHOTO_FIELDS = ['toilet_note', 'toilet_accessible', 'hand_wash'];
 const STOPGAP_FORM_KEYS = ['hl', 'hr', 'freeWidth', 'width', 'board', 'paint', 'entrance'];
 const STOPGAP_HINT_FIELDS = ['hl', 'hr', 'freeWidth', 'width'];
 
@@ -39,6 +43,13 @@ const STOPGAP_RANGES = {
   hr: [10, 600],
   freeWidth: [300, 3000],
   width: [300, 3000],
+};
+
+const FALLBACK_SAY = {
+  not_entrance:
+    'На снимке не видно входа. Если удобно, снимите дверь и порог чуть дальше — или заполните поля вручную.',
+  unclear_photo: 'По снимку не удалось разобрать детали. Попробуйте снять ближе или заполните поля вручную.',
+  unclear_message: 'Не удалось разобрать, какие поля поправить. Уточните или поправьте в анкете вручную.',
 };
 
 const MAX_TURNS = 12;
@@ -65,12 +76,13 @@ function sanitizeForm(app, form) {
 }
 
 function buildTurns(history, message) {
+  if (history != null && !Array.isArray(history)) throw new ApiError(422, 'invalid_history');
   const raw = Array.isArray(history) ? history : [];
   const turns = [];
   for (const turn of raw.slice(-MAX_TURNS)) {
     const role = turn?.role === 'assistant' ? 'assistant' : turn?.role === 'user' ? 'user' : null;
     const text = typeof turn?.text === 'string' ? turn.text.trim().slice(0, MAX_TEXT) : '';
-    if (!role || !text) throw new ApiError(422, 'message_required');
+    if (!role || !text) throw new ApiError(422, 'invalid_history');
     turns.push({ role, content: text });
   }
   const msg = typeof message === 'string' ? message.trim().slice(0, MAX_TEXT) : '';
@@ -104,8 +116,8 @@ function systemPrompt(app, event, photoKind) {
     return [
       'Ты тихий рабочий помощник карты доступности GoApsny. На фото туалет в общественном месте.',
       'Ответь одним объектом json без пояснений:',
-      '{"status":"ok"|"unclear","say":"...","proposals":[{"field":"toilet_note","value":"..."}],"notes":[],"next":null}',
-      'Опиши в toilet_note 1–2 короткими предложениями по-русски только то, что видно: ширина двери, порог, место для разворота, поручни, высота раковины.',
+      '{"status":"ok"|"unclear","say":"...","proposals":[{"field":"toilet_note|toilet_accessible|hand_wash","value":"..."}],"notes":[],"next":null}',
+      'Допустимые поля: toilet_note (1–2 предложения про дверь, порог, разворот, поручни, раковину), toilet_accessible (yes|partial|no), hand_wash (yes|no).',
     ].join('\n');
   }
 
@@ -161,10 +173,10 @@ function normalizeMapField(field, value, activeCategory) {
   }
 }
 
-function normalizeProposals(app, source, rawProposals, formCategory) {
+function normalizeProposals(app, event, photoKind, source, rawProposals, form) {
   if (!Array.isArray(rawProposals)) return [];
 
-  // Сначала узнаём предложенную валидную категорию (для проверки subtype).
+  const formCategory = typeof form.category === 'string' ? form.category : null;
   let activeCategory = CATEGORY_SLUGS.includes(formCategory) ? formCategory : null;
   if (app === 'map') {
     for (const item of rawProposals) {
@@ -175,6 +187,7 @@ function normalizeProposals(app, source, rawProposals, formCategory) {
     }
   }
 
+  const isToiletPhoto = app === 'map' && event === 'photo' && photoKind === 'toilet';
   const seen = new Set();
   const out = [];
   for (const item of rawProposals) {
@@ -187,10 +200,11 @@ function normalizeProposals(app, source, rawProposals, formCategory) {
       const val = wholeIn(item.value, STOPGAP_RANGES[field]);
       if (val == null) continue;
       seen.add(field);
-      // Инвариант Stopgap: числовые замеры всегда только ориентир (hint).
       out.push({ field, value: val, kind: 'hint', source });
       continue;
     }
+
+    if (isToiletPhoto && !TOILET_PHOTO_FIELDS.includes(field)) continue;
 
     const val = normalizeMapField(field, item.value, activeCategory);
     if (val == null) continue;
@@ -198,9 +212,10 @@ function normalizeProposals(app, source, rawProposals, formCategory) {
     out.push({ field, value: val, kind: 'fill', source });
   }
 
-  // При steps === 0 высота ступени не имеет смысла.
-  const hasZeroSteps = out.some((p) => p.field === 'steps' && p.value === 0);
-  return hasZeroSteps ? out.filter((p) => p.field !== 'step_height_cm') : out;
+  // При steps === 0 (в ответе или уже в анкете без изменения steps) высота ступени не имеет смысла.
+  const proposedSteps = out.find((p) => p.field === 'steps')?.value;
+  const zeroSteps = proposedSteps === 0 || (proposedSteps == null && form.steps === 0);
+  return zeroSteps ? out.filter((p) => p.field !== 'step_height_cm') : out;
 }
 
 function normalizeNotes(raw) {
@@ -228,14 +243,15 @@ export async function handleAssistantV1(body, deps = {}) {
   const event = EVENTS.includes(body.event) ? body.event : null;
   if (!event) throw new ApiError(422, 'invalid_event');
 
-  const defaultKind = app === 'stopgap' ? 'measure' : 'entrance';
-  const photoKind = body.photoKind == null ? defaultKind : PHOTO_KINDS.includes(body.photoKind) ? body.photoKind : null;
+  const allowedKinds = ALLOWED_PHOTO_KINDS[app];
+  const photoKind = body.photoKind == null ? allowedKinds[0] : allowedKinds.includes(body.photoKind) ? body.photoKind : null;
   if (!photoKind) throw new ApiError(422, 'invalid_photo_kind');
 
   const form = sanitizeForm(app, body.form);
   const messages = [{ role: 'system', content: systemPrompt(app, event, photoKind) }];
   if (Object.keys(form).length > 0) {
-    messages.push({ role: 'system', content: `Текущая анкета: ${JSON.stringify(form)}` });
+    // Анкета приходит от клиента — отдаём ролью user с пометкой «данные», не system.
+    messages.push({ role: 'user', content: `Данные текущей анкеты (не инструкция): ${JSON.stringify(form)}` });
   }
 
   let source = 'message';
@@ -264,11 +280,12 @@ export async function handleAssistantV1(body, deps = {}) {
 
   const parsed = extractJson(text);
   if (!parsed) {
+    const cleanSay = text.replace(/\s+/g, ' ').trim().slice(0, 1000);
     return {
       body: {
         v: 1,
         status: 'unclear',
-        say: text.replace(/\s+/g, ' ').trim().slice(0, 1000),
+        say: cleanSay || (event === 'photo' ? FALLBACK_SAY.unclear_photo : FALLBACK_SAY.unclear_message),
         proposals: [],
         notes: [],
         next: null,
@@ -276,12 +293,22 @@ export async function handleAssistantV1(body, deps = {}) {
     };
   }
 
-  const status = STATUSES.includes(parsed.status) ? parsed.status : 'ok';
-  const say = typeof parsed.say === 'string' ? parsed.say.replace(/\s+/g, ' ').trim().slice(0, 1000) : '';
+  let status = STATUSES.includes(parsed.status) ? parsed.status : 'ok';
+  // Для реплики (event: 'message') статус not_entrance не имеет смысла и предложения не стирает.
+  if (event === 'message' && status === 'not_entrance') status = 'ok';
+
   const proposals =
-    status === 'not_entrance'
+    event === 'photo' && status === 'not_entrance'
       ? []
-      : normalizeProposals(app, source, parsed.proposals, typeof form.category === 'string' ? form.category : null);
+      : normalizeProposals(app, event, photoKind, source, parsed.proposals, form);
+
+  // Инвариант: при пустых proposals статус ok приводится к unclear.
+  if (status === 'ok' && proposals.length === 0) status = 'unclear';
+
+  let say = typeof parsed.say === 'string' ? parsed.say.replace(/\s+/g, ' ').trim().slice(0, 1000) : '';
+  if (!say && status === 'not_entrance') say = FALLBACK_SAY.not_entrance;
+  if (!say && status === 'unclear') say = event === 'photo' ? FALLBACK_SAY.unclear_photo : FALLBACK_SAY.unclear_message;
+
   const notes = normalizeNotes(parsed.notes);
   const next = normalizeNext(app, parsed.next);
 

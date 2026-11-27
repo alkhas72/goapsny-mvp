@@ -48,7 +48,7 @@ const errCode = (p: Promise<unknown>) =>
 beforeEach(() => resetRateLimit());
 
 describe('POST /api/assistant (v1) — валидация шва', () => {
-  it('отклоняет неверные app, event, photoKind и пустые photo/message с 422 до вызова модели', async () => {
+  it('отклоняет неверные app, event, photoKind, несочетаемые пары и пустые photo/message с 422 до вызова модели', async () => {
     const { fetchImpl, calls } = fakeFetch();
     const deps = { fetchImpl, env: ENV };
 
@@ -59,8 +59,21 @@ describe('POST /api/assistant (v1) — валидация шва', () => {
     expect(
       await errCode(assistant(req({ v: 1, app: 'map', event: 'photo', photoKind: 'selfie', photo: IMAGE }), deps)),
     ).toBe('422:invalid_photo_kind');
+    // Пункт 4 кросс-аудита: несочетаемые пары app/photoKind
+    expect(
+      await errCode(assistant(req({ v: 1, app: 'stopgap', event: 'photo', photoKind: 'toilet', photo: IMAGE }), deps)),
+    ).toBe('422:invalid_photo_kind');
+    expect(
+      await errCode(assistant(req({ v: 1, app: 'map', event: 'photo', photoKind: 'measure', photo: IMAGE }), deps)),
+    ).toBe('422:invalid_photo_kind');
     expect(await errCode(assistant(req({ v: 1, app: 'map', event: 'photo' }), deps))).toBe('422:photo_required');
     expect(await errCode(assistant(req({ v: 1, app: 'map', event: 'message' }), deps))).toBe('422:message_required');
+    // Битая history → 422 invalid_history
+    expect(
+      await errCode(
+        assistant(req({ v: 1, app: 'map', event: 'message', history: [{ role: 'system', text: 'x' }] }), deps),
+      ),
+    ).toBe('422:invalid_history');
     expect(calls.filter((c) => c.url === DEEPSEEK_URL)).toHaveLength(0);
   });
 });
@@ -80,7 +93,6 @@ describe('POST /api/assistant (v1) — GoApsny (app: "map")', () => {
               { field: 'steps', value: 1 },
               { field: 'step_height_cm', value: 12.4 },
               { field: 'ramp', value: 'none' },
-              // Выдуманное и невалидное — должно быть вырезано сервером:
               { field: 'category', value: 'casino' },
               { field: 'door_width_cm', value: 5 },
               { field: 'hacker_field', value: 'x' },
@@ -114,13 +126,13 @@ describe('POST /api/assistant (v1) — GoApsny (app: "map")', () => {
     });
   });
 
-  it('если на фото не вход (not_entrance): принудительно очищает proposals и мягко подсказывает без ошибки', async () => {
+  it('если на фото не вход (not_entrance): очищает proposals и гарантирует непустой say', async () => {
     const { fetchImpl } = fakeFetch({
       model: [
         answer(
           JSON.stringify({
             status: 'not_entrance',
-            say: 'На снимке не видно входа. Если удобно, отойдите на пару шагов и снимите дверь и порог.',
+            say: '',
             proposals: [{ field: 'steps', value: 3 }],
             notes: [],
             next: null,
@@ -130,24 +142,36 @@ describe('POST /api/assistant (v1) — GoApsny (app: "map")', () => {
     });
 
     const res = await assistant(req({ v: 1, app: 'map', event: 'photo', photo: IMAGE }), { fetchImpl, env: ENV });
-    expect(res.body).toEqual({
-      v: 1,
-      status: 'not_entrance',
-      say: 'На снимке не видно входа. Если удобно, отойдите на пару шагов и снимите дверь и порог.',
-      proposals: [],
-      notes: [],
-      next: null,
-    });
+    expect(res.body.status).toBe('not_entrance');
+    expect(res.body.proposals).toEqual([]);
+    expect(res.body.say.length).toBeGreaterThan(10);
   });
 
-  it('фото туалета (photoKind: "toilet"): возвращает fill-предложение toilet_note', async () => {
+  it('пустые proposals при status ok приводятся к unclear с непустой запасной фразой (пункт 3)', async () => {
+    const { fetchImpl } = fakeFetch({
+      model: [answer(JSON.stringify({ status: 'ok', say: '', proposals: [] }))],
+    });
+
+    const res = await assistant(req({ v: 1, app: 'map', event: 'photo', photo: IMAGE }), { fetchImpl, env: ENV });
+    expect(res.body.status).toBe('unclear');
+    expect(res.body.proposals).toEqual([]);
+    expect(res.body.say.length).toBeGreaterThan(10);
+  });
+
+  it('фото туалета (photoKind: "toilet"): пропускает только toilet_note, toilet_accessible, hand_wash (пункт 1)', async () => {
     const { fetchImpl } = fakeFetch({
       model: [
         answer(
           JSON.stringify({
             status: 'ok',
-            say: 'Дверь около 85 см, порога нет, поручней не видно.',
-            proposals: [{ field: 'toilet_note', value: 'Дверь около 85 см, порога нет, поручней не видно.' }],
+            say: 'Дверь около 85 см, порога нет, есть раковина.',
+            proposals: [
+              { field: 'name', value: 'Чужое название' },
+              { field: 'steps', value: 4 },
+              { field: 'toilet_note', value: 'Дверь около 85 см, порога нет.' },
+              { field: 'toilet_accessible', value: 'partial' },
+              { field: 'hand_wash', value: 'yes' },
+            ],
             notes: [],
             next: null,
           }),
@@ -164,26 +188,23 @@ describe('POST /api/assistant (v1) — GoApsny (app: "map")', () => {
       v: 1,
       status: 'ok',
       proposals: [
-        {
-          field: 'toilet_note',
-          value: 'Дверь около 85 см, порога нет, поручней не видно.',
-          kind: 'fill',
-          source: 'photo',
-        },
+        { field: 'toilet_note', value: 'Дверь около 85 см, порога нет.', kind: 'fill', source: 'photo' },
+        { field: 'toilet_accessible', value: 'partial', kind: 'fill', source: 'photo' },
+        { field: 'hand_wash', value: 'yes', kind: 'fill', source: 'photo' },
       ],
     });
   });
 
-  it('реплика человека (event: "message"): добавляет message к history, не шлёт личные данные из form в модель', async () => {
+  it('реплика человека (event: "message"): not_entrance не стирает proposals, а form уходит ролью user без PII (пункт 2)', async () => {
     const { fetchImpl, calls } = fakeFetch({
       model: [
         answer(
           JSON.stringify({
-            status: 'ok',
-            say: 'Записал: дверь 90 см, туалет есть.',
+            status: 'not_entrance',
+            say: 'Записал: 2 ступени, дверь 90 см.',
             proposals: [
+              { field: 'steps', value: 2 },
               { field: 'door_width_cm', value: 90 },
-              { field: 'toilet', value: 'yes' },
             ],
             notes: ['Звонок для персонала справа'],
             next: null,
@@ -197,14 +218,17 @@ describe('POST /api/assistant (v1) — GoApsny (app: "map")', () => {
         v: 1,
         app: 'map',
         event: 'message',
-        message: 'дверь девяносто, туалет есть, справа звонок',
+        message: 'две ступени, дверь девяносто',
         form: {
           name: 'Кафе Нартаа',
           category: 'food',
           email: 'secret@example.com',
           phone: '+79401234567',
         },
-        history: [{ role: 'user', text: 'тут кафе' }, { role: 'assistant', text: 'Понял.' }],
+        history: [
+          { role: 'user', text: 'тут кафе' },
+          { role: 'assistant', text: 'Понял.' },
+        ],
       }),
       { fetchImpl, env: ENV },
     );
@@ -212,10 +236,10 @@ describe('POST /api/assistant (v1) — GoApsny (app: "map")', () => {
     expect(res.body).toEqual({
       v: 1,
       status: 'ok',
-      say: 'Записал: дверь 90 см, туалет есть.',
+      say: 'Записал: 2 ступени, дверь 90 см.',
       proposals: [
+        { field: 'steps', value: 2, kind: 'fill', source: 'message' },
         { field: 'door_width_cm', value: 90, kind: 'fill', source: 'message' },
-        { field: 'toilet', value: 'yes', kind: 'fill', source: 'message' },
       ],
       notes: ['Звонок для персонала справа'],
       next: null,
@@ -225,10 +249,33 @@ describe('POST /api/assistant (v1) — GoApsny (app: "map")', () => {
     const dumped = JSON.stringify(sent.messages);
     expect(dumped).not.toContain('secret@example.com');
     expect(dumped).not.toContain('+79401234567');
-    expect(sent.messages[sent.messages.length - 1]).toEqual({
-      role: 'user',
-      content: 'дверь девяносто, туалет есть, справа звонок',
+    // Анкета уходит ролью user, а не system
+    expect(sent.messages.filter((m: { role: string }) => m.role === 'system')).toHaveLength(1);
+    expect(sent.messages[1].role).toBe('user');
+    expect(sent.messages[1].content).toContain('Кафе Нартаа');
+  });
+
+  it('если в form уже steps = 0, предложенная step_height_cm отбрасывается', async () => {
+    const { fetchImpl } = fakeFetch({
+      model: [
+        answer(
+          JSON.stringify({
+            status: 'ok',
+            say: 'Дверь 90 см.',
+            proposals: [
+              { field: 'step_height_cm', value: 14 },
+              { field: 'door_width_cm', value: 90 },
+            ],
+          }),
+        ),
+      ],
     });
+
+    const res = await assistant(
+      req({ v: 1, app: 'map', event: 'message', message: 'дверь 90', form: { steps: 0 } }),
+      { fetchImpl, env: ENV },
+    );
+    expect(res.body.proposals).toEqual([{ field: 'door_width_cm', value: 90, kind: 'fill', source: 'message' }]);
   });
 });
 
@@ -244,7 +291,7 @@ describe('POST /api/assistant (v1) — Stopgap (app: "stopgap")', () => {
               { field: 'hl', value: 85, kind: 'fill' },
               { field: 'hr', value: 70, kind: 'fill' },
               { field: 'freeWidth', value: 950 },
-              { field: 'hl', value: 9999 }, // вне пределов — отбросить
+              { field: 'hl', value: 9999 },
             ],
             notes: ['Справа водосточная труба'],
             next: 'hl',
