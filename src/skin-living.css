@@ -1938,3 +1938,30 @@
 [data-skin='living'] .public-bottom-rail {
   left: 14px;
 }
+
+/* ── 15. «Новый объект» одним экраном ─────────────────────────────────── */
+[data-skin='living'] .nf-one {
+  --nf-pad: 20px;
+}
+
+[data-skin='living'] .nf-pin {
+  border-radius: 28px 28px 0 0;
+}
+
+[data-skin='living'] .nf-pin-photo {
+  border-radius: 22px;
+}
+
+[data-skin='living'] .nf-card {
+  border-radius: 22px;
+}
+
+[data-skin='living'] .nf-card .nf-map {
+  border-radius: 18px;
+}
+
+[data-skin='living'] .nf-card .nf-input,
+[data-skin='living'] .nf-card .nf-stepper,
+[data-skin='living'] .nf-card .nf-seg {
+  background-color: var(--bg-color);
+}
