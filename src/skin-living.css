@@ -1743,17 +1743,60 @@
   pointer-events: auto;
 }
 
-/* Название на стекле: читается на любой подложке карты. */
+/* Слева один кружок: знак по центру, мерцающая точка в колесе. Название
+   выезжает из кружка по нажатию или наведению и убирается само (слово
+   Алхаса 27.11). */
 [data-skin='living'] .public-top-rail .logo-container {
   justify-self: start;
   height: 44px;
-  padding: 0 16px 0 13px;
+  min-width: 44px;
+  padding: 0 11px;
+  gap: 0;
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.86);
   backdrop-filter: blur(14px);
   -webkit-backdrop-filter: blur(14px);
   box-shadow: 0 8px 22px rgba(22, 24, 23, 0.14);
   align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+[data-skin='living'] .public-top-rail .logo-container > div {
+  position: relative;
+  align-self: center;
+  flex: 0 0 auto;
+  height: 22px !important;
+  transform: none;
+}
+
+[data-skin='living'] .public-top-rail .logo-container .app-title {
+  align-self: center;
+  max-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  opacity: 0;
+  line-height: 44px;
+  transition: max-width 0.28s ease, opacity 0.2s ease, padding 0.28s ease;
+}
+
+[data-skin='living'] .public-top-rail .logo-container.is-open .app-title,
+[data-skin='living'] .public-top-rail .logo-container:focus-visible .app-title {
+  max-width: 120px;
+  padding: 0 5px 0 9px;
+  opacity: 1;
+}
+
+@media (hover: hover) {
+  [data-skin='living'] .public-top-rail .logo-container:hover .app-title {
+    max-width: 120px;
+    padding: 0 5px 0 9px;
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-skin='living'] .public-top-rail .logo-container .app-title { transition: none; }
 }
 
 [data-skin='living'] .public-top-rail .logo-container,
@@ -1823,4 +1866,61 @@
   [data-skin='living']:not([data-shell='full']) .public-map-main {
     margin-bottom: 0;
   }
+}
+
+/* ── 13. «Новый объект» одним экраном ─────────────────────────────────── */
+[data-skin='living'] .nf-one {
+  --nf-pad: 20px;
+}
+
+[data-skin='living'] .nf-pin {
+  border-radius: 28px 28px 0 0;
+}
+
+[data-skin='living'] .nf-pin-photo {
+  border-radius: 22px;
+}
+
+[data-skin='living'] .nf-card {
+  border-radius: 22px;
+}
+
+[data-skin='living'] .nf-card .nf-map {
+  border-radius: 18px;
+}
+
+[data-skin='living'] .nf-card .nf-input,
+[data-skin='living'] .nf-card .nf-stepper,
+[data-skin='living'] .nf-card .nf-seg {
+  background-color: var(--bg-color);
+}
+
+/* ── 14. Проба: кнопки карты в цветах настроения (?tint=mood | ?tint=mix) ──
+   Цветная рамка вокруг карты ушла; её цвета переходят на кнопки. Ночью
+   кнопки остаются тёмными. Жёлтая кнопка добавления не меняется. */
+[data-skin='living'][data-tint]:not([data-mood='night']) {
+  --tint-a: color-mix(in srgb, var(--stage-top) 88%, #ffffff);
+  --tint-b: var(--tint-a);
+  --tint-c: var(--tint-a);
+}
+
+[data-skin='living'][data-tint='mix']:not([data-mood='night']) {
+  --tint-a: #c9e6d3;
+  --tint-b: #f1f6a6;
+  --tint-c: #f6cde6;
+}
+
+[data-skin='living'][data-tint]:not([data-mood='night']) .public-top-rail .logo-container,
+[data-skin='living'][data-tint]:not([data-mood='night']) .map-view-toggle:not([aria-expanded='true']),
+[data-skin='living'][data-tint]:not([data-mood='night']) .gps-locate-btn:not(.is-active) {
+  background: var(--tint-a);
+}
+
+[data-skin='living'][data-tint]:not([data-mood='night']) .public-top-rail .public-search-btn {
+  background: var(--tint-b);
+}
+
+[data-skin='living'][data-tint]:not([data-mood='night']) .public-top-rail .icon-btn:not(.public-search-btn),
+[data-skin='living'][data-tint]:not([data-mood='night']) .footer-cabinet-btn {
+  background: var(--tint-c);
 }

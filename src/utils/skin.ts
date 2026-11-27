@@ -127,5 +127,9 @@ export function initSkin(): Skin {
   document.documentElement.dataset.mood = mood;
   syncThemeColor(mood);
   if (read(SHELL_KEY) === 'full') document.documentElement.dataset.shell = 'full';
+  // Проба 27.11: кнопки поверх карты в цветах настроения. Включается адресом
+  // (?tint=mood одним цветом, ?tint=mix тремя), без адреса кнопки белые.
+  const tint = new URLSearchParams(window.location.search).get('tint');
+  if (tint === 'mood' || tint === 'mix') document.documentElement.dataset.tint = tint;
   return skin;
 }

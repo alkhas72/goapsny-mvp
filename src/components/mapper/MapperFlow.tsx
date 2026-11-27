@@ -10,7 +10,7 @@ import {
   Sparkles,
   X,
 } from 'lucide-react';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type RefObject } from 'react';
 import { createPortal } from 'react-dom';
 import type { fetchLiveToken, guideAssistant, GuidePatch } from '../../services/assistantApi';
 import type { LiveMeasure, startLive } from '../../services/geminiLive';
@@ -79,21 +79,8 @@ interface MapperFlowProps {
   onAnother: () => void;
 }
 
-type Step = 1 | 2 | 3 | 4 | 5 | 'done';
-
-const STEP_NAME: Record<1 | 2 | 3 | 4 | 5, string> = {
-  1: 'Фото входа',
-  2: 'Данные',
-  3: 'Доступность',
-  4: 'Туалет и удобства',
-  5: 'Точка на карте',
-};
-
 /** Помощник волонтёров: один на всё приложение. */
 const DEFAULT_EYES = cloudEyes();
-
-const STEPS = [1, 2, 3, 4, 5] as const;
-const LAST_STEP = 5;
 
 const MAX_PHOTOS = 5;
 
@@ -106,16 +93,18 @@ const RAMP_LABEL: Record<RampType, string> = {
 };
 
 const STATUS_CARD = {
-  green: { title: 'Доступно', text: 'вход без барьеров' },
-  yellow: { title: 'Частично', text: 'въезд есть, но с ограничениями' },
-  red: { title: 'Недоступно', text: 'входная группа недоступна' },
+  green: { title: 'Доступно', short: 'Доступно', text: 'вход без барьеров' },
+  yellow: { title: 'Частично', short: 'Частично', text: 'въезд есть, но с ограничениями' },
+  red: { title: 'Недоступно', short: 'Нет', text: 'входная группа недоступна' },
 } as const;
 
 type Light = keyof typeof STATUS_CARD;
 
-function AiMark({ on }: { on: boolean }) {
+function AiMark({ on, short = false }: { on: boolean; short?: boolean }) {
   if (!on) return null;
-  return <Sparkles className="ai-mark" size={14} aria-label="заполнено по фото" />;
+  // В узкой подписи замера слово не помещается: остаётся значок.
+  if (short) return <Sparkles className="ai-mark" size={14} aria-label="по фото" />;
+  return <em className="nf-tag is-ai">по фото</em>;
 }
 
 const YES_NO: [YesNoUnknown, string][] = [
@@ -152,11 +141,44 @@ function Pick<T extends string>({
   );
 }
 
+/** Скрытое поле выбора снимка: камера, галерея или фото туалета. */
+function PhotoInput({
+  ref,
+  take,
+  capture,
+  multiple,
+}: {
+  ref: RefObject<HTMLInputElement | null>;
+  take: (files: FileList | null) => Promise<void>;
+  capture?: 'environment';
+  multiple?: boolean;
+}) {
+  return (
+    <input
+      ref={ref}
+      type="file"
+      accept="image/*"
+      hidden
+      capture={capture}
+      multiple={multiple}
+      onChange={(e) => {
+        const input = e.target;
+        // Поле очищаем после чтения: до него файл должен оставаться живым.
+        void take(input.files).finally(() => {
+          input.value = '';
+        });
+      }}
+    />
+  );
+}
+
 /**
- * «Новый объект» — full screen, five steps: photo → data (the assistant fills
- * from the photo, the mapper checks and measures) → traffic light → toilet
- * and amenities (25.11, the whole step can be skipped) → point. The point is
- * taken when the photo is taken; the last step only refines it by dragging.
+ * «Новый объект»: один экран вместо пяти окон (решение 27.11). Снимок входа
+ * закреплён сверху, под ним поля, которые помощник заполнил по снимку, строка
+ * помощника и одна кнопка отправки. Программа минимум: одно фото входа.
+ * Неудачный кадр или пустое название отправку не блокируют: подсказка идёт
+ * строкой, цвет метки предлагается по данным входа, пока человек не выбрал сам.
+ * «Туалет и удобства» свёрнуты и раскрываются по желанию.
  */
 export function MapperFlow({
   theme,
@@ -174,7 +196,11 @@ export function MapperFlow({
   onOpenDay,
   onAnother,
 }: MapperFlowProps) {
-  const [step, setStep] = useState<Step>(1);
+  // Помощник закончил смотреть снимок: дальше можно сказать, что кадр не удался.
+  const [lookDone, setLookDone] = useState(false);
+  const [comfortOpen, setComfortOpen] = useState(false);
+  // Отправку остановило только отсутствие категории: подсказка у поля.
+  const [needCategory, setNeedCategory] = useState(false);
   const [photos, setPhotos] = useState<{ file: File; url: string }[]>([]);
   const [point, setPoint] = useState<{ lat: number; lng: number } | null>(null);
   const [looking, setLooking] = useState(false);
@@ -213,6 +239,9 @@ export function MapperFlow({
   }, [amenities.toiletNote]);
 
   const suggestion = useMemo(() => suggestStatus(facts), [facts]);
+  // Цвет метки идёт за данными входа, пока человек не выбрал сам.
+  const chosen: Light | null = photos.length > 0 ? (light ?? suggestion.status) : light;
+  const done = saved != null || kept != null;
   const category = CATEGORIES.find((c) => c.slug === facts.category) ?? null;
 
   useEffect(
@@ -280,6 +309,8 @@ export function MapperFlow({
     if (Object.keys(comfort).length === 0) return;
     if (comfort.toiletNote) setNoteByAi(false);
     setAmenities((a) => ({ ...a, ...comfort }));
+    // Записанное помощником должно быть видно: блок раскрывается.
+    setComfortOpen(true);
   };
 
   /** Цифры, которые помощник записал в разговоре с камерой. */
@@ -301,7 +332,7 @@ export function MapperFlow({
     if (facts.stepHeightCm != null) shown.step_height_cm = facts.stepHeightCm;
     if (facts.doorWidthCm != null) shown.door_width_cm = facts.doorWidthCm;
     if (facts.ramp) shown.ramp = facts.ramp;
-    if (light) shown.status = light;
+    if (chosen) shown.status = chosen;
     if (amenities.toilet !== 'unknown') shown.toilet = amenities.toilet;
     if (amenities.toiletAccessible !== 'unknown') shown.toilet_accessible = amenities.toiletAccessible;
     if (amenities.toiletNote.trim()) shown.toilet_note = amenities.toiletNote.trim();
@@ -309,13 +340,13 @@ export function MapperFlow({
     if (amenities.accessibleParking !== 'unknown') shown.accessible_parking = amenities.accessibleParking;
     if (amenities.elevator !== 'unknown') shown.elevator = amenities.elevator;
     return shown;
-  }, [facts, light, amenities]);
+  }, [facts, chosen, amenities]);
 
   const addPhotos = async (files: FileList | null) => {
     if (!files || files.length === 0) return;
     const first = photos.length === 0;
     const picked = Array.from(files).slice(0, MAX_PHOTOS - photos.length);
-    // Снимок сразу читаем в память: к шагу 4 временный файл камеры на iPhone
+    // Снимок сразу читаем в память: к отправке временный файл камеры на iPhone
     // может уже не читаться. Не прочитался сейчас: оставляем как есть,
     // понятный отказ даст подготовка фото перед отправкой.
     const held = await Promise.all(picked.map((file) => holdPhotoInMemory(file).catch(() => file)));
@@ -350,7 +381,10 @@ export function MapperFlow({
         setAiFields(seen);
       })
       .catch(() => undefined)
-      .finally(() => setLooking(false));
+      .finally(() => {
+        setLooking(false);
+        setLookDone(true);
+      });
   };
 
   const addToiletPhotos = async (files: FileList | null) => {
@@ -380,28 +414,25 @@ export function MapperFlow({
 
   const setAmenity = (patch: Partial<Amenities>) => setAmenities((a) => ({ ...a, ...patch }));
 
-  const goTo = (next: Step) => {
-    if (next === 3 && light == null) setLight(suggestion.status);
-    setStep(next);
-  };
-
-  const canNext =
-    step === 1
-      ? photos.length > 0
-      : step === 2
-        ? facts.name.trim().length > 0 && !!facts.category
-        : step === 3
-          ? !!light
-          : step === 4
-            ? true
-            : !!point;
   const hasToiletPhotos = amenities.toilet === 'yes' ? toiletPhotos.length : 0;
-  const skipAmenities = step === 4 && !amenitiesTouched(amenities, hasToiletPhotos);
+  const comfortFilled = amenitiesTouched(amenities, hasToiletPhotos);
+  // Название не обязательно: без него карточка уходит под типом или категорией.
+  const sendName = facts.name.trim() || facts.subtype || category?.ru || '';
 
   // Объект считается добавленным только после ответа сервера: карточка уходит
   // на проверку, и лишь тогда появляется строка в «Сегодня».
   const save = async () => {
-    if (!light || !point || !facts.category || photos.length === 0 || sending) return;
+    if (photos.length === 0 || sending || looking) return;
+    if (!facts.category) {
+      // Без категории сервер карточку не примет: просим выбрать, не ругаем.
+      setNeedCategory(true);
+      setPickCategory(true);
+      return;
+    }
+    const status = chosen ?? suggestion.status;
+    // Место ещё определяется: берём центр карты, пин человек поправит позже.
+    const at = point ?? getCenter();
+    if (!at) return;
     setSending(true);
     setSendError(null);
     let input: SubmitMapperPlaceInput | null = null;
@@ -419,12 +450,12 @@ export function MapperFlow({
         }
       }
       input = {
-        name: facts.name.trim(),
+        name: sendName,
         category: facts.category,
-        lat: point.lat,
-        lng: point.lng,
+        lat: at.lat,
+        lng: at.lng,
         photo,
-        status: light,
+        status,
         stepsCount: facts.steps,
         rampType: facts.ramp,
         subtype: facts.subtype,
@@ -450,10 +481,10 @@ export function MapperFlow({
       const fullCard = facts.steps != null && facts.doorWidthCm != null && facts.ramp != null;
       const entries = appendDay(
         {
-          name: facts.name.trim() || facts.subtype || 'Без названия',
+          name: sendName || 'Без названия',
           subtype: facts.subtype,
-          status: light,
-          reason: light === suggestion.status ? suggestion.reason : 'светофор поставил картограф',
+          status,
+          reason: status === suggestion.status ? suggestion.reason : 'светофор поставил картограф',
           // На сервер уходит одно фото входа — столько же и в счёте.
           photos: 1,
         },
@@ -461,7 +492,6 @@ export function MapperFlow({
       );
       setSaved(entries);
       onSaved(entries);
-      setStep('done');
     } catch (error) {
       // Связь, вход или сервер: карточка в порядке, держим её на устройстве.
       if (input && ownerId && canWait(error)) {
@@ -469,7 +499,6 @@ export function MapperFlow({
         try {
           await (outbox ?? getMapperOutbox()).add(ownerId, input, reason);
           setKept(reason);
-          setStep('done');
           return;
         } catch {
           // Хранилище устройства недоступно: остаётся прежний путь с повтором.
@@ -479,13 +508,6 @@ export function MapperFlow({
     } finally {
       setSending(false);
     }
-  };
-
-  const back = () => {
-    if (sending) return;
-    setSendError(null);
-    if (step === 1 || step === 'done') onClose();
-    else setStep((step - 1) as Step);
   };
 
   if (pickCategory) {
@@ -505,6 +527,7 @@ export function MapperFlow({
                 className={c.slug === facts.category ? 'is-on' : ''}
                 onClick={() => {
                   set({ category: c.slug, subtype: null });
+                  setNeedCategory(false);
                   setPickCategory(false);
                 }}
               >
@@ -519,346 +542,341 @@ export function MapperFlow({
     );
   }
 
+  const hasPhoto = photos.length > 0;
+  // Кадр не удался: помощник ничего не прочёл. Это подсказка, не запрет.
+  const badShot = lookDone && !looking && aiFields.size === 0;
+  const comfortCount = [
+    amenities.toilet,
+    amenities.handWash,
+    amenities.accessibleParking,
+    amenities.elevator,
+  ].filter((v) => v !== 'unknown').length;
+
   // Full screen over the whole app: the map has done its job.
   return createPortal(
-    <div className="nf-screen" role="dialog" aria-modal="true" aria-label="Новый объект">
+    <div className="nf-screen is-one" role="dialog" aria-modal="true" aria-label="Новый объект">
       <header className="nf-top">
-        <button type="button" aria-label="Назад" onClick={back}>
-          <ArrowLeft size={22} />
-        </button>
         <span>Новый объект</span>
         <button type="button" aria-label="Закрыть" onClick={onClose}>
           <X size={22} />
         </button>
       </header>
 
-      {step !== 'done' && (
-        <div className="nf-progress">
-          <div className="nf-bars" aria-hidden="true">
-            {STEPS.map((i) => (
-              <i key={i} className={i <= step ? 'on' : ''} />
-            ))}
-          </div>
-          <p>
-            <b>Шаг {step} из {LAST_STEP}</b> · {STEP_NAME[step]}
-          </p>
-        </div>
-      )}
+      <PhotoInput ref={cameraRef} take={addPhotos} capture="environment" />
+      <PhotoInput ref={galleryRef} take={addPhotos} multiple />
+      <PhotoInput ref={toiletRef} take={addToiletPhotos} multiple />
 
-      <input ref={cameraRef} type="file" accept="image/*" capture="environment" hidden onChange={(e) => {
-        const input = e.target;
-        // Поле очищаем после чтения: до него файл должен оставаться живым.
-        void addPhotos(input.files).finally(() => {
-          input.value = '';
-        });
-      }} />
-      <input ref={galleryRef} type="file" accept="image/*" multiple hidden onChange={(e) => {
-        const input = e.target;
-        void addPhotos(input.files).finally(() => {
-          input.value = '';
-        });
-      }} />
-
-      <input ref={toiletRef} type="file" accept="image/*" multiple hidden onChange={(e) => {
-        const input = e.target;
-        void addToiletPhotos(input.files).finally(() => {
-          input.value = '';
-        });
-      }} />
-
-      {step === 1 && (
+      {!done && !hasPhoto && (
         <div className="nf-body nf-photo-step">
-          {photos.length === 0 ? (
-            <button type="button" className="nf-drop" onClick={() => cameraRef.current?.click()}>
-              <Camera size={48} strokeWidth={1.6} aria-hidden="true" />
-              Сфотографируйте вход
+          <button type="button" className="nf-drop" onClick={() => cameraRef.current?.click()}>
+            <Camera size={48} strokeWidth={1.6} aria-hidden="true" />
+            Сфотографируйте вход
+            <small>Одного снимка достаточно. Остальное помощник заполнит сам.</small>
+          </button>
+          <div className="nf-two">
+            <button type="button" className="nf-btn is-work" onClick={() => cameraRef.current?.click()}>
+              <Camera size={18} aria-hidden="true" /> Камера
             </button>
-          ) : (
-            <>
-              <img className="nf-photo-main" src={photos[photos.length - 1].url} alt="Фото входа" />
-              <div className="nf-thumbs">
-                {photos.map((p, i) => (
-                  <img key={p.url} src={p.url} alt={`Фото ${i + 1}`} />
-                ))}
-                {photos.length < MAX_PHOTOS && (
-                  <button type="button" aria-label="Ещё фото" onClick={() => cameraRef.current?.click()}>
-                    <Plus size={22} />
-                  </button>
-                )}
-              </div>
-              {photos.length > 1 && (
-                <p className="nf-hint">В карточку уйдёт первое фото. Остальные пока не сохраняются.</p>
-              )}
-            </>
-          )}
-          {photos.length === 0 && (
-            <div className="nf-two">
-              <button type="button" className="nf-btn is-work" onClick={() => cameraRef.current?.click()}>
-                <Camera size={18} aria-hidden="true" /> Камера
-              </button>
-              <button type="button" className="nf-btn is-ghost" onClick={() => galleryRef.current?.click()}>
-                <ImageIcon size={18} aria-hidden="true" /> Галерея
-              </button>
-            </div>
-          )}
+            <button type="button" className="nf-btn is-ghost" onClick={() => galleryRef.current?.click()}>
+              <ImageIcon size={18} aria-hidden="true" /> Галерея
+            </button>
+          </div>
         </div>
       )}
 
-      {step === 2 && (
-        <div className="nf-body">
-          <div className="nf-ai-row">
-            {photos[0] && <img src={photos[0].url} alt="" />}
-            {(looking || aiFields.size > 0) && (
-              <span className={`nf-pill${looking ? ' is-busy' : ''}`}>
-                <Sparkles size={14} aria-hidden="true" />
-                {looking ? 'ИИ смотрит фото…' : 'ИИ распознал по фото'}
-              </span>
-            )}
-          </div>
-
-          <label className="nf-label" htmlFor="nf-name">
-            Название <AiMark on={aiFields.has('name')} />
-          </label>
-          <input
-            id="nf-name"
-            className="nf-input"
-            value={facts.name}
-            onChange={(e) => set({ name: e.target.value })}
-          />
-
-          <span className="nf-label">
-            Категория <AiMark on={aiFields.has('category')} />
-          </span>
-          <button type="button" className="nf-input nf-select" onClick={() => setPickCategory(true)}>
-            {category ? category.ru : 'Выбрать'} <ChevronDown size={18} aria-hidden="true" />
-          </button>
-          {facts.category && (
-            <div className="nf-chips" role="group" aria-label="Тип объекта">
-              {(SUBTYPES[facts.category] ?? []).map((t) => (
-                <button key={t} type="button" aria-pressed={t === facts.subtype} onClick={() => set({ subtype: t })}>
-                  {t}
+      {!done && hasPhoto && (
+        <div className="nf-body nf-one">
+          <div className="nf-pin">
+            <div className="nf-pin-photo">
+              <img src={photos[0].url} alt="Фото входа" />
+              {photos.length > 1 && <span className="nf-pin-count">{photos.length} фото</span>}
+              {photos.length < MAX_PHOTOS && (
+                <button type="button" aria-label="Ещё фото" onClick={() => cameraRef.current?.click()}>
+                  <Plus size={18} aria-hidden="true" /> фото
                 </button>
-              ))}
+              )}
             </div>
-          )}
+            <p className={`nf-note${looking ? ' is-busy' : ''}`} role="status">
+              <Sparkles size={14} aria-hidden="true" />
+              {looking
+                ? 'Помощник смотрит снимок…'
+                : badShot
+                  ? 'По снимку вход не разобрать. Заполните сами или снимите ещё раз, отправить можно и так.'
+                  : aiFields.size > 0
+                    ? 'Заполнено по снимку. Проверьте и поправьте, что не так.'
+                    : 'Проверьте поля и отправляйте.'}
+            </p>
+          </div>
+          {photos.length > 1 && <p className="nf-hint">В карточку уйдёт первое фото. Остальные пока не сохраняются.</p>}
 
-          <div className="nf-row2">
-            <div>
-              <span className="nf-label">
-                Ступени <AiMark on={aiFields.has('steps')} />
-              </span>
-              <div className="nf-stepper" role="group" aria-label="Ступени">
-                <button type="button" aria-label="Меньше" onClick={() => set({ steps: Math.max(0, (facts.steps ?? 0) - 1) })}>
-                  <Minus size={18} />
-                </button>
-                <output>{facts.steps ?? 0}</output>
-                <button type="button" aria-label="Больше" onClick={() => set({ steps: (facts.steps ?? 0) + 1 })}>
-                  <Plus size={18} />
-                </button>
+          <section className="nf-card" aria-label="Что это">
+            <label className="nf-label" htmlFor="nf-name">
+              Название <AiMark on={aiFields.has('name')} />
+            </label>
+            <input
+              id="nf-name"
+              className="nf-input"
+              placeholder={facts.subtype || category?.ru || 'Как называется место'}
+              value={facts.name}
+              onChange={(e) => set({ name: e.target.value })}
+            />
+
+            <span className="nf-label">
+              Категория <AiMark on={aiFields.has('category')} />
+            </span>
+            <button
+              type="button"
+              className="nf-input nf-select"
+              aria-invalid={needCategory && !facts.category}
+              onClick={() => setPickCategory(true)}
+            >
+              {category ? category.ru : 'Выбрать'} <ChevronDown size={18} aria-hidden="true" />
+            </button>
+            {needCategory && !facts.category && (
+              <p className="nf-hint is-ask">Выберите, что это за место, и карточка уйдёт.</p>
+            )}
+            {facts.category && (
+              <div className="nf-chips" role="group" aria-label="Тип объекта">
+                {(SUBTYPES[facts.category] ?? []).map((t) => (
+                  <button key={t} type="button" aria-pressed={t === facts.subtype} onClick={() => set({ subtype: t })}>
+                    {t}
+                  </button>
+                ))}
+              </div>
+            )}
+          </section>
+
+          <section className="nf-card" aria-label="Вход">
+            <div className="nf-row2">
+              <div>
+                <span className="nf-label">
+                  Ступени <AiMark on={aiFields.has('steps')} />
+                </span>
+                <div className="nf-stepper" role="group" aria-label="Ступени">
+                  <button type="button" aria-label="Меньше" onClick={() => set({ steps: Math.max(0, (facts.steps ?? 0) - 1) })}>
+                    <Minus size={18} />
+                  </button>
+                  <output>{facts.steps ?? 0}</output>
+                  <button type="button" aria-label="Больше" onClick={() => set({ steps: (facts.steps ?? 0) + 1 })}>
+                    <Plus size={18} />
+                  </button>
+                </div>
+              </div>
+              <div>
+                <span className="nf-label">
+                  Пандус <AiMark on={aiFields.has('ramp')} />
+                </span>
+                <select
+                  className="nf-input"
+                  value={facts.ramp ?? ''}
+                  onChange={(e) => set({ ramp: (e.target.value || null) as RampType | null })}
+                >
+                  <option value="">—</option>
+                  {(Object.keys(RAMP_LABEL) as RampType[]).map((r) => (
+                    <option key={r} value={r}>
+                      {RAMP_LABEL[r]}
+                    </option>
+                  ))}
+                </select>
               </div>
             </div>
-            <div>
-              <span className="nf-label">
-                Пандус <AiMark on={aiFields.has('ramp')} />
-              </span>
-              <select
-                className="nf-input"
-                value={facts.ramp ?? ''}
-                onChange={(e) => set({ ramp: (e.target.value || null) as RampType | null })}
-              >
-                <option value="">—</option>
-                {(Object.keys(RAMP_LABEL) as RampType[]).map((r) => (
-                  <option key={r} value={r}>
-                    {RAMP_LABEL[r]}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
 
-          <span className="nf-label">
-            Замеры <em className="nf-tag">предварительно</em>
-          </span>
-          <div className="nf-row2">
-            {(facts.steps ?? 0) > 0 && (
+            <span className="nf-label">
+              Замеры <em className="nf-tag">предварительно</em>
+            </span>
+            <div className="nf-row2">
+              {(facts.steps ?? 0) > 0 && (
+                <div>
+                  <label className="nf-label is-sub" htmlFor="nf-step-cm">
+                    Высота ступени, см <AiMark short on={aiFields.has('stepHeightCm')} />
+                  </label>
+                  <input
+                    id="nf-step-cm"
+                    className="nf-input"
+                    inputMode="numeric"
+                    autoComplete="off"
+                    value={stepText}
+                    aria-invalid={stepText.trim() !== '' && facts.stepHeightCm == null}
+                    onChange={(e) => {
+                      setStepText(e.target.value);
+                      set({ stepHeightCm: parseCm(e.target.value, STEP_HEIGHT_RANGE) });
+                    }}
+                  />
+                </div>
+              )}
               <div>
-                <label className="nf-label is-sub" htmlFor="nf-step-cm">
-                  Высота ступени, см <AiMark on={aiFields.has('stepHeightCm')} />
+                <label className="nf-label is-sub" htmlFor="nf-door-cm">
+                  Ширина двери, см <AiMark short on={aiFields.has('doorWidthCm')} />
                 </label>
                 <input
-                  id="nf-step-cm"
+                  id="nf-door-cm"
                   className="nf-input"
                   inputMode="numeric"
                   autoComplete="off"
-                  value={stepText}
-                  aria-invalid={stepText.trim() !== '' && facts.stepHeightCm == null}
+                  value={doorText}
+                  aria-invalid={doorText.trim() !== '' && facts.doorWidthCm == null}
                   onChange={(e) => {
-                    setStepText(e.target.value);
-                    set({ stepHeightCm: parseCm(e.target.value, STEP_HEIGHT_RANGE) });
+                    setDoorText(e.target.value);
+                    set({ doorWidthCm: parseCm(e.target.value, DOOR_WIDTH_RANGE) });
                   }}
                 />
               </div>
-            )}
-            <div>
-              <label className="nf-label is-sub" htmlFor="nf-door-cm">
-                Ширина двери, см <AiMark on={aiFields.has('doorWidthCm')} />
-              </label>
-              <input
-                id="nf-door-cm"
-                className="nf-input"
-                inputMode="numeric"
-                autoComplete="off"
-                value={doorText}
-                aria-invalid={doorText.trim() !== '' && facts.doorWidthCm == null}
-                onChange={(e) => {
-                  setDoorText(e.target.value);
-                  set({ doorWidthCm: parseCm(e.target.value, DOOR_WIDTH_RANGE) });
-                }}
-              />
             </div>
-          </div>
+          </section>
 
-          {aiFields.size > 0 && <p className="nf-hint">Проверьте и поправьте — ИИ мог ошибиться</p>}
-        </div>
-      )}
-
-      {step === 3 && (
-        <div className="nf-body">
-          {(['green', 'yellow', 'red'] as const).map((s) => (
-            <button
-              key={s}
-              type="button"
-              className={`nf-status is-${s}`}
-              aria-pressed={light === s}
-              onClick={() => setLight(s)}
-            >
-              <span className="nf-dot" aria-hidden="true" />
-              <span className="nf-status-text">
-                <b>{STATUS_CARD[s].title}</b>
-                {s === suggestion.status ? suggestion.reason : STATUS_CARD[s].text}
-              </span>
-              {light === s && <Check className="nf-check" size={22} aria-hidden="true" />}
-            </button>
-          ))}
-          <p className="nf-hint">
-            <Sparkles size={13} aria-hidden="true" /> Предложено по данным входа
-            {suggestion.unchecked.length > 0 && ` · не проверено: ${suggestion.unchecked.join(', ')}`}
-          </p>
-        </div>
-      )}
-
-      {step === 4 && (
-        <div className="nf-body">
-          <span className="nf-label">Туалет</span>
-          <Pick
-            label="Туалет"
-            value={amenities.toilet}
-            none="unknown"
-            options={[
-              ['yes', 'Есть'],
-              ['no', 'Нет'],
-            ]}
-            onChange={(v) => setAmenity({ toilet: v })}
-          />
-          {amenities.toilet === 'yes' && (
-            <>
-              <span className="nf-label">Доступен на коляске</span>
-              <Pick<ToiletAccessible>
-                label="Доступен на коляске"
-                value={amenities.toiletAccessible}
-                none="unknown"
-                options={[
-                  ['yes', 'Да'],
-                  ['partial', 'Частично'],
-                  ['no', 'Нет'],
-                ]}
-                onChange={(v) => setAmenity({ toiletAccessible: v })}
-              />
-              <span className="nf-label">Фото туалета</span>
-              <div className="nf-thumbs">
-                {toiletPhotos.map((p, i) => (
-                  <span key={p.url} className="nf-thumb">
-                    <img src={p.url} alt={`Фото туалета ${i + 1}`} />
-                    <button type="button" aria-label={`Убрать фото туалета ${i + 1}`} onClick={() => removeToiletPhoto(p.url)}>
-                      <X size={14} />
-                    </button>
-                  </span>
-                ))}
-                {toiletPhotos.length < MAX_TOILET_PHOTOS && (
-                  <button type="button" aria-label="Добавить фото туалета" onClick={() => toiletRef.current?.click()}>
-                    <Camera size={22} />
-                  </button>
-                )}
-              </div>
-              <label className="nf-label" htmlFor="nf-toilet-note">
-                Описание <AiMark on={noteByAi} />
-              </label>
-              <textarea
-                id="nf-toilet-note"
-                className="nf-input nf-textarea"
-                rows={3}
-                maxLength={TOILET_NOTE_MAX}
-                placeholder={describing ? 'Помощник описывает фото…' : ''}
-                value={amenities.toiletNote}
-                onChange={(e) => {
-                  setNoteByAi(false);
-                  setAmenity({ toiletNote: e.target.value });
-                }}
-              />
-            </>
-          )}
-
-          <span className="nf-label">Можно помыть руки</span>
-          <Pick
-            label="Можно помыть руки"
-            value={amenities.handWash}
-            none="unknown"
-            options={YES_NO}
-            onChange={(v) => setAmenity({ handWash: v })}
-          />
-          <span className="nf-label">Парковка для людей с инвалидностью</span>
-          <Pick
-            label="Парковка для людей с инвалидностью"
-            value={amenities.accessibleParking}
-            none="unknown"
-            options={YES_NO}
-            onChange={(v) => setAmenity({ accessibleParking: v })}
-          />
-          <span className="nf-label">Лифт между этажами</span>
-          <Pick
-            label="Лифт между этажами"
-            value={amenities.elevator}
-            none="unknown"
-            options={YES_NO}
-            onChange={(v) => setAmenity({ elevator: v })}
-          />
-        </div>
-      )}
-
-      {step === 5 && (
-        <div className="nf-body nf-map-step">
-          <div className="nf-map">
-            {point ? (
-              <MapLibreMap
-                places={[]}
-                selectedPlaceId={null}
-                theme={theme}
-                dragMode={{ lat: point.lat, lng: point.lng, onChange: (lat, lng) => setPoint({ lat, lng }) }}
-              />
-            ) : (
-              <p className="nf-hint">Определяем место…</p>
+          <section className="nf-card" aria-label="Доступность">
+            <span className="nf-label">
+              Доступность {light == null && <em className="nf-tag is-ai">предложено</em>}
+            </span>
+            <div className="nf-lights" role="group" aria-label="Доступность">
+              {(['green', 'yellow', 'red'] as const).map((s) => (
+                <button
+                  key={s}
+                  type="button"
+                  className={`nf-light is-${s}`}
+                  aria-pressed={chosen === s}
+                  aria-label={STATUS_CARD[s].title}
+                  onClick={() => setLight(s)}
+                >
+                  <span className="nf-dot" aria-hidden="true" />
+                  {STATUS_CARD[s].short}
+                </button>
+              ))}
+            </div>
+            {chosen && (
+              <p className="nf-hint">
+                {chosen === suggestion.status ? suggestion.reason : STATUS_CARD[chosen].text}
+                {suggestion.unchecked.length > 0 && ` · не проверено: ${suggestion.unchecked.join(', ')}`}
+              </p>
             )}
-            <span className="nf-map-note">Перетащите пин ко входу</span>
-          </div>
+          </section>
+
+          <section className={`nf-card nf-fold${comfortOpen ? ' is-open' : ''}`}>
+            <button
+              type="button"
+              className="nf-fold-head"
+              aria-expanded={comfortOpen}
+              aria-controls="nf-comfort"
+              onClick={() => setComfortOpen((open) => !open)}
+            >
+              <span>Туалет и удобства</span>
+              <small>{comfortFilled ? `отмечено: ${Math.max(comfortCount, 1)}` : 'по желанию'}</small>
+              <ChevronDown size={18} aria-hidden="true" />
+            </button>
+            {comfortOpen && (
+              <div id="nf-comfort" className="nf-fold-body">
+                <span className="nf-label">Туалет</span>
+                <Pick
+                  label="Туалет"
+                  value={amenities.toilet}
+                  none="unknown"
+                  options={[
+                    ['yes', 'Есть'],
+                    ['no', 'Нет'],
+                  ]}
+                  onChange={(v) => setAmenity({ toilet: v })}
+                />
+                {amenities.toilet === 'yes' && (
+                  <>
+                    <span className="nf-label">Доступен на коляске</span>
+                    <Pick<ToiletAccessible>
+                      label="Доступен на коляске"
+                      value={amenities.toiletAccessible}
+                      none="unknown"
+                      options={[
+                        ['yes', 'Да'],
+                        ['partial', 'Частично'],
+                        ['no', 'Нет'],
+                      ]}
+                      onChange={(v) => setAmenity({ toiletAccessible: v })}
+                    />
+                    <span className="nf-label">Фото туалета</span>
+                    <div className="nf-thumbs">
+                      {toiletPhotos.map((p, i) => (
+                        <span key={p.url} className="nf-thumb">
+                          <img src={p.url} alt={`Фото туалета ${i + 1}`} />
+                          <button type="button" aria-label={`Убрать фото туалета ${i + 1}`} onClick={() => removeToiletPhoto(p.url)}>
+                            <X size={14} />
+                          </button>
+                        </span>
+                      ))}
+                      {toiletPhotos.length < MAX_TOILET_PHOTOS && (
+                        <button type="button" aria-label="Добавить фото туалета" onClick={() => toiletRef.current?.click()}>
+                          <Camera size={22} />
+                        </button>
+                      )}
+                    </div>
+                    <label className="nf-label" htmlFor="nf-toilet-note">
+                      Описание <AiMark on={noteByAi} />
+                    </label>
+                    <textarea
+                      id="nf-toilet-note"
+                      className="nf-input nf-textarea"
+                      rows={3}
+                      maxLength={TOILET_NOTE_MAX}
+                      placeholder={describing ? 'Помощник описывает фото…' : ''}
+                      value={amenities.toiletNote}
+                      onChange={(e) => {
+                        setNoteByAi(false);
+                        setAmenity({ toiletNote: e.target.value });
+                      }}
+                    />
+                  </>
+                )}
+
+                <span className="nf-label">Можно помыть руки</span>
+                <Pick
+                  label="Можно помыть руки"
+                  value={amenities.handWash}
+                  none="unknown"
+                  options={YES_NO}
+                  onChange={(v) => setAmenity({ handWash: v })}
+                />
+                <span className="nf-label">Парковка для людей с инвалидностью</span>
+                <Pick
+                  label="Парковка для людей с инвалидностью"
+                  value={amenities.accessibleParking}
+                  none="unknown"
+                  options={YES_NO}
+                  onChange={(v) => setAmenity({ accessibleParking: v })}
+                />
+                <span className="nf-label">Лифт между этажами</span>
+                <Pick
+                  label="Лифт между этажами"
+                  value={amenities.elevator}
+                  none="unknown"
+                  options={YES_NO}
+                  onChange={(v) => setAmenity({ elevator: v })}
+                />
+              </div>
+            )}
+          </section>
+
+          <section className="nf-card" aria-label="Место на карте">
+            <span className="nf-label">Место на карте</span>
+            <div className="nf-map">
+              {point ? (
+                <MapLibreMap
+                  places={[]}
+                  selectedPlaceId={null}
+                  theme={theme}
+                  dragMode={{ lat: point.lat, lng: point.lng, onChange: (lat, lng) => setPoint({ lat, lng }) }}
+                />
+              ) : (
+                <p className="nf-hint">Определяем место…</p>
+              )}
+            </div>
+            <p className="nf-hint">Поставлено по вашему местоположению. Если пин не у входа, перетащите его.</p>
+          </section>
         </div>
       )}
 
-      {step === 'done' && saved && (
+      {saved && (
         <div className="nf-body nf-done">
           <span className="nf-done-mark">
             <Check size={40} aria-hidden="true" />
           </span>
-          <h2>{facts.name || 'Объект'} — на проверке</h2>
+          <h2>{sendName || 'Объект'} — на проверке</h2>
           <p className="nf-hint">Модератор посмотрит карточку, и объект появится на карте.</p>
           {toiletLost && <p className="nf-hint">Фото туалета не сохранились, карточка ушла без них.</p>}
           <p className="nf-karma">+{saved[saved.length - 1].karma} кармы</p>
@@ -872,12 +890,12 @@ export function MapperFlow({
         </div>
       )}
 
-      {step === 'done' && kept && (
+      {!saved && kept && (
         <div className="nf-body nf-done is-kept">
           <span className="nf-done-mark">
             <CloudOff size={38} aria-hidden="true" />
           </span>
-          <h2>{facts.name || 'Объект'} — сохранён на устройстве</h2>
+          <h2>{sendName || 'Объект'} — сохранён на устройстве</h2>
           <p className="nf-hint">{keptText(kept)}</p>
           <p className="nf-hint">Объекты, которые ждут отправки, видны в кабинете.</p>
           <button type="button" className="nf-btn is-work" onClick={onAnother}>
@@ -889,9 +907,9 @@ export function MapperFlow({
         </div>
       )}
 
-      {step !== 'done' && (
+      {!done && (
         <Companion
-          step={step}
+          step={!hasPhoto ? 1 : comfortOpen ? 4 : 2}
           card={card}
           onPatch={applyGuide}
           canLive={canLive}
@@ -901,29 +919,23 @@ export function MapperFlow({
       )}
       {canLive && <LivePanel ref={liveRef} onMeasure={applyLive} liveToken={liveToken} liveStart={liveStart} />}
 
-      {step !== 'done' && (step !== 1 || photos.length > 0) && (
+      {!done && hasPhoto && (
         <footer className="nf-foot">
-          {step === LAST_STEP && sendError && (
+          {sendError && (
             <p className="nf-send-error" role="alert">
               {sendError}
             </p>
           )}
-          {step === LAST_STEP ? (
-            <button
-              type="button"
-              className="nf-btn is-final"
-              disabled={!canNext || sending}
-              aria-busy={sending}
-              onClick={() => void save()}
-            >
-              <Check size={18} aria-hidden="true" />
-              {sending ? 'Отправляем…' : sendError ? 'Повторить отправку' : 'Отправить на проверку'}
-            </button>
-          ) : (
-            <button type="button" className="nf-btn is-work" disabled={!canNext} onClick={() => goTo((step + 1) as Step)}>
-              {skipAmenities ? 'Пропустить' : 'Далее'}
-            </button>
-          )}
+          <button
+            type="button"
+            className="nf-btn is-final"
+            disabled={sending || looking}
+            aria-busy={sending}
+            onClick={() => void save()}
+          >
+            <Check size={18} aria-hidden="true" />
+            {sending ? 'Отправляем…' : sendError ? 'Повторить отправку' : 'Всё верно, отправить'}
+          </button>
         </footer>
       )}
     </div>,
