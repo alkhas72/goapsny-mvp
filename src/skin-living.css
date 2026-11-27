@@ -1868,34 +1868,7 @@
   }
 }
 
-/* ── 13. «Новый объект» одним экраном ─────────────────────────────────── */
-[data-skin='living'] .nf-one {
-  --nf-pad: 20px;
-}
-
-[data-skin='living'] .nf-pin {
-  border-radius: 28px 28px 0 0;
-}
-
-[data-skin='living'] .nf-pin-photo {
-  border-radius: 22px;
-}
-
-[data-skin='living'] .nf-card {
-  border-radius: 22px;
-}
-
-[data-skin='living'] .nf-card .nf-map {
-  border-radius: 18px;
-}
-
-[data-skin='living'] .nf-card .nf-input,
-[data-skin='living'] .nf-card .nf-stepper,
-[data-skin='living'] .nf-card .nf-seg {
-  background-color: var(--bg-color);
-}
-
-/* ── 14. Проба: кнопки карты в цветах настроения (?tint=mood | ?tint=mix) ──
+/* ── 13. Проба: кнопки карты в цветах настроения (?tint=mood | ?tint=mix) ──
    Цветная рамка вокруг карты ушла; её цвета переходят на кнопки. Ночью
    кнопки остаются тёмными. Жёлтая кнопка добавления не меняется. */
 [data-skin='living'][data-tint]:not([data-mood='night']) {
@@ -1923,4 +1896,32 @@
 [data-skin='living'][data-tint]:not([data-mood='night']) .public-top-rail .icon-btn:not(.public-search-btn),
 [data-skin='living'][data-tint]:not([data-mood='night']) .footer-cabinet-btn {
   background: var(--tint-c);
+}
+
+/* ── 14. Правки после кросс-аудита среза 1 (Antigravity, 27.11) ────────── */
+/* Карточка меню по высоте содержимого, без пустого поля снизу. */
+[data-skin='living'] .menu-scrim {
+  align-items: flex-start;
+}
+
+/* «Моё местоположение» на одной линии с «Кабинетом». */
+[data-skin='living'] .gps-locate-btn {
+  bottom: calc(28px + env(safe-area-inset-bottom, 0px));
+}
+
+/* Ночью кнопки карты тёмные, как остальные. */
+[data-skin='living'][data-mood='night'] .gps-locate-btn:not(.is-active),
+[data-skin='living'][data-mood='night'] .maplibregl-ctrl-group,
+[data-skin='living'][data-mood='night'] .maplibregl-ctrl-attrib {
+  background: rgba(30, 44, 38, 0.94);
+  color: #e8f1eb;
+}
+
+[data-skin='living'][data-mood='night'] .maplibregl-ctrl-group button + button {
+  border-top-color: rgba(255, 255, 255, 0.16);
+}
+
+[data-skin='living'][data-mood='night'] .maplibregl-ctrl-group button .maplibregl-ctrl-icon,
+[data-skin='living'][data-mood='night'] .maplibregl-ctrl-attrib-button {
+  filter: invert(1);
 }
