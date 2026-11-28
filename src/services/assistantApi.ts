@@ -137,6 +137,64 @@ export async function guideAssistant(
   return { reply, patch };
 }
 
+export type AssistantV1App = 'map' | 'stopgap';
+export type AssistantV1Event = 'photo' | 'message';
+export type AssistantV1PhotoKind = 'entrance' | 'toilet' | 'measure';
+export type AssistantV1Status = 'ok' | 'not_entrance' | 'unclear';
+
+export interface AssistantV1Proposal {
+  field: string;
+  value: string | number;
+  kind: 'fill' | 'hint';
+  source: 'photo' | 'message';
+}
+
+export interface AssistantV1Request {
+  app: AssistantV1App;
+  event: AssistantV1Event;
+  photoKind?: AssistantV1PhotoKind;
+  photo?: string;
+  message?: string;
+  form?: Record<string, string | number>;
+  history?: ChatTurn[];
+}
+
+export interface AssistantV1Response {
+  v: 1;
+  status: AssistantV1Status;
+  say: string;
+  proposals: AssistantV1Proposal[];
+  notes: string[];
+  next: string | null;
+}
+
+/**
+ * Единый шов помощника v1 (docs/assistant-seam-v1.md) для GoApsny и Stopgap.
+ * Автоматически ставит `v: 1` и безопасно нормализует ответ сервера.
+ */
+export async function askAssistantV1(
+  request: AssistantV1Request,
+  options: AssistantApiOptions = {},
+): Promise<AssistantV1Response> {
+  const data = await postAssistant<Partial<AssistantV1Response>>('/api/assistant', { v: 1, ...request }, options);
+  const status: AssistantV1Status =
+    data.status === 'not_entrance' || data.status === 'unclear' ? data.status : 'ok';
+  const say = typeof data.say === 'string' ? data.say.trim() : '';
+  const proposals = Array.isArray(data.proposals)
+    ? data.proposals.filter(
+        (p): p is AssistantV1Proposal =>
+          Boolean(p) &&
+          typeof p.field === 'string' &&
+          (typeof p.value === 'string' || typeof p.value === 'number') &&
+          (p.kind === 'fill' || p.kind === 'hint') &&
+          (p.source === 'photo' || p.source === 'message'),
+      )
+    : [];
+  const notes = Array.isArray(data.notes) ? data.notes.filter((n): n is string => typeof n === 'string' && n.trim().length > 0) : [];
+  const next = typeof data.next === 'string' ? data.next : null;
+  return { v: 1, status, say, proposals, notes, next };
+}
+
 export interface LiveToken {
   token: string;
   model: string;

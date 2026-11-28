@@ -1,10 +1,10 @@
 // Помощник волонтёра и аудитора: DeepSeek Flash.
 //
-//   mode "look"   — фото входа → черновик карточки (название, тип, ступени,
-//                   примерные сантиметры, пандус). Цифры предварительные.
-//   mode "toilet" — фото туалета → короткое описание словами.
-//   mode "guide"  — сопровождение по шагам «Новый объект»: отвечает и
-//                   заполняет поля карточки со слов человека (поле patch).
+//   v: 1          — единый шов для GoApsny (map) и Stopgap (stopgap):
+//                   см. docs/assistant-seam-v1.md и api/_lib/assistant-v1.js.
+//   mode "look"   — (прежний) фото входа → черновик карточки.
+//   mode "toilet" — (прежний) фото туалета → короткое описание словами.
+//   mode "guide"  — (прежний) сопровождение по шагам «Новый объект».
 //
 // Фото идут модели как сняты (решение Арбитра 25.11). Расход здесь не
 // считается и в ai_jobs не пишется: у функции нет сервисного ключа базы.
@@ -14,6 +14,7 @@ import { CATEGORY_SLUGS, DOOR_WIDTH_RANGE, RAMP_TYPES, STEP_HEIGHT_RANGE, SUBTYP
 import { askDeepSeek, extractJson, tryDeepSeek, userContent } from './_lib/deepseek.js';
 import { createLiveToken } from './_lib/live.js';
 import { PROBE_JPEG } from './_lib/probe-image.js';
+import { handleAssistantV1 } from './_lib/assistant-v1.js';
 
 const LOOK_PROMPT = [
   'Ты помощник карты доступности GoApsny (Абхазия). На фото вход в здание.',
@@ -170,6 +171,11 @@ export async function assistant(req, deps = {}) {
   const who = await authenticate(req, deps);
   const body = jsonBody(req);
   rateLimit(who.id, 40);
+
+  if (body.v === 1) {
+    return handleAssistantV1(body, deps);
+  }
+
   const image = jpegBase64(body.image);
 
   if (body.mode === 'look') {

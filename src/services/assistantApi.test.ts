@@ -1,5 +1,12 @@
 import { describe, expect, it, vi } from 'vitest';
-import { AssistantApiError, assistantErrorText, canUseLive, fetchLiveToken, guideAssistant } from './assistantApi';
+import {
+  AssistantApiError,
+  askAssistantV1,
+  assistantErrorText,
+  canUseLive,
+  fetchLiveToken,
+  guideAssistant,
+} from './assistantApi';
 
 function server(body: unknown, status = 200) {
   return vi.fn(async () => ({ ok: status < 400, status, json: async () => body })) as unknown as typeof fetch;
@@ -18,6 +25,44 @@ describe('assistantApi', () => {
       messages: [{ role: 'user', text: 'две ступени' }],
       step: 2,
       card: { name: 'Аптека' },
+    });
+  });
+
+  it('единый шов v1: шлёт v:1 и нормализует proposals, notes и status', async () => {
+    const fetchImpl = server({
+      v: 1,
+      status: 'ok',
+      say: ' Вижу 1 ступень. ',
+      proposals: [
+        { field: 'steps', value: 1, kind: 'fill', source: 'photo' },
+        { field: 'bad', value: null, kind: 'fill', source: 'photo' },
+      ],
+      notes: ['Справа труба', ''],
+      next: 'name',
+    });
+
+    const answer = await askAssistantV1(
+      { app: 'map', event: 'photo', photoKind: 'entrance', photo: 'BASE64' },
+      { getToken, fetchImpl },
+    );
+
+    expect(answer).toEqual({
+      v: 1,
+      status: 'ok',
+      say: 'Вижу 1 ступень.',
+      proposals: [{ field: 'steps', value: 1, kind: 'fill', source: 'photo' }],
+      notes: ['Справа труба'],
+      next: 'name',
+    });
+
+    const [url, init] = (fetchImpl as unknown as ReturnType<typeof vi.fn>).mock.calls[0];
+    expect(url).toBe('/api/assistant');
+    expect(JSON.parse(init.body)).toEqual({
+      v: 1,
+      app: 'map',
+      event: 'photo',
+      photoKind: 'entrance',
+      photo: 'BASE64',
     });
   });
 
