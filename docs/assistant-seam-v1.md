@@ -73,7 +73,7 @@
 | Поле | Тип | Смысл |
 |---|---|---|
 | `v` | `1` | Версия протокола. |
-| `status` | `"ok" \| "not_entrance" \| "unclear"` | `ok` — есть валидные предложения; `not_entrance` — только для `event: "photo"`, когда на снимке не вход (`proposals: []`, `say` всегда не пустой, UI отправку не блокирует); `unclear` — пустые `proposals` или неструктурированный ответ (`say` всегда не пустой). |
+| `status` | `"ok" \| "not_entrance" \| "unclear"` | `ok` — есть валидные предложения; `not_entrance` — только для `event: "photo"`, когда на снимке нет входа (в `map` сохраняются `name`/`category`/`subtype` с вывески, факты входа стираются; `say` мягко просит доснять вход или уточнить место); `unclear` — пустые `proposals` или неструктурированный ответ (`say` всегда не пустой). |
 | `say` | `string` | Короткая реплика по-русски (1–2 предложения, без разметки). При `not_entrance` и `unclear` сервер гарантирует непустую запасную фразу. |
 | `proposals` | `Array<Proposal>` | Проверенные сервером предложения полей: `{ field, value, kind, source }`. |
 | `notes` | `string[]` | Нестандартные замечания, не укладывающиеся в поля (например, «справа труба у порога»), до 5 строк. |
@@ -89,7 +89,8 @@
 3. **Строгая фильтрация справочников и пределов:**
    - `map`: `category` из `CATEGORY_SLUGS`, `subtype` только из `SUBTYPES[category]`, `steps` ∈ `[0, 60]`, `step_height_cm` ∈ `STEP_HEIGHT_RANGE` (отбрасывается при `steps === 0` в ответе или в `form.steps === 0`), `door_width_cm` ∈ `DOOR_WIDTH_RANGE`, `ramp` из `RAMP_TYPES`, `toilet` / `hand_wash` / `accessible_parking` / `elevator` ∈ `["yes", "no"]`, `toilet_accessible` ∈ `["yes", "partial", "no"]`, `toilet_note` ≤ 500 знаков.
    - `stopgap`: `hl`, `hr` ∈ `[10, 600]` мм; `freeWidth`, `width` ∈ `[300, 3000]` мм.
-4. **Защита от выдумки и пустых ответов:**
+4. **Защита от выдумки и пустых ответов (решение Арбитра 28.11):**
+   - При `event: "photo"` и `status: "not_entrance"` в `map` сохраняются только `name`, `category`, `subtype` (цепляемся за место по вывеске), а факты входа (`steps`, `step_height_cm`, `door_width_cm`, `ramp`) стираются. В `stopgap` `proposals` очищается полностью.
    - Для `event: "message"` статус `not_entrance` не применяется и не стирает `proposals`.
    - При пустых `proposals` статус `ok` принудительно приводится к `unclear`; при `not_entrance` и `unclear` `say` никогда не бывает пустым.
 5. **Правило клиента при смене категории:** если в `proposals` пришла новая `category` без `subtype`, клиент сбрасывает прежний `subtype` в анкете.

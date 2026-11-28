@@ -59,7 +59,6 @@ describe('POST /api/assistant (v1) — валидация шва', () => {
     expect(
       await errCode(assistant(req({ v: 1, app: 'map', event: 'photo', photoKind: 'selfie', photo: IMAGE }), deps)),
     ).toBe('422:invalid_photo_kind');
-    // Пункт 4 кросс-аудита: несочетаемые пары app/photoKind
     expect(
       await errCode(assistant(req({ v: 1, app: 'stopgap', event: 'photo', photoKind: 'toilet', photo: IMAGE }), deps)),
     ).toBe('422:invalid_photo_kind');
@@ -68,7 +67,6 @@ describe('POST /api/assistant (v1) — валидация шва', () => {
     ).toBe('422:invalid_photo_kind');
     expect(await errCode(assistant(req({ v: 1, app: 'map', event: 'photo' }), deps))).toBe('422:photo_required');
     expect(await errCode(assistant(req({ v: 1, app: 'map', event: 'message' }), deps))).toBe('422:message_required');
-    // Битая history → 422 invalid_history
     expect(
       await errCode(
         assistant(req({ v: 1, app: 'map', event: 'message', history: [{ role: 'system', text: 'x' }] }), deps),
@@ -126,14 +124,22 @@ describe('POST /api/assistant (v1) — GoApsny (app: "map")', () => {
     });
   });
 
-  it('если на фото не вход (not_entrance): очищает proposals и гарантирует непустой say', async () => {
+  it('если на фото вывеска без входа (not_entrance): оставляет name/category/subtype, стирает факты входа и гарантирует непустой say', async () => {
     const { fetchImpl } = fakeFetch({
       model: [
         answer(
           JSON.stringify({
             status: 'not_entrance',
             say: '',
-            proposals: [{ field: 'steps', value: 3 }],
+            proposals: [
+              { field: 'name', value: 'Аптека «Здоровье»' },
+              { field: 'category', value: 'health' },
+              { field: 'subtype', value: 'Аптека' },
+              { field: 'steps', value: 3 },
+              { field: 'step_height_cm', value: 15 },
+              { field: 'door_width_cm', value: 90 },
+              { field: 'ramp', value: 'none' },
+            ],
             notes: [],
             next: null,
           }),
@@ -143,7 +149,11 @@ describe('POST /api/assistant (v1) — GoApsny (app: "map")', () => {
 
     const res = await assistant(req({ v: 1, app: 'map', event: 'photo', photo: IMAGE }), { fetchImpl, env: ENV });
     expect(res.body.status).toBe('not_entrance');
-    expect(res.body.proposals).toEqual([]);
+    expect(res.body.proposals).toEqual([
+      { field: 'name', value: 'Аптека «Здоровье»', kind: 'fill', source: 'photo' },
+      { field: 'category', value: 'health', kind: 'fill', source: 'photo' },
+      { field: 'subtype', value: 'Аптека', kind: 'fill', source: 'photo' },
+    ]);
     expect(res.body.say.length).toBeGreaterThan(10);
   });
 
@@ -249,7 +259,6 @@ describe('POST /api/assistant (v1) — GoApsny (app: "map")', () => {
     const dumped = JSON.stringify(sent.messages);
     expect(dumped).not.toContain('secret@example.com');
     expect(dumped).not.toContain('+79401234567');
-    // Анкета уходит ролью user, а не system
     expect(sent.messages.filter((m: { role: string }) => m.role === 'system')).toHaveLength(1);
     expect(sent.messages[1].role).toBe('user');
     expect(sent.messages[1].content).toContain('Кафе Нартаа');

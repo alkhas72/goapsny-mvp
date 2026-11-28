@@ -34,6 +34,7 @@ const MAP_FORM_KEYS = [
   'elevator',
 ];
 
+const IDENTITY_FIELDS = ['name', 'category', 'subtype'];
 const TOILET_PHOTO_FIELDS = ['toilet_note', 'toilet_accessible', 'hand_wash'];
 const STOPGAP_FORM_KEYS = ['hl', 'hr', 'freeWidth', 'width', 'board', 'paint', 'entrance'];
 const STOPGAP_HINT_FIELDS = ['hl', 'hr', 'freeWidth', 'width'];
@@ -47,7 +48,7 @@ const STOPGAP_RANGES = {
 
 const FALLBACK_SAY = {
   not_entrance:
-    'На снимке не видно входа. Если удобно, снимите дверь и порог чуть дальше — или заполните поля вручную.',
+    'На снимке не видно входа. Если удобно, снимите дверь и порог чуть дальше — или уточните, что это за место.',
   unclear_photo: 'По снимку не удалось разобрать детали. Попробуйте снять ближе или заполните поля вручную.',
   unclear_message: 'Не удалось разобрать, какие поля поправить. Уточните или поправьте в анкете вручную.',
 };
@@ -133,7 +134,7 @@ function systemPrompt(app, event, photoKind) {
     `Типы по категориям: ${CATALOG_LINE}.`,
     'Правила:',
     '- Граница низкой ступени 5 см, дверь для коляски от 80 см. Не выдумывай: чего не видно и не названо, в proposals не клади.',
-    '- Если на фото не видно входа, ставь status: "not_entrance", proposals: [] и в say мягко предложи переснять (без жёсткого отказа).',
+    '- Если на фото нет входа (например, снята только вывеска), ставь status: "not_entrance", НЕ выдумывай ступени/пандус/замеры, но сохрани в proposals name/category/subtype, если они читаются с вывески; в say мягко попроси доснять вход и при фрагменте вывески уточни, что это за место.',
     '- Нестандартные замечания, не попадающие в поля, клади в notes.',
     '- say: 1–2 коротких предложения по-русски, без разметки.',
   ].join('\n');
@@ -297,10 +298,15 @@ export async function handleAssistantV1(body, deps = {}) {
   // Для реплики (event: 'message') статус not_entrance не имеет смысла и предложения не стирает.
   if (event === 'message' && status === 'not_entrance') status = 'ok';
 
+  const normalized = normalizeProposals(app, event, photoKind, source, parsed.proposals, form);
+  // Решение Арбитра 28.11: при not_entrance на карте цепляемся за место — сохраняем
+  // name/category/subtype (если читаются с вывески), но стираем все факты входа.
   const proposals =
     event === 'photo' && status === 'not_entrance'
-      ? []
-      : normalizeProposals(app, event, photoKind, source, parsed.proposals, form);
+      ? app === 'map'
+        ? normalized.filter((p) => IDENTITY_FIELDS.includes(p.field))
+        : []
+      : normalized;
 
   // Инвариант: при пустых proposals статус ok приводится к unclear.
   if (status === 'ok' && proposals.length === 0) status = 'unclear';
