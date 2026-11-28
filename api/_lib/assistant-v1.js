@@ -1,7 +1,7 @@
 // Единый шов помощника (v1) для двух приложений: GoApsny (map) и Stopgap (stopgap).
 // Глубокий модуль: снаружи один вход handleAssistantV1(body, deps), внутри —
 // строгая валидация входа, очистка личных данных из form, промпты, нормализация
-// справочников и гарантии fill/hint, photoKind-белых списков и непустого say.
+// справочников и гарантии fill/hint, белых списков по photoKind и запрета угадывания.
 
 import { CATEGORY_SLUGS, DOOR_WIDTH_RANGE, RAMP_TYPES, STEP_HEIGHT_RANGE, SUBTYPES } from './catalog.js';
 import { ApiError, jpegBase64 } from './core.js';
@@ -34,7 +34,9 @@ const MAP_FORM_KEYS = [
   'elevator',
 ];
 
-const IDENTITY_FIELDS = ['name', 'category', 'subtype'];
+// Решение Арбитра 28.11: по фото входа модель НЕ угадывает название и категорию
+// (их выбирает сам человек) — только физические факты входа, видимые на снимке.
+const ENTRANCE_PHOTO_FIELDS = ['steps', 'step_height_cm', 'door_width_cm', 'ramp'];
 const TOILET_PHOTO_FIELDS = ['toilet_note', 'toilet_accessible', 'hand_wash'];
 const STOPGAP_FORM_KEYS = ['hl', 'hr', 'freeWidth', 'width', 'board', 'paint', 'entrance'];
 const STOPGAP_HINT_FIELDS = ['hl', 'hr', 'freeWidth', 'width'];
@@ -47,9 +49,8 @@ const STOPGAP_RANGES = {
 };
 
 const FALLBACK_SAY = {
-  not_entrance:
-    'На снимке не видно входа. Если удобно, снимите дверь и порог чуть дальше — или уточните, что это за место.',
-  unclear_photo: 'По снимку не удалось разобрать детали. Попробуйте снять ближе или заполните поля вручную.',
+  not_entrance: 'На снимке не видно входа. Снимите дверь и порог целиком, чтобы оценить доступность.',
+  unclear_photo: 'По снимку не удалось разобрать детали входа. Переснимите ближе или заполните поля вручную.',
   unclear_message: 'Не удалось разобрать, какие поля поправить. Уточните или поправьте в анкете вручную.',
 };
 
@@ -122,19 +123,34 @@ function systemPrompt(app, event, photoKind) {
     ].join('\n');
   }
 
+  if (event === 'photo') {
+    return [
+      'Ты тихий рабочий помощник карты доступности GoApsny (Абхазия). На фото вход в здание.',
+      'Ответь одним объектом json без пояснений:',
+      '{"status":"ok"|"not_entrance"|"unclear","say":"...","proposals":[{"field":"steps|step_height_cm|door_width_cm|ramp","value":...}],"notes":["..."],"next":null}',
+      'Допустимые поля proposals ТОЛЬКО по фактам входа на снимке:',
+      `steps (целое 0..60), step_height_cm (см), door_width_cm (см), ramp (${RAMP_TYPES.join(', ')}).`,
+      'Правила:',
+      '- НЕ угадывай название, категорию или тип заведения — их выбирает сам человек.',
+      '- Граница низкой ступени 5 см, дверь для коляски от 80 см. Чего не видно на фото, в proposals не клади.',
+      '- Если на фото не видно входа, ставь status: "not_entrance", proposals: [] и в say попроси снять вход целиком.',
+      '- Нестандартные замечания по входу клади в notes.',
+      '- say: 1–2 коротких предложения по-русски, без разметки.',
+    ].join('\n');
+  }
+
   return [
     'Ты тихий рабочий помощник карты доступности GoApsny (Абхазия).',
     'Ответь одним объектом json без пояснений:',
-    '{"status":"ok"|"not_entrance"|"unclear","say":"...","proposals":[{"field":"...","value":...}],"notes":["..."],"next":"name"|null}',
-    'Допустимые поля proposals:',
+    '{"status":"ok"|"unclear","say":"...","proposals":[{"field":"...","value":...}],"notes":["..."],"next":null}',
+    'Допустимые поля proposals (ТОЛЬКО то, что человек сам явно назвал):',
     `name (строка), category (${CATEGORY_SLUGS.join(', ')}), subtype (тип из своей категории),`,
     `steps (целое 0..60), step_height_cm (см), door_width_cm (см), ramp (${RAMP_TYPES.join(', ')}),`,
     'toilet (yes|no), toilet_accessible (yes|partial|no), toilet_note (строка),',
     'hand_wash (yes|no), accessible_parking (yes|no), elevator (yes|no).',
     `Типы по категориям: ${CATALOG_LINE}.`,
     'Правила:',
-    '- Граница низкой ступени 5 см, дверь для коляски от 80 см. Не выдумывай: чего не видно и не названо, в proposals не клади.',
-    '- Если на фото нет входа (например, снята только вывеска), ставь status: "not_entrance", НЕ выдумывай ступени/пандус/замеры, но сохрани в proposals name/category/subtype, если они читаются с вывески; в say мягко попроси доснять вход и при фрагменте вывески уточни, что это за место.',
+    '- Граница низкой ступени 5 см, дверь для коляски от 80 см. Не додумывай: чего человек не говорил, в proposals не клади.',
     '- Нестандартные замечания, не попадающие в поля, клади в notes.',
     '- say: 1–2 коротких предложения по-русски, без разметки.',
   ].join('\n');
@@ -179,7 +195,7 @@ function normalizeProposals(app, event, photoKind, source, rawProposals, form) {
 
   const formCategory = typeof form.category === 'string' ? form.category : null;
   let activeCategory = CATEGORY_SLUGS.includes(formCategory) ? formCategory : null;
-  if (app === 'map') {
+  if (app === 'map' && event === 'message') {
     for (const item of rawProposals) {
       if (item?.field === 'category' && CATEGORY_SLUGS.includes(item.value)) {
         activeCategory = item.value;
@@ -188,7 +204,13 @@ function normalizeProposals(app, event, photoKind, source, rawProposals, form) {
     }
   }
 
-  const isToiletPhoto = app === 'map' && event === 'photo' && photoKind === 'toilet';
+  const photoAllowedFields =
+    app === 'map' && event === 'photo'
+      ? photoKind === 'toilet'
+        ? TOILET_PHOTO_FIELDS
+        : ENTRANCE_PHOTO_FIELDS
+      : null;
+
   const seen = new Set();
   const out = [];
   for (const item of rawProposals) {
@@ -205,7 +227,7 @@ function normalizeProposals(app, event, photoKind, source, rawProposals, form) {
       continue;
     }
 
-    if (isToiletPhoto && !TOILET_PHOTO_FIELDS.includes(field)) continue;
+    if (photoAllowedFields && !photoAllowedFields.includes(field)) continue;
 
     const val = normalizeMapField(field, item.value, activeCategory);
     if (val == null) continue;
@@ -265,7 +287,7 @@ export async function handleAssistantV1(body, deps = {}) {
         ? 'Оцени рулетку и ступень на фото. Ответ: объект json.'
         : photoKind === 'toilet'
           ? 'Опиши туалет на фото. Ответ: объект json.'
-          : 'Опиши вход по фото. Ответ: объект json.';
+          : 'Опиши физические факты входа на фото. Ответ: объект json.';
     messages.push({ role: 'user', content: userContent(caption, image) });
   } else {
     const turns = buildTurns(body.history, body.message);
@@ -298,15 +320,11 @@ export async function handleAssistantV1(body, deps = {}) {
   // Для реплики (event: 'message') статус not_entrance не имеет смысла и предложения не стирает.
   if (event === 'message' && status === 'not_entrance') status = 'ok';
 
-  const normalized = normalizeProposals(app, event, photoKind, source, parsed.proposals, form);
-  // Решение Арбитра 28.11: при not_entrance на карте цепляемся за место — сохраняем
-  // name/category/subtype (если читаются с вывески), но стираем все факты входа.
+  // При not_entrance на фото: никаких угадываний, proposals строго пустой.
   const proposals =
     event === 'photo' && status === 'not_entrance'
-      ? app === 'map'
-        ? normalized.filter((p) => IDENTITY_FIELDS.includes(p.field))
-        : []
-      : normalized;
+      ? []
+      : normalizeProposals(app, event, photoKind, source, parsed.proposals, form);
 
   // Инвариант: при пустых proposals статус ok приводится к unclear.
   if (status === 'ok' && proposals.length === 0) status = 'unclear';

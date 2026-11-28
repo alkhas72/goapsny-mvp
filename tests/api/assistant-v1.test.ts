@@ -77,21 +77,23 @@ describe('POST /api/assistant (v1) — валидация шва', () => {
 });
 
 describe('POST /api/assistant (v1) — GoApsny (app: "map")', () => {
-  it('фото входа: возвращает fill-предложения, отбрасывает выдумки и высоту при 0 ступенях', async () => {
+  it('фото входа: заполняет ТОЛЬКО физические факты входа, не угадывает name/category/subtype', async () => {
     const { fetchImpl } = fakeFetch({
       model: [
         answer(
           JSON.stringify({
             status: 'ok',
-            say: 'Вижу вход в аптеку, 1 ступенька ~12 см, пандуса нет.',
+            say: 'Вижу 1 ступеньку (~12 см) без пандуса.',
             proposals: [
+              // Модель попыталась угадать место по вывеске — сервер обязан отбросить:
               { field: 'name', value: 'Аптека «Здоровье»' },
               { field: 'category', value: 'health' },
               { field: 'subtype', value: 'Аптека' },
+              // Физические факты входа — проходят:
               { field: 'steps', value: 1 },
               { field: 'step_height_cm', value: 12.4 },
               { field: 'ramp', value: 'none' },
-              { field: 'category', value: 'casino' },
+              // Невалидное — отбрасывается:
               { field: 'door_width_cm', value: 5 },
               { field: 'hacker_field', value: 'x' },
             ],
@@ -110,11 +112,8 @@ describe('POST /api/assistant (v1) — GoApsny (app: "map")', () => {
     expect(res.body).toEqual({
       v: 1,
       status: 'ok',
-      say: 'Вижу вход в аптеку, 1 ступенька ~12 см, пандуса нет.',
+      say: 'Вижу 1 ступеньку (~12 см) без пандуса.',
       proposals: [
-        { field: 'name', value: 'Аптека «Здоровье»', kind: 'fill', source: 'photo' },
-        { field: 'category', value: 'health', kind: 'fill', source: 'photo' },
-        { field: 'subtype', value: 'Аптека', kind: 'fill', source: 'photo' },
         { field: 'steps', value: 1, kind: 'fill', source: 'photo' },
         { field: 'step_height_cm', value: 12, kind: 'fill', source: 'photo' },
         { field: 'ramp', value: 'none', kind: 'fill', source: 'photo' },
@@ -124,7 +123,7 @@ describe('POST /api/assistant (v1) — GoApsny (app: "map")', () => {
     });
   });
 
-  it('если на фото вывеска без входа (not_entrance): оставляет name/category/subtype, стирает факты входа и гарантирует непустой say', async () => {
+  it('если на фото нет входа (not_entrance): строго очищает proposals (никаких домыслов) и гарантирует непустой say', async () => {
     const { fetchImpl } = fakeFetch({
       model: [
         answer(
@@ -134,11 +133,7 @@ describe('POST /api/assistant (v1) — GoApsny (app: "map")', () => {
             proposals: [
               { field: 'name', value: 'Аптека «Здоровье»' },
               { field: 'category', value: 'health' },
-              { field: 'subtype', value: 'Аптека' },
               { field: 'steps', value: 3 },
-              { field: 'step_height_cm', value: 15 },
-              { field: 'door_width_cm', value: 90 },
-              { field: 'ramp', value: 'none' },
             ],
             notes: [],
             next: null,
@@ -149,15 +144,11 @@ describe('POST /api/assistant (v1) — GoApsny (app: "map")', () => {
 
     const res = await assistant(req({ v: 1, app: 'map', event: 'photo', photo: IMAGE }), { fetchImpl, env: ENV });
     expect(res.body.status).toBe('not_entrance');
-    expect(res.body.proposals).toEqual([
-      { field: 'name', value: 'Аптека «Здоровье»', kind: 'fill', source: 'photo' },
-      { field: 'category', value: 'health', kind: 'fill', source: 'photo' },
-      { field: 'subtype', value: 'Аптека', kind: 'fill', source: 'photo' },
-    ]);
+    expect(res.body.proposals).toEqual([]);
     expect(res.body.say.length).toBeGreaterThan(10);
   });
 
-  it('пустые proposals при status ok приводятся к unclear с непустой запасной фразой (пункт 3)', async () => {
+  it('пустые proposals при status ok приводятся к unclear с непустой запасной фразой', async () => {
     const { fetchImpl } = fakeFetch({
       model: [answer(JSON.stringify({ status: 'ok', say: '', proposals: [] }))],
     });
@@ -168,7 +159,7 @@ describe('POST /api/assistant (v1) — GoApsny (app: "map")', () => {
     expect(res.body.say.length).toBeGreaterThan(10);
   });
 
-  it('фото туалета (photoKind: "toilet"): пропускает только toilet_note, toilet_accessible, hand_wash (пункт 1)', async () => {
+  it('фото туалета (photoKind: "toilet"): пропускает только toilet_note, toilet_accessible, hand_wash', async () => {
     const { fetchImpl } = fakeFetch({
       model: [
         answer(
@@ -205,14 +196,17 @@ describe('POST /api/assistant (v1) — GoApsny (app: "map")', () => {
     });
   });
 
-  it('реплика человека (event: "message"): not_entrance не стирает proposals, а form уходит ролью user без PII (пункт 2)', async () => {
+  it('реплика человека (event: "message"): принимает названные человеком name/category и факты, not_entrance не стирает proposals, form уходит ролью user без PII', async () => {
     const { fetchImpl, calls } = fakeFetch({
       model: [
         answer(
           JSON.stringify({
             status: 'not_entrance',
-            say: 'Записал: 2 ступени, дверь 90 см.',
+            say: 'Записал: Аптека Здоровье, 2 ступени, дверь 90 см.',
             proposals: [
+              { field: 'name', value: 'Аптека Здоровье' },
+              { field: 'category', value: 'health' },
+              { field: 'subtype', value: 'Аптека' },
               { field: 'steps', value: 2 },
               { field: 'door_width_cm', value: 90 },
             ],
@@ -228,7 +222,7 @@ describe('POST /api/assistant (v1) — GoApsny (app: "map")', () => {
         v: 1,
         app: 'map',
         event: 'message',
-        message: 'две ступени, дверь девяносто',
+        message: 'это аптека Здоровье, две ступени, дверь девяносто',
         form: {
           name: 'Кафе Нартаа',
           category: 'food',
@@ -236,7 +230,7 @@ describe('POST /api/assistant (v1) — GoApsny (app: "map")', () => {
           phone: '+79401234567',
         },
         history: [
-          { role: 'user', text: 'тут кафе' },
+          { role: 'user', text: 'тут вход' },
           { role: 'assistant', text: 'Понял.' },
         ],
       }),
@@ -246,8 +240,11 @@ describe('POST /api/assistant (v1) — GoApsny (app: "map")', () => {
     expect(res.body).toEqual({
       v: 1,
       status: 'ok',
-      say: 'Записал: 2 ступени, дверь 90 см.',
+      say: 'Записал: Аптека Здоровье, 2 ступени, дверь 90 см.',
       proposals: [
+        { field: 'name', value: 'Аптека Здоровье', kind: 'fill', source: 'message' },
+        { field: 'category', value: 'health', kind: 'fill', source: 'message' },
+        { field: 'subtype', value: 'Аптека', kind: 'fill', source: 'message' },
         { field: 'steps', value: 2, kind: 'fill', source: 'message' },
         { field: 'door_width_cm', value: 90, kind: 'fill', source: 'message' },
       ],
